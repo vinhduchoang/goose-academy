@@ -1,0 +1,95 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 7
+id: u2-l07
+slug: 07-feature-mini-cycle
+title: "Feature work mini-cycle: proposal to impl to tests to self-test update"
+topics: [feature-workflow, goose-self-test]
+durationMin: 20
+cites:
+  - file: AGENTS.md
+    line: 94
+    note: 'when adding features, update goose-self-test.yaml, rebuild, then run `goose run --recipe goose-self-test.yaml` to validate'
+  - file: .github/ISSUE_TEMPLATE/feature_request.md
+    line: 10
+    note: 'feature template forces problem-first: what problem would this solve'
+  - file: goose-self-test.yaml
+    line: 1
+    note: 'root recipe file — version/title/activities/parameters shape every self-test scenario'
+  - file: goose-self-test.yaml
+    line: 23
+    note: 'parameters block with defaults (test_phases, test_depth) that the recipe prompt interpolates'
+  - file: workflow_recipes/release_risk_check/recipe.yaml
+    line: 1
+    note: 'a real workflow recipe in the clone — recipes are not only about self-test'
+  - file: crates/goose-cli/src/cli.rs
+    line: 241
+    note: 'the --recipe CLI argument: recipe name or full path to a recipe file'
+---
+
+# Feature work mini-cycle: proposal to impl to tests to self-test update
+
+A real goose feature PR is five motions, and the repo encodes the last one as
+a rule. `AGENTS.md:94`: **When adding features, update goose-self-test.yaml,
+rebuild, then run `goose run --recipe goose-self-test.yaml` to validate.**
+
+That means a feature is not done when tests are green — it is done when goose
+has validated *itself* on the new behavior end-to-end.
+
+## The five motions
+
+**1. Proposal.** The feature template (`feature_request.md:10-13`) structures
+the idea as problem → outcome → approaches. Do this on the issue BEFORE the
+diff, even if the change feels tiny: the outcome line becomes the test's
+assertion, and the scope line becomes the review boundary.
+
+**2. Minimal impl.** Smallest honest slice. No optional knobs "for later"
+(goose's code-quality rules: don't make things optional that don't need to
+be). Keep it in one subsystem.
+
+**3. Tests.** In the preferred layer (`tests/`), asserting the outcome from
+motion 1, not the implementation detail. Plus the parity run if the feature
+touches agent-loop behavior (previous lesson).
+
+**4. Self-test update.** Open `goose-self-test.yaml`, the repo's
+meta-testing recipe (`goose-self-test.yaml:1`): it declares `activities`,
+`parameters` (`:23` — test_phases, test_depth...), `extensions`, and a long
+multi-phase `prompt` in which goose tests itself — file ops, shell, extension
+discovery, delegation, providers. Your new scenario becomes one activity
+entry plus a prompt block that tells a future goose *how to notice the
+feature works* in a live session.
+
+**5. Rebuild + recipe run.** Compile the binary, then literally run:
+
+```text
+goose run --recipe goose-self-test.yaml
+```
+
+The `--recipe` flag (`cli.rs:241` to `goose run --recipe goose-self-test.yaml`)
+exists precisely so a maintainer can replay the whole suite. The repo also
+carries *other* recipes — `workflow_recipes/release_risk_check/recipe.yaml`
+is a real one (release risk assessment), proving recipes aren't decoration:
+they are executable maintainer rituals.
+
+<FounderLens>
+
+Why does a feature require updating a meta-test recipe? Unit tests verify the
+component; the recipe verifies that a *running goose agent* can actually
+discover and use the new behavior with its own tools — a different failure
+class (integration, discovery, prompting). Tradeoff: recipes are
+human-language prompts, so they can rot silently — nothing fails loudly when
+a scenario's instructions drift from reality. Where it breaks: contributors
+who add the code + tests but skip the recipe produce features that unit-pass
+and session-fail.
+
+</FounderLens>
+
+## Mini-cycle checklist (memorize)
+
+1. Issue/proposal in template form — problem, outcome, approaches.
+2. Impl scoped to one subsystem, minimal.
+3. Tests asserting the outcome (tests/ folder; both paths if agent-loop).
+4. `goose-self-test.yaml`: add activity + prompt scenario.
+5. `cargo build` (rebuild) then `goose run --recipe goose-self-test.yaml`.
+6. PR links the issue and lists the verification plan execution.

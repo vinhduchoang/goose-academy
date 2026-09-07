@@ -1,0 +1,140 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 6
+id: u0-l06
+slug: 06-match-patterns
+title: "Match and pattern matching: exhaustiveness by compiler"
+topics:
+  - pattern-matching
+  - enums
+durationMin: 20
+cites:
+  - file: crates/goose/src/agents/types.rs
+    line: 61
+    note: 'pub enum SuccessCheck with a data-carrying Shell variant used in recipe validation'
+  - file: crates/goose/src/agents/retry.rs
+    line: 23
+    note: 'RetryResult enum — unit variants plus a MaxAttemptsReached(Message) carrying data'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 91
+    note: 'match on MessageContent with nested ref mut destructuring and .. rest patterns'
+  - file: crates/goose/src/token_counter.rs
+    line: 90
+    note: 'if let Some(serde_json::Value::Object(properties)) — a guarded pattern on schema JSON'
+---
+
+# Match and pattern matching: the compiler checks your cases
+
+TS `switch` falls through, forgets cases, and needs `break;`. Rust `match` is a
+*type-checked exhaustiveness proof*. Delete a case and the compiler tells you
+exactly which variant you forgot. That changes how goose is written.
+
+## Read a real enum first
+
+`crates/goose/src/agents/retry.rs:23`:
+
+```rust
+pub enum RetryResult {
+    Skipped,                                // no data
+    MaxAttemptsReached(Message),            // carries a Message
+    SuccessChecksPassed,
+    Retried,
+}
+```
+
+Match it:
+
+```rust
+match retry_result {
+    RetryResult::Skipped => { /* nothing */ }
+    RetryResult::MaxAttemptsReached(msg) => {
+        println!("failed: {}", msg.debug());
+    }
+    RetryResult::SuccessChecksPassed => { /* celebrate */ }
+    RetryResult::Retried => { /* loop again */ }
+}
+```
+
+Every arm names a variant; a variant with a payload *must* bind it (`msg`).
+Remove one arm → compile error, not a silent miss.
+
+## `if let` — when you only care about one shape
+
+`crates/goose/src/token_counter.rs:90`:
+
+```rust
+if let Some(serde_json::Value::Object(properties)) =
+    tool.input_schema.get("properties")
+{
+    // only runs when the schema really has a properties object
+}
+```
+
+Read as: "if this pattern matches, run the block." It's `match` for the one-arm
+case — goose's main guard-clause tool.
+
+<Diff
+  oldCode="// TS: switch with default, break, no promise on completeness
+switch (kind) {
+  case 'shell': run(); break;
+  default: ignore();
+}"
+  newCode="// Rust: match proves every variant is handled
+match check {
+    SuccessCheck::Shell { command } => run_shell(&command),
+    // removing this arm would be a compile error
+}" />
+
+## Refutability and destructuring
+
+Patterns *destructure* real goose data. `testprovider.rs:91` cleans a message
+out of internal metadata before hashing:
+
+```rust
+match content {
+    MessageContent::ToolRequest(ref mut req) => {
+        req.tool_meta = None;
+    }
+    MessageContent::ToolResponse(ToolResponse {
+        tool_result: Ok(ref mut result @ CallToolResult { .. }),
+        ..
+    }) => {
+        result.is_error = None;
+    }
+    _ => {}
+}
+```
+
+`ref mut` borrows the inner value mutably; `@` binds a name to the *whole* inner
+pattern; `..` means "ignore the rest of the fields". The trailing `_ => {}` is
+the explicit "everything else" arm.
+
+## A quick exhaustiveness exercise (preview: goose's compiler is your teacher)
+
+Note `SuccessCheck` at `crates/goose/src/agents/types.rs:61` has exactly one
+variant today. That's a bet by the goose team: they'd rather add variants later
+(with the compiler pointing at every match site to update) than over-model now.
+
+<FounderLens>
+
+Why does goose clean message content before hashing in `testprovider.rs:91`?
+Inputs must hash identically against recorded responses — internal routing
+metadata (tool ownership, is_error flags) that varies run-to-run must not leak
+into the key. Pattern matching lets the cleanup read like a spec: each branch
+names exactly the field being neutralized. Tradeoff: adding a new
+`MessageContent` variant forces updates in every `match` — the compiler walks
+you to each one. Where it breaks: `..` and `_` arms can hide the need to update
+logic when the intent was "all cases".
+
+</FounderLens>
+
+<MindShift>
+
+TS `switch` is a statement you can forget. Rust `match` is a proof you must
+complete. When reading goose and you want to change an enum's variants, expect
+the compiler to hand you a list of every match site in the codebase — that list
+is literally your task queue. Code review in Rust starts from exhaustiveness,
+not from guessing.
+
+</MindShift>

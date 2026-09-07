@@ -1,0 +1,114 @@
+[
+  {
+    "q": "AGENTS.md:94 says a goose feature is validated by:",
+    "options": [
+      "Updating goose-self-test.yaml, rebuilding, then running `goose run --recipe goose-self-test.yaml`",
+      "Running cargo test with the nightly toolchain",
+      "Opening a draft PR and waiting for the bot",
+      "Running the win32 installer build"
+    ],
+    "answer": 0,
+    "topic": "feature-workflow",
+    "explanation": [
+      "Nightly rustc is never part of the validation rule.",
+      "Bot review is not the validation step the rule names.",
+      "Installer builds are release engineering, not feature validation."
+    ]
+  },
+  {
+    "q": "Why does the rule order \"rebuild\" BEFORE running the recipe?",
+    "options": [
+      "The recipe run launches the freshly built binary, so the new behavior must be compiled in first",
+      "cargo refuses to download crates otherwise",
+      "The recipe file embeds the target/ directory hash",
+      "Rebuilding resets the RUST_LOG caches"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "Downloads have nothing to do with recipe execution.",
+      "Recipe files carry no build-hash coupling.",
+      "RUST_LOG is env-filter based, unrelated to compile state."
+    ]
+  },
+  {
+    "q": "goose-self-test.yaml's top-level skeleton includes which block for run-time inputs?",
+    "options": [
+      "parameters (keys like test_phases and test_depth with defaults and descriptions)",
+      "secrets",
+      "dependencies",
+      "harness binary path"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "The file has no secrets block.",
+      "Recipes are prompts, not dependency manifests.",
+      "No harness path exists; the recipe runs through goose itself."
+    ]
+  },
+  {
+    "q": "What problem does the feature template force you to answer FIRST?",
+    "options": [
+      "What problem would this solve — the outcome before any implementation talk",
+      "Which branch the PR will target",
+      "How many lines the diff will contain",
+      "What the commit message will be"
+    ],
+    "answer": 0,
+    "topic": "feature-workflow",
+    "explanation": [
+      "Branch targeting is decided after the idea is accepted.",
+      "Line counts are irrelevant at proposal stage.",
+      "Commit message craft comes at ship time, not proposal time."
+    ]
+  },
+  {
+    "q": "A minimal `fit_label` must truncate by `chars().take(max_chars)` rather than byte-slicing because:",
+    "options": [
+      "Byte-slicing can split a multibyte character: either a panic or invalid UTF-8 labeled output",
+      "Byte slicing is slower by a constant factor",
+      "chars().take() allocates less memory than slicing always",
+      "Clippy denies all slicing regardless of the index type"
+    ],
+    "answer": 0,
+    "topic": "feature-workflow",
+    "explanation": [
+      "The difference is correctness on Unicode, not speed.",
+      "take().collect() can allocate too; the win is boundary safety.",
+      "clippy warns on string_slice; it does not deny all slicing semantics."
+    ]
+  },
+  {
+    "q": "A recipe like workflow_recipes/release_risk_check/recipe.yaml is best described as:",
+    "options": [
+      "An executable maintainer ritual: a YAML with parameters and instructions that goose runs as a task",
+      "A CI workflow definition identical to .github/workflows files",
+      "A dependency lockfile variant",
+      "A markdown-style checklist for humans only"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "Workflow recipes are distinct from GitHub Actions definitions.",
+      "Lockfiles pin dependencies; recipes encode tasks.",
+      "They exist to be run BY goose, not just read by humans."
+    ]
+  },
+  {
+    "q": "Fix this mini-cycle failure: your feature's tests pass, but the feature was never added to goose-self-test.yaml. The risk a maintainer will flag:",
+    "options": [
+      "Unit-pass but session-fail — no live-goose scenario proves the feature is discoverable and usable end-to-end",
+      "The binary will not link without a recipe entry",
+      "cargo test silently skips crates not listed in recipes",
+      "The PR becomes unmergeable until a recipe reviewer title matches"
+    ],
+    "answer": 0,
+    "topic": "feature-workflow",
+    "explanation": [
+      "Linking is a build concern, unrelated to recipe entries.",
+      "cargo test does not consult recipe files at all.",
+      "No bot blocks on title matching; the gap is verification coverage."
+    ]
+  }
+]

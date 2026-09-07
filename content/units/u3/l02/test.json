@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In the `Provider` trait (goose-provider-types/src/base.rs:464), which method is the only required async method?",
+    "options": [
+      "retry_config()",
+      "complete()",
+      "stream()",
+      "get_context_limit()"
+    ],
+    "answer": 2,
+    "topic": "providers",
+    "explanation": [
+      "retry_config is sync and has a default (RetryConfig::default()).",
+      "complete() has a default body that calls stream() then collect_stream.",
+      "get_context_limit infallibly resolves through ContextLimitResolver with a default policy."
+    ]
+  },
+  {
+    "q": "What does `MessageStream` (base.rs:327) yield?",
+    "options": [
+      "Borrowed &str tokens",
+      "Items of `Result<(Option<Message>, Option<ProviderUsage>), ProviderError>`",
+      "Directly deserialized JSON-RPC frames",
+      "A tokio oneshot channel handle"
+    ],
+    "answer": 1,
+    "topic": "streaming",
+    "explanation": [
+      "The stream yields owned Message/usage pairs, never bare strings.",
+      "JSON-RPC framing is a transport concern below the provider abstraction.",
+      "It is a Stream trait object (Pin<Box<dyn Stream>>), not a channel handle."
+    ]
+  },
+  {
+    "q": "In one stream item, both the Message and the ProviderUsage may be...",
+    "options": [
+      "None only when the provider crashed",
+      "mutually exclusive first-class options: text deltas may arrive with no usage, usage may arrive alone",
+      "always Some - partial chunks are forbidden",
+      "None only during retries"
+    ],
+    "answer": 1,
+    "topic": "streaming",
+    "explanation": [
+      "A crashed provider surfaces as an Err item, not a (None, None) success item.",
+      "Partial content is the point: text streams word-by-word while tool calls arrive complete.",
+      "Retry state is not encoded in stream items at all."
+    ]
+  },
+  {
+    "q": "The default `complete()` would break for a provider that emits usage on chunk 1 and the final text on chunk 3 because:",
+    "options": [
+      "collect_stream rejects items with usage first",
+      "collect_stream keeps only the last non-None usage, so chunk-1 usage is silently replaced",
+      "usage is serialized as the message id",
+      "complete() never runs collect_stream"
+    ],
+    "answer": 1,
+    "topic": "providers",
+    "explanation": [
+      "There is no rejection - usage-before-text is legal input to the aggregator.",
+      "The final usage overwrites previous ones; ordering problems are silent.",
+      "complete()'s entire body is stream + collect_stream."
+    ]
+  },
+  {
+    "q": "Which `MessageContentBlock` variant would a tool-averse echo provider never emit?",
+    "options": [
+      "Text",
+      "Thinking",
+      "ToolRequest",
+      "SystemNotification"
+    ],
+    "answer": 2,
+    "topic": "echo-provider",
+    "explanation": [
+      "Text is literally the echo output.",
+      "A provider may legally add Thinking blocks.",
+      "SystemNotification is optional but legal for any provider."
+    ]
+  },
+  {
+    "q": "What does `TestProvider::hash_input` (testprovider.rs:78) do before it hashes?",
+    "options": [
+      "Compresses the messages with gzip",
+      "Strips internal metadata like tool_meta so replay matching is stable",
+      "Encrypts prompts before storing them",
+      "Converts messages to lowercase"
+    ],
+    "answer": 1,
+    "topic": "echo-provider",
+    "explanation": [
+      "It serializes to JSON and SHA-256s the bytes; no compression.",
+      "Records are plain serialized JSON; only stability of hash matching is sought.",
+      "It does not normalize case - that would change the semantic input."
+    ]
+  },
+  {
+    "q": "Which change unblocks this compile error: `the trait bound EchoProvider: ProviderDescriptor is not satisfied`?",
+    "options": [
+      "Add an `impl ProviderDescriptor for EchoProvider` with a `metadata()` method",
+      "Rename the struct to end in 'Provider'",
+      "Make EchoProvider generic over T",
+      "Add `#[derive(Debug)]` to EchoProvider"
+    ],
+    "answer": 0,
+    "topic": "generics-traits",
+    "explanation": [
+      "Trait satisfaction comes from impls, not names.",
+      "Generics do not provide a trait impl.",
+      "Debug derives are irrelevant to the ProviderDescriptor bound."
+    ]
+  }
+]

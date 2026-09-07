@@ -1,0 +1,97 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 9
+id: u2-l09
+slug: 09-performance-memory
+title: "Performance & memory: context_limit, token_counter, large_response_handler"
+topics: [performance, token-counter, context-window]
+durationMin: 20
+cites:
+  - file: crates/goose/src/token_counter.rs
+    line: 10
+    note: 'static TOKENIZER — the tokenizer is loaded once per process (OnceCell), because loading it is expensive'
+  - file: crates/goose/src/token_counter.rs
+    line: 12
+    note: 'MAX_TOKEN_CACHE_SIZE 1_024 — a bounded LRU cache between tokenizer and callers'
+  - file: crates/goose/src/token_counter.rs
+    line: 22
+    note: 'TokenCounter { tokenizer, token_cache } — cached lookups keyed by (len, blake3 hash)'
+  - file: crates/goose/src/agents/large_response_handler.rs
+    line: 5
+    note: 'DEFAULT_LARGE_TEXT_THRESHOLD 200_000 — tool responses above this spill to temp files'
+  - file: crates/goose/src/agents/large_response_handler.rs
+    line: 7
+    note: 'max_tool_response_size() reads GOOSE_MAX_TOOL_RESPONSE_SIZE with the default fallback'
+  - file: crates/goose/src/context_limit.rs
+    line: 7
+    note: 'get_context_limit — provider-reported limit unified behind the provider API with a config override'
+  - file: crates/goose/src/config/base.rs
+    line: 1326
+    note: 'GOOSE_CONTEXT_LIMIT param parse — the override must be a usize greater than 0'
+---
+
+# Performance & memory: context_limit, token_counter, large_response_handler
+
+Three files define goose's economic tape: how much context an agent may hold
+(`context_limit`), what each message *costs* in tokens (`token_counter`), and
+what happens when a tool shoves an avalanche into context
+(`large_response_handler`). Reading them teaches the goose answer to every
+performance question: **cache what's expensive, bound what's unbounded,
+measure everything in tokens and chars, not lines.**
+
+## token_counter — the hot path with a memory
+
+`token_counter.rs:10` loads the tokenizer exactly once per process
+(`OnceCell<Arc<CoreBPE>>`): loading and deserializing a tokenizer is the
+expensive startup cost, and paying it per message would make every turn
+slow. Then `:12` bounds a cache — `MAX_TOKEN_CACHE_SIZE = 1_024` LRU entries —
+keyed by `(len, blake3 hash)` so duplicate strings (identical prompts,
+repeated tool schemas) skip actual tokenization entirely (`:22`). This is the
+field pattern for goose perf work: *once-load, bounded-cache, cheap-identity
+key*.
+
+## large_response_handler — bound the unbounded
+
+A tool that returns megabytes of text would flood the model's context. The
+handler's contract (`large_response_handler.rs:5-11`): responses over the
+threshold (200,000 chars by default, overridable via
+`GOOSE_MAX_TOOL_RESPONSE_SIZE`) are spilled to temp files and replaced by a
+pointer message the agent can examine with tools. Note the memory story:
+streaming the spill through `write_large_text_to_file` keeps the giant string
+out of the conversation transcript entirely — context stays small, disk gets
+the bulk.
+
+## context_limit — one source of truth
+
+`context_limit.rs:7-10` resolves the limit through the *provider* API, with a
+user override: `Config::global().get_goose_context_limit()`. The override is a
+validated usize — `GOOSE_CONTEXT_LIMIT` must parse and be greater than zero
+(`config/base.rs:1326-1328`) — because zero would silently amputate sessions
+and is a config error worth yelling about.
+
+<FounderLens>
+
+Why does goose track cost as *estimated* tokens (`canonical_cost` balances
+provider-reported usage against catalog pricing) instead of exact bytes?
+Because context is the scarce, shared resource and tokens are its currency —
+approximation with calibration beats exactness with lag. Tradeoff: estimates
+drift when tokenizer behavior changes; the LRU cache in token_counter exists
+precisely to make the estimate cheap enough to compute constantly. Where it
+breaks: a cache keyed on content hash punishes high-variation content (every
+miss pays tokenization) — the 1,024 bound is the guard against memory
+amnesia being substituted for compute amnesia.
+
+</FounderLens>
+
+## Profiling doctrine for contributors
+
+1. **Measure before you optimize** — one number before, one after, same
+   input. No number, no change.
+2. **Cache at the right layer** — the LRU site caches the tokenizer
+   *output*, not the tokenizer itself.
+3. **Bound everything** — cache size, context size, tool response size; a
+   Go-faster that lets a malicious extension melt RAM is a security fix
+   someone must later write (remember `e7c33077c`).
+4. **Prefer structural wins** — spill-to-file beats micro-tuning string
+   copies when the input is 1 MB.

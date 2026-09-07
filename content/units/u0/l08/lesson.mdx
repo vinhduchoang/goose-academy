@@ -1,0 +1,112 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 8
+id: u0-l08
+slug: 08-borrowing
+title: "References & borrowing: &, &mut, and the borrow checker"
+topics:
+  - borrowing
+durationMin: 20
+cites:
+  - file: crates/goose/src/token_counter.rs
+    line: 53
+    note: 'count_tokens(&self, text: &str) — shared borrow: read text, return nothing borrowed'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 78
+    note: 'hash_input(messages: &[Message]) — borrows the whole message slice for hashing'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 90
+    note: 'for content in &mut cleaned_content — mutable borrow while stripping metadata'
+---
+
+# References & borrowing: &, &mut, and the borrow checker
+
+Ownership said "one owner". Borrowing says "many *readers* at once, or one
+*writer* at a time" — and the compiler enforces it. This is the rule that
+scared you into learning Rust's reputation; goose's code is where you meet it
+calmly.
+
+## Shared borrows: `&T`
+
+`crates/goose/src/token_counter.rs:53`:
+
+```rust
+pub fn count_tokens(&self, text: &str) -> usize {
+```
+
+`&self` — callers lend the TokenCounter; `text: &str` — lend the prompt text.
+Both are read-only. Any number of shared borrows may coexist; the data can't
+move while one exists. Return is `usize` (owned, Copy) so nothing about the
+lends survives the call.
+
+`testprovider.rs:78` borrows an entire slice:
+
+```rust
+fn hash_input(messages: &[Message]) -> String {
+```
+
+No copying of the conversation — the hash reads through the borrow. In JS you'd
+serialize the array defensively; in Rust you pass `&[]` and the type system
+forbids the callee from taking ownership.
+
+## Mutable borrows: `&mut T`
+
+`testprovider.rs:90` — exactly one writer, nobody else reading:
+
+```rust
+for content in &mut cleaned_content {
+```
+
+`&mut` also communicates authority: this code *will* mutate (`req.tool_meta =
+None;`). A `&mut` borrow is exclusive — while it lives, no other borrow may.
+
+## The one rule diagram
+
+```rust
+let mut v = vec![1, 2, 3];
+let first = &v[0];     // shared borrow begins
+// v.push(4);          // ERROR E0502: cannot mutate while borrowed
+println!("{}", first); // last use of first — borrow ends here
+v.push(4);             // fine now
+```
+
+RPitfalls from JS brain: returning a reference to something dropped at scope end
+(E0515), and mutating a collection while you iterate over it (E0502). The
+borrow checker rejects both at compile time — this is the "fearless concurrency"
+guarantee in its shared-state form.
+
+## The lab's hero: `trim_prompt(&str) -> &str`
+
+Returning a borrow that *depends on the input* is the signature pattern that
+makes the borrow checker sing:
+
+```rust
+fn trim_prompt(prompt: &str) -> &str {
+    prompt.trim()
+}
+```
+
+The output lifetime is tied to the input's — no copy, no ownership question; the
+caller keeps the prompt alive and receives a view into it.
+
+<FounderLens>
+
+Why does the whole provider layer pass `&[Message]` instead of `Vec<Message>`
+(`base.rs:477` and friends)? Streaming is several million calls in flight per
+day in production; a defensive copy per call would be measurable. Borrowing
+isn't a micro-optimization here, it's a coding standard. Tradeoff: providers
+visibly cannot mutate conversation history — a deliberate capability reduction
+that keeps LLM inputs tamper-proof-by-type.
+
+</FounderLens>
+
+<MindShift>
+
+In TS, `const` answers "will this binding be reassigned?" — mutability of the
+*value* is out of your hands, and aliasing bugs follow. Rust's `&`/`&mut` is a
+compile-time answer to "who may read and who may write *this* data *now*".
+When your `&mut` won't compile, the checker isn't being fussy — it just
+detected an aliasing bug JS would have shipped.
+
+</MindShift>

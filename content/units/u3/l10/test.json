@@ -1,0 +1,114 @@
+[
+  {
+    "q": "A production-grade extension's docs/design.md must contain, at minimum:",
+    "options": [
+      "A changelog with dates",
+      "The problem it solves + a security model of what it can touch",
+      "A full build log",
+      "The author's resume"
+    ],
+    "answer": 1,
+    "topic": "release-docs",
+    "explanation": [
+      "Changelogs are nice but not the trust contract.",
+      "Build logs are ephemeral evidence, not docs.",
+      "Author credentials are not part of the deliverable."
+    ]
+  },
+  {
+    "q": "Which surface do you choose for an extension whose whole value is 'text prompts the agent should reuse' (no state)?",
+    "options": [
+      "A stateful MCP server",
+      "A plugin with commands/ or skills/ (files, no code)",
+      "A custom provider",
+      "A patch to the goose binary"
+    ],
+    "answer": 1,
+    "topic": "plugins",
+    "explanation": [
+      "A server adds process and schema overhead for zero state.",
+      "A provider is about model access, not prompts.",
+      "Patching the binary is not an extension."
+    ]
+  },
+  {
+    "q": "The QA report in the capstone must:",
+    "options": [
+      "Be signed by a reviewer",
+      "Record the gates actually run and their outcomes, without papering over failures",
+      "Contain only passing output",
+      "Lists dependencies only"
+    ],
+    "answer": 1,
+    "topic": "release-docs",
+    "explanation": [
+      "Self-run gates do not need signatures.",
+      "A report that hides failures is not honest evidence.",
+      "Dependencies are visible from the manifest already."
+    ]
+  },
+  {
+    "q": "Which test pattern lets integration tests exercise tools without a network?",
+    "options": [
+      "Only a full goose rebuild can test tools",
+      "Refactor tool bodies into plain async fns and test those in-process, noting the seam",
+      "Mock the OS",
+      "Skip tests entirely"
+    ],
+    "answer": 1,
+    "topic": "testing-doctrine",
+    "explanation": [
+      "The seam exists so tests stay cheap.",
+      "Mocking the OS is unnecessary when logic is pure.",
+      "Skipping tests skips the whole point of the unit."
+    ]
+  },
+  {
+    "q": "A clippy warning appears in your capstone. The capstone-correct fix is:",
+    "options": [
+      "Add `#[allow(...)]` so -D warnings passes",
+      "Fix or restructure the code so the lint is genuinely satisfied",
+      "Delete the offending file",
+      "Run clippy without the flag"
+    ],
+    "answer": 1,
+    "topic": "release-docs",
+    "explanation": [
+      "Allow-attrs paper over symptoms; the rubric forbids them.",
+      "Deleting files to appease a linter changes behavior.",
+      "Turning the flag off is gaming the gate."
+    ]
+  },
+  {
+    "q": "Your capstone MCP server rejects a 10 000-character note. This is correct because:",
+    "options": [
+      "MCP schemas have a global size limit",
+      "Semantic bounds belong in the handler, past the schema's shape guarantee",
+      "The router blocks long strings automatically",
+      "Long strings crash rmcp"
+    ],
+    "answer": 1,
+    "topic": "validation",
+    "explanation": [
+      "No such global limit exists in the protocol.",
+      "The router validates shapes, not semantics.",
+      "rmcp handles arbitrarily long strings fine; the bound is policy."
+    ]
+  },
+  {
+    "q": "The final exam's miniLab verifier is told to check your extension directory. Which artifact does it NOT require?",
+    "options": [
+      "Cargo.toml or plugin manifest",
+      "src/ and tests/",
+      "README.md and docs/design.md",
+      "A passing crates.io publish"
+    ],
+    "answer": 3,
+    "topic": "extension-system",
+    "explanation": [
+      "The manifest is a core artifact.",
+      "Implementation + tests are core artifacts.",
+      "Docs are core artifacts. Publishing to a registry is explicitly not required."
+    ]
+  }
+]

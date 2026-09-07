@@ -1,0 +1,93 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 6
+id: u2-l06
+slug: 06-parity-bug
+title: "Small fix II: an agent-loop bug in BOTH paths with a regression test"
+topics: [parity, regression-tests, state-machine]
+durationMin: 20
+cites:
+  - file: AGENTS.md
+    line: 30
+    note: 'the legacy agent loop is being replaced by the state machine, enabled with GOOSE_STATE_MACHINE=1'
+  - file: AGENTS.md
+    line: 32
+    note: 'agent-loop behavior changes must be implemented AND tested in both paths; review flags missing parity'
+  - file: crates/goose/src/agents/state_machine/mod.rs
+    line: 73
+    note: 'enabled() — the single switch the runtime consults'
+  - file: crates/goose/src/agents/state_machine/mod.rs
+    line: 74
+    note: 'the env read: GOOSE_STATE_MACHINE is "1" | "true" | "TRUE" | "yes", anything else falls back to legacy'
+  - file: crates/goose/src/agents/agent.rs
+    line: 1815
+    note: 'legacy path checks !state_machine::enabled() and returns None — exit from the parallel universe'
+  - file: crates/goose/src/agents/agent.rs
+    line: 5333
+    note: 'a real test forcing GOOSE_STATE_MACHINE=0 through clear_otel_env to pin the legacy path'
+  - file: crates/goose/src/agents/state_machine/tests/agent_reply.rs
+    line: 133
+    note: 'the same dance in reverse: env_lock pins GOOSE_STATE_MACHINE=1 for a state-machine test'
+---
+
+# Small fix II: an agent-loop bug in BOTH paths with a regression test
+
+Goose is mid-migration, and this is the most goose-specific rule in the
+repo. Read `AGENTS.md:30`: the legacy agent loop in
+`crates/goose/src/agents/agent.rs` is being replaced by the state machine in
+`crates/goose/src/agents/state_machine/`, and the new path turns on with
+`GOOSE_STATE_MACHINE=1`. The enforcement rule at `AGENTS.md:32` is what your
+PRs will be graded against: **any agent-loop behavior change must be
+implemented and tested in both paths**, and reviewers must flag missing
+parity.
+
+## The switch and the twin codebases
+
+`state_machine/mod.rs:73-74` is the entire switch: `enabled()` reads the env
+var and accepts `"1" | "true" | "TRUE" | "yes"` — anything else means the
+legacy loop. Every behavior exists twice until the migration finishes.
+
+The dispatch is viscerally visible in `agent.rs:1815`: the legacy loop's
+resume path literally returns `None` when the state machine is enabled — the
+two universes share the type but never run together.
+
+## Parity discipline in practice
+
+1. **Locate both sites before writing the fix.** Grep in both `agent.rs` and
+   the `ops_*` files (`ops_toolcalling.rs`, `ops_llm.rs`...) to find where
+   the logic lives in each universe. `tools/` naming is similar; semantics
+   are supposed to be identical.
+2. **Write one regression test, run it twice.** The repo's own tests pin the
+   env: `agent.rs:5333` forces `GOOSE_STATE_MACHINE=0` for a legacy-path
+   assertions; `agent_reply.rs:133` pins `=1` through `env_lock`. Your test
+   must do the same — two guards, one behavior asserted both times.
+3. **Fix without drifting.** Same input, same output, same error shape. If
+   the two paths need genuinely different code, that's a design issue to
+   raise with a comment — not a reason to silently special-case.
+4. **Prove, don't claim.** A PR description that says "also works with state
+   machine" without the second run is suspect — reviewers will ask for the
+   env-var matrix.
+
+<FounderLens>
+
+Why keep two loops alive instead of a hard cutover? The state machine is a
+ground-up rewrite of the noisiest, most behavior-entangled file in the repo;
+users' production sessions run legacy until parity is proven. The cost is
+every bug fix is potentially x2. That's a deliberate tax on contributors that
+buys a comparison surface: diverge once, and the regression test matrix
+screams. Where it breaks: contributors who fix only the path they use — the
+migration itself becomes the regression source.
+
+</FounderLens>
+
+## The labeled exercise bug
+
+> Seeded bug (teaching material): in both universes, a tool-call result label
+> is truncated with a byte slice at the 80-char boundary, panicking on
+> multibyte text. Legacy lives in a helper in `agents/agent.rs`; state
+> machine lives in `agents/state_machine/ops_toolcalling.rs`.
+
+Your lab deliverables: both patch sketches + one regression test that pins
+each mode and asserts the label survives. This is the exact shape of a real
+parity PR.

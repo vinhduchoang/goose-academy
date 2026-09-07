@@ -1,0 +1,98 @@
+---
+unit: 1
+unitSlug: architecture
+order: 2
+id: u1-l02
+slug: 02-core-data-model
+title: "Core data model: Message, MessageContentBlock, ModelConfig"
+topics:
+  - data-model
+  - messages
+  - serde
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/conversation.rs
+    line: 8
+    note: 'pub mod message; — the conversation datamodel root inside goose-provider-types'
+  - file: crates/goose-provider-types/src/conversation/message.rs
+    line: 318
+    note: 'pub enum MessageContentBlock — Text/Image/ToolRequest/ToolResponse/Thinking/... variants (the evolved ReplyPart)'
+  - file: crates/goose-provider-types/src/conversation/message.rs
+    line: 962
+    note: 'pub struct Message { id, role: rmcp Role, created, content: Vec<MessageContentBlock>, metadata }'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 41
+    note: 'pub struct ModelConfig { model_name, context_limit, temperature, max_tokens, toolshim, ... }'
+  - file: crates/goose/src/model_config.rs
+    line: 13
+    note: 'pub fn model_config_from_user_config — goose-side factory wiring user config into ModelConfig'
+  - file: crates/goose/src/agents/reply_parts.rs
+    line: 586
+    note: 'pub(crate) fn categorize_tool_requests — legacy Reply-assembly-era helper that still slices tool requests out of assistant messages'
+---
+
+# Core data model: `Message`, `MessageContentBlock`, `ModelConfig`
+
+Everything goose does is a transformation over one datatype: `Message`. Read the real definition at `crates/goose-provider-types/src/conversation/message.rs:962`:
+
+```rust
+pub struct Message {
+    pub id: Option<String>,
+    pub role: Role,
+    pub created: i64,
+    #[serde(deserialize_with = "deserialize_sanitized_content")]
+    pub content: Vec<MessageContentBlock>,
+    pub metadata: MessageMetadata,
+}
+```
+
+Three things jump out. `role` is `rmcp::model::Role` — the datamodel borrows the MCP protocol's role vocabulary instead of inventing one. `content` is a *block list*, not a string — that's the key insight of the whole model. And the custom serde attribute hints that deserialization is where migration happens.
+
+## A block list, not a string
+
+`MessageContentBlock` at `message.rs:318` is an enum with one variant per kind of content:
+
+```rust
+pub enum MessageContentBlock {
+    Text(TextContent), Image(ImageContent), Document(DocumentContent),
+    ToolRequest(ToolRequest), ToolResponse(ToolResponse),
+    ToolConfirmationRequest(ToolConfirmationRequest), ActionRequired(ActionRequired),
+    Thinking(ThinkingContentBlock), SystemNotification(...), Error(...),
+}
+```
+
+This *is* the evolved answer to the legacy `ReplyPart` type older goose versions used. In v1.49.0 `ReplyPart` no longer exists anywhere in the tree — the plan's `Message -> Reply/ReplyPart/ToolCall` maps to `Message -> Vec<MessageContentBlock>` with `ToolRequest`. The remaining legacy assembly code lives in `crates/goose/src/agents/reply_parts.rs:586` (`categorize_tool_requests`), which still dissects an assistant message into text/tool-request buckets the way the old reply loop consumed "parts". Study that function: it is the live fossil of the old model.
+
+Why blocks and not strings? Because a single assistant turn can emit text *and* a tool call, interleaved, and both must round-trip through every provider envelope (`formats/`), survive serde, and be filterable per-audience (`agent_visible_content()` / `user_visible_content()` in the same file). One string would make audience filtering a text-parsing problem.
+
+## ModelConfig: the request fingerprint
+
+`ModelConfig` at `crates/goose-provider-types/src/model.rs:41` holds everything a provider call needs besides the messages themselves: `model_name`, `context_limit`, `temperature`, `max_tokens`, `toolshim` (+ `toolshim_model`), `request_params`, `reasoning`, `supports_vision`. Note `context_limit` is `#[serde(skip)]` — it is derived at runtime via canonical lookup, never persisted.
+
+Goose never constructs `ModelConfig` by hand: `crates/goose/src/model_config.rs:13` (`model_config_from_user_config`) resolves a provider+model name through user config, fills defaults (temperature, canonical limits), and hands the result to the provider.
+
+## Creation → consumption path
+
+1. **Creation:** user config + provider name → `model_config.rs` → `ModelConfig` (with canonical limits applied).
+2. **Messages created programmatically:** `Message::user()` / `Message::assistant()` constructors in `message.rs:971` impl block; `with_generated_id()` adds the `msg_<uuid>` id.
+3. **Consumption:** `Agent::reply` (next lesson) feeds `Vec<Message>` + `ModelConfig` to `Provider::complete`.
+4. **Tool calls materialize inside content:** a `ToolRequest` block carries `name` + `arguments` (JSON object) + `id`; the matching `ToolResponse` block carries `tool_result: Result<CallToolResult, ErrorData>` — MCP types again.
+5. **Persistence:** the whole `Message` round-trips through serde into session storage — which is exactly why the deserializer wired at `message.rs:966` is a *migration boundary*: it post-processes old `reasoning` blocks into `thinking`, drops `conversationCompacted` legacy markers, and sanitizes Unicode tags. When you change the datamodel, this function is where backward compatibility is enforced.
+
+<FounderLens>
+
+**Problem solved:** providers, MCP clients, sessions, and UI all need one shared vocabulary for "what happened in this turn". The block-list model lets one turn carry every kind of event without a parallel sidebar of flags.
+
+**Tradeoff:** the datamodel lives in `goose-provider-types` (see l01), so it cannot hold goose-private handles and must lean on `rmcp` for `Role`/`CallToolResult`. That's why audience filtering, id generation, and legacy migrations are all *functions over* the types rather than hidden state inside them. Riposte: the model is dumb data — all behavior is external, honest, and greppable.
+
+**Where it's heading:** block variants keep accumulating as features arrive (ActionRequired + ToolConfirmationRequest blocks now carry the permission UI inline). Expect the serde migration custom deserializer to grow one branch per release — if you add a content type, you *must* add its migration story there.
+
+**Where it breaks:** providers that do not tolerate interleaved or multi-block messages (see `formats/openai.rs` merge/split logic) force normalization layers. A block the provider envelope can't represent silently changes meaning — watch `formats/` in l06.
+
+**Where you'd extend it:** any new content kind (say, a `Trace` block for agent reasoning trails) plugs through the enum + `fmt::Display` match + audience filters + provider formats — five files, all at well-known sites. Try it for a take-home extension.
+
+</FounderLens>
+
+## The `metadata` field
+
+`MessageMetadata` (same file) carries provider-specific per-message state (the `ProviderMetadata = serde_json::Map` typedef nearby) so providers can stash stuff without polluting the core model. Grep for `metadata` in `agents/tool_execution.rs` to see goose reading request metadata back when matching tool responses to requests.

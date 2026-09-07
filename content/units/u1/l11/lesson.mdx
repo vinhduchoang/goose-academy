@@ -1,0 +1,80 @@
+---
+unit: 1
+unitSlug: architecture
+order: 11
+id: u1-l11
+slug: 11-observability
+title: "Observability: tracing, OTLP, logging, doctor"
+topics:
+  - observability
+  - tracing
+  - rust-log-tracing
+durationMin: 20
+cites:
+  - file: crates/goose/src/logging.rs
+    line: 52
+    note: 'pub fn build_logging_subscriber — tracing subscriber construction with env filter + extra directives'
+  - file: crates/goose/src/logging.rs
+    line: 116
+    note: 'pub fn prepare_log_directory(component, use_date_subdir) — the per-component log dir layout'
+  - file: crates/goose/src/tracing/mod.rs
+    line: 2
+    note: 'mod observation_layer; — the opentelemetry-style span observer home'
+  - file: crates/goose/src/tracing/observation_layer.rs
+    line: 98
+    note: 'pub struct ObservationLayer — flattens spans into gen_ai-shaped records (SpanData, SpanTracker)'
+  - file: crates/goose/src/tracing/langfuse_layer.rs
+    line: 155
+    note: 'pub fn create_langfuse_observer() -> Option<ObservationLayer> — conditional Langfuse export'
+  - file: crates/goose/src/otel/otlp.rs
+    line: 29
+    note: 'one-shot stderr warning when OTEL_EXPORTER_OTLP_PROTOCOL=grpc is set (goose only supports http/protobuf)'
+  - file: crates/goose/src/agents/gen_ai_telemetry.rs
+    line: 52
+    note: 'pub(super) fn record_usage(span, usage) — writes gen_ai.usage fields onto the reply_stream span'
+  - file: crates/goose/src/doctor.rs
+    line: 14
+    note: 'pub async fn run(agent, session_id) -> Result<Message> — the self-diagnosis entry that fixes provider issues'
+---
+
+# Observability: tracing, OTLP, logging, doctor
+
+Goose is observable at three altitudes: tracing spans (in-process flame of a turn), the gen_ai telemetry convention (standardized fields), and the doctor (a self-repair personality). The plan's `tracing/otel`, `doctor.rs`, `gen_ai_telemetry` are all real; `otel` is the OTLP exporter home.
+
+## The logging foundation
+
+`crates/goose/src/logging.rs:52` — `build_logging_subscriber` wires the tracing stack: `EnvFilter` from RUST_LOG plus extra directives goose appends (its own crate defaults). `prepare_log_directory` (`logging.rs:116`) creates the per-component log dirs (`goose`, `mcp`, per-date subdirs) — the paths `session/diagnostics.rs:153` (`latest_llm_log_path`) resolves when the user clicks "send diagnostics". Log files are the offline truth; the directory layout is part of the public surface.
+
+## GenAI telemetry: the standardized span
+
+`crates/goose/src/agents/gen_ai_telemetry.rs` implements the OTel GenAI semantic conventions on top of plain spans. Around the legacy loop (`reply_internal`, l04) the `reply_stream` span is created with the full pre-filled field vocabulary — `gen_ai.operation.name`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.input.messages`. `record_usage` (`gen_ai_telemetry.rs:52`) fills usage fields when the provider reports them. Content capture is toggleable (`CAPTURE_MESSAGE_CONTENT_ENV` at line 9) because PII lands in telemetry otherwise — that env switch is a *privacy control*, treat it as such in reviews.
+
+## Export layers
+
+- `crates/goose/src/tracing/observation_layer.rs:98` — `ObservationLayer` converts spans into `SpanData` records (`SpanTracker` at `:65` keeps the tree state). This is the internal consumer-agnostic model of a trace.
+- `crates/goose/src/tracing/langfuse_layer.rs:155` — `create_langfuse_observer()` conditionally returns a Langfuse-consuming `ObservationLayer`; the UI's session trace comes through here.
+- `crates/goose/src/otel/otlp.rs` — the OTLP exporter. Notably `otlp.rs:29`: goose warns loudly when `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` is set — it only supports `http/protobuf` — then reads `OTEL_EXPORTER_OTLP_{SIGNAL}_ENDPOINT`/`OTEL_EXPORTER_OTLP_ENDPOINT` to build per-signal exporters. Environment-driven, no recompile.
+
+## doctor: observability's actuator
+
+`crates/goose/src/doctor.rs:14` — `doctor::run` is the auto-fix personality: on provider failure it ensures a working provider (`ensure_working_provider`), ensures the developer extension is present, tests the provider, tries other models, then other providers, and finally *describes* the error (`describe_error` at `doctor.rs:244`) as a `Message` the user can read. Doctor turns observability into action — it's the last resort handler, and the `DoctorOperation` (`ops_doctor.rs`) runs the same logic in machine form.
+
+## The three-altitude reading of an incident
+
+1. **Log files** — what sequence happened (chronological truth).
+2. **Spans** — where time went inside a turn (`reply_stream` → provider call → tool span).
+3. **doctor/gen_ai fields** — what the agent itself concluded (costs, model resolution, failure taxonomy).
+
+<FounderLens>
+
+**Problem solved:** an agent is a distributed system in one process — provider RPC, tool subprocesses, user UI — and support needs a *reproducible* story, not a screenshot. Span conventions (gen_ai), file logs, and doctor give three consumers (support, dev, the model itself) three views of the same truth.
+
+**Tradeoff:** telemetry richness is traded against privacy and noise: message-content capture is off-switchable by env (PII), and exporter selection is env-driven to keep goose deploy-agnostic. The `gen_ai.*` field vocabulary is a contract — renaming a field breaks dashboards, treat like a public API.
+
+**Where it's heading:** Langfuse/trace UIs and OTLP are converging on the same `ObservationLayer` seam; doctor is accumulating more self-repair paths (model fallback → provider fallback → describe). Expect canonical-cost and usage telemetry to unify into one span-decorator pass.
+
+**Where it breaks:** env-configurable exporters silently dead-end (grpc misconfig is the classic — hence the one-shot warning at `otlp.rs:29`); RUST_LOG filters can hide the one span that explains the bug; and content capture left on in enterprise contexts is a data-leak incident. "It works on my machine" here becomes "my RUST_LOG differs".
+
+**Where you'd extend it:** a `trace_id` propagated into tool subprocess stdout/stderr so a shell command's output is joinable back to the parent span — today subprocess logs sit beside, not inside, the span tree. High-value, cross-module, Unit-2-scale.
+
+</FounderLens>

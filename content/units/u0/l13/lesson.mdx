@@ -1,0 +1,135 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 13
+id: u0-l13
+slug: 13-error-handling
+title: "Error handling in practice: ?, anyhow, thiserror"
+topics:
+  - error-handling
+  - anyhow
+  - thiserror
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/errors.rs
+    line: 3
+    note: 'use thiserror::Error — libs model errors as typed enums'
+  - file: crates/goose-provider-types/src/errors.rs
+    line: 7
+    note: '#[derive(Error, Debug, Clone, PartialEq)] on ProviderError — thiserror deriving for libraries'
+  - file: crates/goose-provider-types/src/errors.rs
+    line: 94
+    note: 'from_stream_error(error: anyhow::Error) — anyhow crosses the stream boundary, then downcasts'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 1
+    note: 'use anyhow::{anyhow, Result} — application code uses anyhow for open-ended failures'
+  - file: crates/goose/Cargo.toml
+    line: 97
+    note: 'anyhow/thiserror are workspace deps — goose''s AGENTS.md error rule in one line'
+---
+
+# Error handling in practice: ?, anyhow, thiserror
+
+Goose's maintainer rule (from AGENTS.md): **errors use `anyhow::Result`**.
+Libraries (like `goose-provider-types`) reach for `thiserror` to *model*
+domain errors as enums. Both live in the same codebase — the boundary is the
+lesson.
+
+## The two tools, one line apart
+
+`crates/goose/Cargo.toml:97-98`:
+
+```toml
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+```
+
+- **anyhow** — an open-ended error type for *applications*: "something failed,
+  here's the context." Errors flow upward, nobody matches on them.
+- **thiserror** — a derive that *defines* typed errors for *libraries*:
+  "these are the exact failure classes, match me."
+
+## `?` — the early-return you already previewed
+
+`crates/goose/src/providers/testprovider.rs:125`:
+
+```rust
+let content = fs::read_to_string(file_path)?;
+```
+
+`?` unwraps `Ok`, or converts `Err` and returns it from the enclosing fn — the
+match you hand-wrote in lesson 0.11, now one character. What makes it work:
+the enclosing function returns `Result<_, _>` and the error types *convert*.
+anyhow's magic: almost any `std::error::Error` converts into `anyhow::Error`
+automatically, so `?` works everywhere in application code.
+
+## Application style: anyhow
+
+`testprovider.rs:1` imports it as the default:
+
+```rust
+use anyhow::{anyhow, Result};
+```
+
+And failure construction at `testprovider.rs:163`:
+
+```rust
+Box::pin(async { Err(anyhow!("TestProvider must be constructed explicitly")) })
+```
+
+`anyhow!` builds a contextual error *on the spot*. Application fns return
+`anyhow::Result<T>` (plain `Result` after that import). No error enums to
+maintain; every `?` adds context to the chain.
+
+## Library style: thiserror
+
+`crates/goose-provider-types/src/errors.rs:7`:
+
+```rust
+#[derive(Error, Debug, Clone, PartialEq)]
+pub enum ProviderError {
+    #[error("Provider is not configured")]
+    NotConfigured,
+```
+
+Each variant carries its `#[error("...")]` display template — the derive
+generates `Display` + `Error` impls so the enum *is* an error. Callers match
+variants. The lesson-11 retry logic depends on exactly this.
+
+## The boundary: downcasting
+
+`errors.rs:94` — an anyhow error raised deep in a stream gets *recognized* as a
+typed one:
+
+```rust
+pub fn from_stream_error(error: anyhow::Error) -> Self {
+    error.downcast().unwrap_or_else(ProviderError::stream_decode_error)
+}
+```
+
+`downcast()` peeks inside the anyhow box: typed pieces become
+`ProviderError` variants again; untyped noise becomes a generic decode error.
+anyhow transports, thiserror classifies.
+
+<FounderLens>
+
+Why ban bespoke error blobs in goose apps? Because rich context beats rich
+types at the application layer: a `?` chain of "read config → build agent →
+call provider" produces a readable breadcrumb trail for free. The cost is
+matching: app code can't cheaply branch on failure kind — so the boundary rule
+keeps matchable, thiserror-defined enums in libraries where *policy* (retry,
+refusal) must react structurally. Both worlds meet at `downcast` — fragile if
+abused, perfect in the one place goose uses it.
+
+</FounderLens>
+
+<MindShift>
+
+In TS, error handling is `try/catch` with a free-form `unknown` inside — you
+`instanceof` your way through. Rust moves the failure description into the
+function signature (`Result<T, E>`) and the story into the *flow* (`?`, no
+stack unwinding). When porting a TS helper, the first refactor is not
+wrapping in try/catch: it's changing the return type to `anyhow::Result<T>`
+and letting `?` carry the context.
+
+</MindShift>

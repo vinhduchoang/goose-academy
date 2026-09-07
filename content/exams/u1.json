@@ -1,0 +1,423 @@
+{
+  "unitSlug": "architecture",
+  "unitIndex": 1,
+  "title": "Unit 1 Exam — Architecture Mastery",
+  "questions": [
+    {
+      "q": "Which crate pair exists so extension authors can compile goose contracts without pulling the engine?",
+      "options": [
+        "goose-sdk-types and goose-provider-types",
+        "goose-cli and goose-mcp",
+        "goose-agent and goose-roaming",
+        "goose-test and goose-test-support"
+      ],
+      "answer": 0,
+      "topic": "crate-graph",
+      "explanation": [
+        "goose-cli/goose-mcp sit at the top of the dependency stack, not the bottom.",
+        "goose-agent/goose-roaming are runtime crates, not SDK contracts.",
+        "test crates support the test harness, not extension authors."
+      ]
+    },
+    {
+      "q": "A workspace with a dependency cycle behaves how?",
+      "options": [
+        "The whole workspace fails to build until the cycle is removed",
+        "cargo warns and picks one direction automatically",
+        "Only the two cyclic crates fail, others build",
+        "Cycles compile fine in release mode only"
+      ],
+      "answer": 0,
+      "topic": "workspace",
+      "explanation": [
+        "cargo never resolves cycles silently.",
+        "The failure is global because the graph must resolve as a whole.",
+        "Release mode has no cycle tolerance."
+      ]
+    },
+    {
+      "q": "What carries the messages of a single goose turn in v1.49.0?",
+      "options": [
+        "Message { role, created, content: Vec<MessageContentBlock>, metadata }",
+        "Reply { parts: Vec<ReplyPart> }",
+        "A single concatenated string",
+        "ToolCall parse trees"
+      ],
+      "answer": 0,
+      "topic": "messages",
+      "explanation": [
+        "ReplyPart no longer exists anywhere under crates/.",
+        "content is a typed block list, never one string.",
+        "Tool calls are content blocks, not the conversation container."
+      ]
+    },
+    {
+      "q": "Why does the Message deserializer carry a custom serde function on `content`?",
+      "options": [
+        "It is the migration boundary: legacy reasoning -> thinking, conversationCompacted dropped, Unicode tags sanitized",
+        "It compresses the JSON before storage",
+        "It encrypts the message on disk",
+        "It validates the role against a whitelist"
+      ],
+      "answer": 0,
+      "topic": "serde",
+      "explanation": [
+        "Serde doesn't compress; the custom function migrates shapes.",
+        "Encryption is handled by storage, not serde hooks.",
+        "Role validation isn't the deserializer's job."
+      ]
+    },
+    {
+      "q": "Config layering in goose works because:",
+      "options": [
+        "Config holds an ordered config_paths list — later files override earlier ones, writes go to the last",
+        "Config polls the filesystem on every read",
+        "The OS registry provides precedence",
+        "There is only ever one config file"
+      ],
+      "answer": 0,
+      "topic": "config-system",
+      "explanation": [
+        "Values are stable per process; there is no polling.",
+        "The registry isn't involved in goose config reads.",
+        "System + user + env-added files all merge."
+      ]
+    },
+    {
+      "q": "`Config::global()` returns &'static Config, meaning:",
+      "options": [
+        "One OnceCell-initialized process-wide singleton with a stable reference",
+        "A fresh instance for each caller",
+        "An unsynchronized HashMap",
+        "A value from the network"
+      ],
+      "answer": 0,
+      "topic": "config-system",
+      "explanation": [
+        "It memoizes, so repeat calls share the instance.",
+        "Mutation is serialized via the Mutex guard.",
+        "Nothing is fetched over the network."
+      ]
+    },
+    {
+      "q": "Which function is the turn entry on the legacy path?",
+      "options": [
+        "Agent::reply, which wraps reply_impl's event stream",
+        "Session::run",
+        "Agent::run",
+        "dispatch_tool_call"
+      ],
+      "answer": 0,
+      "topic": "agent-lifecycle",
+      "explanation": [
+        "Session doesn't drive turns on the legacy path.",
+        "There is no Agent::run entry.",
+        "dispatch_tool_call is a mid-turn stage."
+      ]
+    },
+    {
+      "q": "The state machine's core idea is:",
+      "options": [
+        "Operations decide and emit Effects (data); an EffectHandler performs the persistence",
+        "A single while loop with a boolean per feature",
+        "Threads per tool",
+        "Recompiling the agent per session"
+      ],
+      "answer": 0,
+      "topic": "state-machine",
+      "explanation": [
+        "Loops-with-booleans describe the legacy path, not the machine.",
+        "No per-tool threads exist.",
+        "The machine is runtime-composed, not compiled per session."
+      ]
+    },
+    {
+      "q": "Which crate owns StateMachine, Step, Operation in v1.49.0?",
+      "options": [
+        "goose-agent, re-exported through goose's state_machine module",
+        "The goose crate's agent.rs",
+        "goose-mcp",
+        "rmcp"
+      ],
+      "answer": 0,
+      "topic": "state-machine",
+      "explanation": [
+        "agent.rs builds the step list but doesn't define the executor types.",
+        "goose-mcp is MCP servers only.",
+        "rmcp is the protocol implementation."
+      ]
+    },
+    {
+      "q": "A parity gap means:",
+      "options": [
+        "A behavior that exists or differs in only one of the two agent loops",
+        "A price difference between providers",
+        "API version drift between UI and core",
+        "A missing Cargo.lock entry"
+      ],
+      "answer": 0,
+      "topic": "parity",
+      "explanation": [
+        "Price deltas are provider economics.",
+        "UI/core drift is a different concern.",
+        "Lockfiles don't create behavior gaps between loops."
+      ]
+    },
+    {
+      "q": "In the Provider trait, `complete()` is:",
+      "options": [
+        "A provided default that collects the stream() output — stream() is the primary method",
+        "The only required method",
+        "Deprecated and unreachable",
+        "Implemented per provider only"
+      ],
+      "answer": 0,
+      "topic": "providers",
+      "explanation": [
+        "stream() is required; complete() defaults over it.",
+        "Both are live API surface.",
+        "Providers inherit the default unless they override."
+      ]
+    },
+    {
+      "q": "`estimate_model_cost` computes cost from:",
+      "options": [
+        "Canonical registry pricing merged with declarative/user pricing, applied to the usage",
+        "Provider-reported prices in every response",
+        "A hardcoded dollars-per-token constant",
+        "The session's accumulated guess"
+      ],
+      "answer": 0,
+      "topic": "cost-usages",
+      "explanation": [
+        "Providers report usage tokens, not prices.",
+        "Pricing is data, not a constant.",
+        "Accumulated cost is computed, not guessed."
+      ]
+    },
+    {
+      "q": "Streaming most commonly breaks when:",
+      "options": [
+        "Provider chunks split tool-call arguments or multi-message replies in ways the repair logic can't reassemble",
+        "The terminal is too narrow",
+        "The model has no tools",
+        "The temperature is 0"
+      ],
+      "answer": 0,
+      "topic": "streaming",
+      "explanation": [
+        "Terminal width never affects the stream pipeline.",
+        "Tool-less turns stream fine.",
+        "Temperature doesn't affect chunk transport."
+      ]
+    },
+    {
+      "q": "Which stone splits an inspector's findings into verdict buckets?",
+      "options": [
+        "The permission judge, producing approved / needs_approval / denied",
+        "The tokenizer",
+        "The provider",
+        "The session namer"
+      ],
+      "answer": 0,
+      "topic": "permissions",
+      "explanation": [
+        "Tokenizers count tokens.",
+        "Providers don't judge tool requests.",
+        "Session naming is unrelated."
+      ]
+    },
+    {
+      "q": "Security findings differ from permission rules because:",
+      "options": [
+        "Security findings can force needs_approval/denied even in Auto mode",
+        "They only apply in Chat mode",
+        "They are written to a log and ignored",
+        "They disable the extension permanently"
+      ],
+      "answer": 0,
+      "topic": "security",
+      "explanation": [
+        "Chat mode skips tool execution before findings can apply.",
+        "Findings feed the judge — they are not ignored.",
+        "Nothing is permanently disabled by a finding."
+      ]
+    },
+    {
+      "q": "An extension's disallowed env keys exist because:",
+      "options": [
+        "An extension must not silently override critical env (e.g. another extension's secrets)",
+        "Env vars are expensive",
+        "Windows forbids some keys",
+        "YAML cannot encode them"
+      ],
+      "answer": 0,
+      "topic": "validation",
+      "explanation": [
+        "Cost isn't the motivation; safety is.",
+        "The restriction is goose policy, not OS limits.",
+        "Encoding isn't the issue; precedence tampering is."
+      ]
+    },
+    {
+      "q": "When does an extension become a live, callable tool?",
+      "options": [
+      "After it passes through Agent::add_extension into ExtensionManager, whose get_prefixed_tools exposes it",
+        "When Cargo.toml lists it",
+        "As soon as its manifest exists on disk",
+        "Only after a session is archived"
+      ],
+      "answer": 0,
+      "topic": "extension-system",
+      "explanation": [
+        "Cargo.toml lists crates, not runtime extensions.",
+        "A manifest alone is inert until discovery+load run.",
+        "Archiving has nothing to do with liveness."
+      ]
+    },
+    {
+      "q": "`get_prefixed_tools` solves:",
+      "options": [
+        "Tool-name collisions across extensions via namespacing",
+        "Token limit overflow",
+        "Provider authentication",
+        "History search ranking"
+      ],
+      "answer": 0,
+      "topic": "discovery",
+      "explanation": [
+        "Token limits are a context-window concern.",
+        "Auth lives in provider/config layers.",
+        "Search ranking is chat_history_search's concern."
+      ]
+    },
+    {
+      "q": "Why does goose wrap rmcp's client in its own McpClient?",
+      "options": [
+        "To add capabilities tracking, structured errors, cancellation, and tool-call enrichment behind McpClientTrait",
+        "Because rmcp has no client",
+        "To avoid TCP",
+        "Because goose is closed source"
+      ],
+      "answer": 0,
+      "topic": "mcp",
+      "explanation": [
+        "rmcp ships a client; goose intercepts via ClientHandler.",
+        "stdio/sse transports are used deliberately.",
+        "The codebase is open; need has nothing to do with it."
+      ]
+    },
+    {
+      "q": "A dangling $ref in a tool schema is handled by:",
+      "options": [
+        "inline_refs, which inlines definitions for providers that can't resolve refs",
+        "The network layer",
+        "Ignoring the schema entirely",
+        "The session namer"
+      ],
+      "answer": 0,
+      "topic": "mcp-schemas",
+      "explanation": [
+        "The network never repairs schema text.",
+        "Ignoring schemas would break tool calling.",
+        "Session naming doesn't touch schemas."
+      ]
+    },
+    {
+      "q": "What does `collapse_const_unions` normalize?",
+      "options": [
+        "anyOf-of-const shapes into a plain enum, for older dialect servers/models",
+        "Rust enums into JSON",
+        "Provider auth tokens",
+        "Conversation blocks into strings"
+      ],
+      "answer": 0,
+      "topic": "mcp-schemas",
+      "explanation": [
+        "Rust enums are handled by serde derives.",
+        "Auth isn't schema content.",
+        "Compaction strings are a different pipeline."
+      ]
+    },
+    {
+      "q": "Compaction's defining trade-off is:",
+      "options": [
+        "Lossy by design — verbatim history is replaced by a summary to stay under the context window",
+        "It doubles token usage but is lossless",
+        "It drops the newest messages",
+        "It runs only on models that ask for it"
+      ],
+      "answer": 0,
+      "topic": "context-window",
+      "explanation": [
+        "Compaction reduces context, though it costs a model call.",
+        "The tail is preserved, the head is summarized.",
+        "It runs on threshold/error triggers, not model requests."
+      ]
+    },
+    {
+      "q": "MAX_CONTEXT_ERROR_COMPACTIONS = 2 prevents:",
+      "options": [
+        "Infinite compaction loops by stopping and surfacing the error after two error-triggered compactions",
+        "Two models in one session",
+        "Double usage billing",
+        "Two sessions sharing a file"
+      ],
+      "answer": 0,
+      "topic": "sessions",
+      "explanation": [
+        "Model count is unrelated.",
+        "Billing math lives in usage types.",
+        "Session isolation is elsewhere."
+      ]
+    },
+    {
+      "q": "Which statement is true about OTEL_EXPORTER_OTLP_PROTOCOL in goose?",
+      "options": [
+        "grpc triggers a one-shot warning: only http/protobuf is supported",
+        "Any protocol works transparently",
+        "The var is ignored entirely",
+        "It must be set to grpc or goose panics"
+      ],
+      "answer": 0,
+      "topic": "observability",
+      "explanation": [
+        "grpc is unsupported — that's the warning's point.",
+        "The var drives exporter selection.",
+        "Wrong protocols warn and degrade, never panic."
+      ]
+    },
+    {
+      "q": "The three observability altitudes in goose are:",
+      "options": [
+        "File logs, tracing spans, and gen_ai convention fields (+ doctor as actuator)",
+        "stdout, stderr, syslog",
+        "UI, API, DB",
+        "CPU, RAM, disk"
+      ],
+      "answer": 0,
+      "topic": "tracing",
+      "explanation": [
+        "goose uses structured log files with spans, not syslog triads.",
+        "Those are app layers, not telemetry altitudes.",
+        "Resource metrics aren't goose's own telemetry stack."
+      ]
+    }
+  ],
+  "miniLab": {
+    "title": "Architecture Dossier — module map + 3 find-and-explain traces",
+    "instructions": "Write one markdown file `dossier.md` in your scratch dir containing:\n\nA. A 1-page module map: for each of these modules one line each — crate-graph direction (l01), Message/MessageContentBlock home (l02), config singleton (l03), legacy loop entry (l04), state machine + one ops file (l05), Provider trait + one format file (l06), permission judge buckets (l07), extension registry (l08), MCP normalization (l09), compaction wiring (l10), exporter warning site (l11). Every line must cite a real file:line.\n\nB. THREE find-and-explain traces, each 3-5 sentences with file:line evidence:\n1. Trace GOOSE_MAX_TURNS from config read to enforcement in BOTH agent paths.\n2. Trace one ToolRequest from provider stream to dispatch decision (mode gate -> inspection -> judge -> dispatch or skip).\n3. Trace one Message from construction to persistence, one hop through the deserializer migration boundary.\n\nRequired intermediate terms in dossier.md: goose-provider-types, MessageContentBlock, StateMachine, GooseEffect, PermissionCheckResult, ExtensionManager, normalize_input_schema, compact_messages, OTEL_EXPORTER_OTLP_PROTOCOL.\n\nThen run: powershell -File verify.ps1 -GooseRepo $env:GOOSE_REPO and paste the full output for auto-grading.",
+    "verifyScript": "# Goose Contributor Academy - Unit 1 exam miniLab: Architecture dossier\n# Checks the learner-written dossier.md covers the required traces with evidence.\nparam([string]$GooseRepo = $env:GOOSE_REPO)\n\n$ErrorActionPreference = \"Stop\"\n$fails = 0\n$passes = 0\nif (-not $GooseRepo) { $GooseRepo = \"C:\\Users\\admin\\projects\\goose\" }\n\nfunction Check {\n    param([string]$Name, [bool]$Ok, [string]$Detail)\n    if ($Ok) { Write-Host \"[PASS]  $Name\"; $script:passes++ }\n    else { Write-Host \"[FAIL]  $Name - $Detail\"; $script:fails++ }\n}\n\n$d = Join-Path (Get-Location) \"dossier.md\"\n$raw = if (Test-Path $d) { Get-Content $d -Raw } else { $null }\nCheck \"dossier.md exists\" ($null -ne $raw) \"write the module map + 3 traces first\"\nif ($null -eq $raw) { Write-Host \"VERIFY FAILED - 0/9 checks passed\"; exit 1 }\n\n$m = @{\n  'goose-provider-types' = 'goose-provider-types';\n  'MessageContentBlock' = 'MessageContentBlock';\n  'StateMachine' = 'StateMachine';\n  'GooseEffect' = 'GooseEffect';\n  'PermissionCheckResult' = 'PermissionCheckResult';\n  'ExtensionManager' = 'ExtensionManager';\n  'normalize_input_schema' = 'normalize_input_schema';\n  'compact_messages' = 'compact_messages';\n  'OTEL_EXPORTER_OTLP_PROTOCOL' = 'OTEL_EXPORTER_OTLP_PROTOCOL'\n}\nforeach ($k in $m.Keys) {\n    Check \"dossier mentions $($m[$k])\" ($raw -match [regex]::Escape($m[$k])) \"missing term $($m[$k])\"\n}\n\n$f = @(\n  @('GOOSE_MAX_TURNS', 'GOOSE_MAX_TURNS'),\n  @('ToolRequest', 'ToolRequest'),\n  @('deserialize_sanitized_content|deserialize_with', 'message deserializer'),\n  @('goose_mode == GooseMode::Chat|GooseMode::Chat', 'Chat mode gate'),\n  @('dispatch_tool_call', 'dispatch'),\n  @('agent.rs', 'agent.rs citation'),\n  @('OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf|http/protobuf', 'http/protobuf fix')\n)\nforeach ($e in $f) {\n    if ($raw -notmatch $e[0]) { Write-Host \"[FAIL]  $($e[1]) evidence MISSING\"; $script:fails++ }\n    else { Write-Host \"[PASS]  $($e[1]) evidence present\"; $script:passes++ }\n}\n\nWrite-Host \"\"\nif ($fails -eq 0) {\n    Write-Host \"VERIFY PASSED $passes/$($passes + $fails)\"\n    exit 0\n} else {\n    Write-Host \"VERIFY FAILED - $fails of $($passes + $fails) checks failed\"\n    exit 1\n}",
+    "passMarkers": [
+      "VERIFY PASSED",
+      "dossier.md exists",
+      "GOOSE_MAX_TURNS",
+      "ToolRequest",
+      "dispatch_tool_call",
+      "http/protobuf",
+      "goose-provider-types",
+      "MessageContentBlock",
+      "StateMachine"
+    ]
+  }
+}

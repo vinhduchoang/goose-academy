@@ -1,0 +1,80 @@
+---
+unit: 1
+unitSlug: architecture
+order: 8
+id: u1-l08
+slug: 08-extension-system
+title: "Extension system: discovery -> validation -> manager -> live tools"
+topics:
+  - extension-system
+  - discovery
+  - validation
+durationMin: 20
+cites:
+  - file: crates/goose/src/config/extensions.rs
+    line: 301
+    note: 'pub fn resolve_extensions_for_new_session — discovery entry: merges enabled builtin + configured extension entries'
+  - file: crates/goose/src/config/search_path.rs
+    line: 11
+    note: 'pub struct SearchPaths — where goose looks for extension binaries (path/npm resolution)'
+  - file: crates/goose/src/agents/extension.rs
+    line: 161
+    note: 'pub enum ExtensionConfig — stdio / sse / builtin variants with serde tag "type"'
+  - file: crates/goose/src/agents/validate_extensions.rs
+    line: 17
+    note: 'pub fn validate_bundled_extensions(path) -> Result<String> — startup validation of the bundled set'
+  - file: crates/goose/src/agents/extension_malware_check.rs
+    line: 76
+    note: 'pub async fn deny_if_malicious(cmd, ...) — the malware gate before server spawn'
+  - file: crates/goose/src/agents/extension_manager.rs
+    line: 192
+    note: 'pub struct ExtensionManager — the live registry: tools, resources, prompts, UI hook'
+  - file: crates/goose/src/agents/agent.rs
+    line: 1338
+    note: 'pub async fn add_extension(&self, config: ExtensionConfig, ...) — turning one config into a live managed extension'
+---
+
+# Extension system: discovery → validation → manager → live tools
+
+Everything you can call a "tool" in goose — developer shell, memory, computercontroller, your MCP servers — begins life as an `ExtensionConfig` and ends as entries inside `ExtensionManager`. The plan's four stages (discovery, `validate_extensions`, manager, load) are all real in v1.49.0, spread across two modules.
+
+## Stage 1 — Discovery
+
+Two sources feed the initial config list:
+
+- **Configured extensions:** `crates/goose/src/config/extensions.rs` — `resolve_extensions_for_new_session` (`extensions.rs:301`) is the discovery entry point for a session: it merges enabled bundled extensions with user/declaratively configured entries (`get_enabled_extensions` above it).
+- **Where binaries come from:** `crates/goose/src/config/search_path.rs:11` — `SearchPaths` resolves an extension name to an executable: local build paths first, then `npm`-installed packages, honoring isolation settings via `SearchPathContext`. Extensions are just programs on your PATH/NPM — discovery is resolution, not enumeration.
+
+The canonical shape of one entry is `ExtensionConfig` at `crates/goose/src/agents/extension.rs:161` — a serde-tagged enum: `stdio` (command + args + env), `sse` (HTTP endpoint), `builtin` (in-process server). This is the exact file you'll hand-write manifests against in Unit 3.
+
+## Stage 2 — Validation
+
+- **Startup validation:** `crates/goose/src/agents/validate_extensions.rs:17` — `validate_bundled_extensions(path)` sanity-checks the bundled extension set at startup (directories exist, manifests parse, no obviously corrupt state).
+- **Env hygiene:** `extension.rs`'s `validate()` rejects extension env maps that try to overwrite disallowed keys — an extension cannot silently re-point `HOME` or the API-key env of another extension. (Read `DISALLOWED_KEYS`.)
+- **Malware gate:** `crates/goose/src/agents/extension_malware_check.rs:76` — `deny_if_malicious(cmd, config, ...)` runs OSV-style checks before spawning a stdio server; a suspicious command signature aborts server creation with `ExtensionError`. This is validation-at-spawn, not just at install.
+
+## Stage 3 — The manager
+
+`crates/goose/src/agents/extension_manager.rs:192` — `ExtensionManager` is the live registry: it spawns stdio/sse servers, keeps per-extension state, and exposes `get_prefixed_tools()` (extension tools under namespaced names), resources, and prompts. Tool ownership helpers like `get_tool_owner` (`extension_manager.rs:276`) answer "which extension's tool is this?" — the pipeline's uniform treatment of tools (l07) is possible because everything funnels through this one registry.
+
+## Stage 4 — Load (into the agent)
+
+`Agent::add_extension` (`crates/goose/src/agents/agent.rs:1338`) is the visible load boundary: it takes an `ExtensionConfig`, hands it to the manager, wires its tools into the agent's tool set, and returns the result status. Bulk load happens via `add_extensions_bulk` and, for resumed sessions, `load_extensions_from_session` rehydrates prior config. From here a tool is "live": `get_prefixed_tools()` output feeds `prepare_tools_for_provider` (l04's context assembly) and the pipeline of l07.
+
+## The whole arc in one sentence
+
+resolve (config+search paths) → parse/validate (manifests, env keys, malware) → register (ExtensionManager spawns + namespaces) → load (Agent toolset) → dispatch (l07).
+
+<FounderLens>
+
+**Problem solved:** goose must run arbitrary third-party programs as tools while keeping namespace collisions sane, secrets safe, and the extension surface versionable — without recompiling the core. The four-stage arc makes "an extension" a *data problem* (a config the pipeline hydrates), not a code problem.
+
+**Tradeoff:** extensions are processes (stdio subcommands / SSE endpoints), so robustness is purchased with process supervision and JSON-RPC glue (rmcp) instead of in-process type safety. Every stage — malware scans, env-key disallow lists, bundled-vs-user splits—exists because *untrusted code runs on your machine*. Startup checks (`validate_bundled_extensions`) keep early failures loud; spawn-time checks keep later failures contained.
+
+**Where it's heading:** first-class vs hosted extensions are diverging (`is_first_class_extension` at `extension_manager.rs:404`), declarative providers ride the same config rails, and the UI surface (resources/skillcards) keeps growing. Expect the manifest schema to gain versioning and capability declarations.
+
+**Where it breaks:** namespace collisions between extensions' tool names (mitigated by prefixing), stale sessions pointing at uninstalled extensions, and the security boundary crossing — an extension's env vars vs. the user's real environment. The `DISALLOWED_KEYS` list is the minimal invariant; audit it in any PR touching `extension.rs`.
+
+**Where you'd extend it:** the malware checker is signature-based — a hallucination-preserving prompt injection into stdio servers remains the open attack surface. A "capabilities declaration + judge enforcement" extension point (l07's seam) is the natural follow-up.
+
+</FounderLens>

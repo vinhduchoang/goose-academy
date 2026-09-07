@@ -1,0 +1,114 @@
+[
+  {
+    "q": "What does `BUILTIN_EXTENSIONS` in goose-mcp/src/lib.rs:57 map?",
+    "options": [
+      "Extension names to spawn functions serving a server over a duplex stream",
+      "Tool names to their JSON schemas",
+      "Provider names to constructors",
+      "MCP request ids to responses"
+    ],
+    "answer": 0,
+    "topic": "mcp",
+    "explanation": [
+      "Schemas live on the tool params, not in this map.",
+      "Provider registration is a different registry in the goose crate.",
+      "Request correlation is transport-level, not a static map."
+    ]
+  },
+  {
+    "q": "Inside a `#[tool]` method, `Parameters<AddNoteParams>` means:",
+    "options": [
+      "Raw JSON string the tool must hand-parse",
+      "Typed, schema-validated arguments derived from the params struct",
+      "HTTP query parameters",
+      "A list of allowed callers"
+    ],
+    "answer": 1,
+    "topic": "mcp-server",
+    "explanation": [
+      "rmcp deserializes into the struct; the tool never sees raw strings.",
+      "MCP calls are JSON-RPC, not HTTP query params.",
+      "Authorization is not part of the params wrapper."
+    ]
+  },
+  {
+    "q": "A tool receives `text: \"   \"` (whitespace only). The correct server behavior is:",
+    "options": [
+      "Save it as a blank note",
+      "Return ErrorData with INVALID_PARAMS",
+      "Panic so the client retries",
+      "Silently no-op and claim success"
+    ],
+    "answer": 1,
+    "topic": "mcp-schemas",
+    "explanation": [
+      "Schemas only guarantee type String, so semantic validation belongs in the tool.",
+      "Panics kill the whole stdio server process.",
+      "Claiming success on a no-op hides failures from the agent."
+    ]
+  },
+  {
+    "q": "What does `RequestContext<RoleServer>` give a tool?",
+    "options": [
+      "The user's chat history",
+      "Per-call transport metadata (headers, session) of the incoming request",
+      "A database connection",
+      "The next turn's prompt"
+    ],
+    "answer": 1,
+    "topic": "mcp",
+    "explanation": [
+      "Chat history is goose-side state, not passed per tool call.",
+      "No DB connections are provided by the protocol.",
+      "Tools are stateless per call; they do not receive future turns."
+    ]
+  },
+  {
+    "q": "Why do MCP servers carry an `instructions` string alongside tools?",
+    "options": [
+      "It replaces the tool schemas",
+      "It becomes part of the agent's context so it knows when/how to use the tools",
+      "It instructs the MCP client to reconnect",
+      "It is the license text"
+    ],
+    "answer": 1,
+    "topic": "extension-system",
+    "explanation": [
+      "Schemas describe shapes; instructions describe usage policy.",
+      "Transport reconnect logic is unrelated.",
+      "Licenses ship separately in the crate."
+    ]
+  },
+  {
+    "q": "Which config entry type makes goose spawn your binary as an MCP server over stdin/stdout?",
+    "options": [
+      "type: http",
+      "type: stdio with cmd + args",
+      "type: builtin",
+      "type: platform"
+    ],
+    "answer": 1,
+    "topic": "mcp-server",
+    "explanation": [
+      "HTTP transports use streamable_http with uri.",
+      "builtin refers to bundled in-process servers.",
+      "platform extensions run in the agent process with API access."
+    ]
+  },
+  {
+    "q": "This compile error appears: `the trait bound NotesServer: ServerHandler is not satisfied`. The unblocking change is:",
+    "options": [
+      "Add `#[tokio::main]` to main",
+      "Apply `#[tool_router(router = tool_router)]` to the impl so the macro generates the ServerHandler glue",
+      "Rename the struct to NotesServerHandler",
+      "Derive Clone only"
+    ],
+    "answer": 1,
+    "topic": "mcp-server",
+    "explanation": [
+      "The runtime attribute affects main, not trait satisfaction.",
+      "Naming has no effect on trait impls.",
+      "Clone derives do not implement ServerHandler."
+    ]
+  }
+]

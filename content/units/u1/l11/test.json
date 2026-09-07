@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Which env var do you set to enable goose's tracing subscriber logging filter?",
+    "options": [
+      "RUST_LOG",
+      "GOOSE_MODE",
+      "OTEL_PROTOCOL",
+      "TRACING_ON"
+    ],
+    "answer": 0,
+    "topic": "rust-log-tracing",
+    "explanation": [
+      "GOOSE_MODE sets tools posture, not logging.",
+      "The OTLP protocol var is OTEL_EXPORTER_OTLP_PROTOCOL.",
+      "There is no TRACING_ON env var in the codebase."
+    ]
+  },
+  {
+    "q": "What happens when `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` is set in a goose deployment?",
+    "options": [
+      "A one-shot warning is printed — goose only supports http/protobuf, and exports silently fail",
+      "Goose automatically converts to http/protobuf",
+      "The process refuses to start",
+      "Nothing changes; all protocols are supported"
+    ],
+    "answer": 0,
+    "topic": "observability",
+    "explanation": [
+      "There is no auto-conversion — that's exactly the incident.",
+      "It warns and continues; it doesn't abort startup.",
+      "Only http/protobuf is supported (see otlp.rs)."
+    ]
+  },
+  {
+    "q": "What are the `gen_ai.*` fields on the reply_stream span?",
+    "options": [
+      "OTel GenAI semantic conventions the span is initialized with (operation.name, request.model, usage.input_tokens...)",
+      "Goose-specific database columns",
+      "Encrypted PII for the police",
+      "UI-only labels without tracing meaning"
+    ],
+    "answer": 0,
+    "topic": "tracing",
+    "explanation": [
+      "They ride tracing spans, not a database.",
+      "They are observability fields; nothing to do with law enforcement.",
+      "Exporters and dashboards consume them as real span fields."
+    ]
+  },
+  {
+    "q": "Why does goose gate message-content capture behind an env switch (CAPTURE_MESSAGE_CONTENT_ENV)?",
+    "options": [
+      "Message content is PII; deployments must be able to turn content capture off while keeping structural telemetry",
+      "The content is too long to serialize",
+      "Rust cannot record strings on spans",
+      "The origins of the span become invisible otherwise"
+    ],
+    "answer": 0,
+    "topic": "observability",
+    "explanation": [
+      "Long strings are fine; privacy is the driver.",
+      "Span fields accept strings without issue.",
+      "The switch doesn't affect span structure."
+    ]
+  },
+  {
+    "q": "What is doctor?",
+    "options": [
+      "The self-repair path: ensure working provider -> test -> try other models/providers -> describe the error to the user",
+      "A linter for JSON schemas",
+      "A GitHub bot",
+      "A health check endpoint only"
+    ],
+    "answer": 0,
+    "topic": "agent-lifecycle",
+    "explanation": [
+      "Schema checking lives in tool_schema_normalize / validation modules.",
+      "Doctor is in-process code, not a bot.",
+      "It fixes provider failure paths, not HTTP health checks."
+    ]
+  },
+  {
+    "q": "Which module converts tracing spans into the flattened `SpanData` records the observers consume?",
+    "options": [
+      "tracing/observation_layer.rs (ObservationLayer + SpanTracker)",
+      "logging.rs",
+      "otel/otlp.rs",
+      "posthog.rs"
+    ],
+    "answer": 0,
+    "topic": "tracing",
+    "explanation": [
+      "logging.rs builds the subscriber; it doesn't flatten spans.",
+      "otlp.rs exports over OTLP; flattening happens upstream in the observation layer.",
+      "posthog is analytics, not span science."
+    ]
+  },
+  {
+    "q": "Fix this deployment: traces export fine locally but the on-premise collector gets nothing, and the log shows the grpc warning. The correct change is:",
+    "options": [
+      "Set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and point `OTEL_EXPORTER_OTLP_ENDPOINT` at the collector's http port",
+      "Set RUST_LOG=off",
+      "Rename the collector to grpc",
+      "Compile goose with --features grpc"
+    ],
+    "answer": 0,
+    "topic": "observability",
+    "explanation": [
+      "RUST_LOG controls logging, not export transport.",
+      "The fix is on goose's side; the collector name is irrelevant.",
+      "No grpc feature exists for the exporter."
+    ]
+  }
+]

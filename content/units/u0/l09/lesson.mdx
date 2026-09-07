@@ -1,0 +1,135 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 9
+id: u0-l09
+slug: 09-lifetimes
+title: "Lifetimes: what they are, elision, and explicit &'a"
+topics:
+  - lifetimes
+durationMin: 20
+cites:
+  - file: crates/goose/src/logging.rs
+    line: 13
+    note: 'pub struct LoggingConfig<''a> — a struct that borrows configuration strings for its whole life'
+  - file: crates/goose/src/logging.rs
+    line: 15
+    note: 'pub component: &''a str — the borrow''s lifetime is a named parameter of the struct'
+  - file: crates/goose/src/checks/mod.rs
+    line: 162
+    note: 'pub fn resolved_model<''a>(&''a self, ...) -> Option<&''a str> — output tied to &self'
+  - file: crates/goose/src/agents/prompt_manager.rs
+    line: 45
+    note: 'SystemPromptBuilder<''a, M> holds manager: &''a M — a builder that borrows its manager'
+---
+
+# Lifetimes: what they are, elision, and explicit &'a
+
+Lifetimes are Rust's least lucky vocabulary word: they *don't* extend how long
+things live. They describe **relationships between borrows**: "this output
+cannot outlive that input." Most of the time you never write them — elision
+infers the obvious case. Goose writes them where the relationship is non-obvious.
+
+## Where lifetimes appear (and why)
+
+`crates/goose/src/logging.rs:13`:
+
+```rust
+pub struct LoggingConfig<'a> {
+    pub component: &'a str,
+    // ...
+}
+```
+
+A struct that *borrows* a string for its whole life must declare a lifetime
+parameter on the struct: `LoggingConfig<'a>`. Each borrow field is labeled with
+the same `'a` — meaning "the struct dies before the borrowed string does." You
+can't store a `&str` in a struct without this; the compiler must know the link
+to check callers later.
+
+A function form — output tied to `&self` — at
+`crates/goose/src/checks/mod.rs:162`:
+
+```rust
+pub fn resolved_model<'a>(
+    &'a self,
+    default_model: Option<&'a str>,
+    override_model: Option<&'a str>,
+) -> Option<&'a str> {
+```
+
+The result may be *either* the default or the override — both are inputs, so the
+compiler requires explicit lifetime equality here; a single input isn't a
+distinguishing case anymore.
+
+And a builder holding a borrow, `crates/goose/src/agents/prompt_manager.rs:45`:
+
+```rust
+pub struct SystemPromptBuilder<'a, M> {
+    manager: &'a M,
+```
+
+A lifetime (`'a`) plus a type parameter (`M`) together — structs can have both.
+
+## Elision: why trim_prompt needed nothing
+
+```rust
+fn trim_prompt(prompt: &str) -> &str { prompt.trim() }
+```
+
+Three elision rules, simplified: each input reference gets an implicit lifetime;
+one input → outputs get its lifetime. That's why yesterday's lab compiled. Two
+elided input refs and a reference output → error, must annotate (the classic
+`first_of` example):
+
+```rust
+fn first_of(x: &str, y: &str) -> &str { x }   // error E0106: missing lifetime
+fn first_of<'a>(x: &'a str, y: &str) -> &'a str { x }  // the honest signature
+```
+
+## `'static` — the special one
+
+`&'static str` lives for the whole program: string literals, and compiled-in
+data. Goose's `errors.rs:68` returns `&'static str` from `telemetry_type`
+because those labels point into the binary, never into messages.
+
+<Diff
+  oldCode="// TS — no notion of borrow lifetimes; dangling is possible in the wild
+class Holder { constructor(private inner: any) {} }
+getInner() { return this.inner; }"
+  newCode="// Rust — the borrow relationship is part of the type
+struct Holder<'a> { inner: &'a str }   // cannot outlive its string" />
+
+## Reading lifetime syntax fast
+
+| Syntax | Meaning |
+|--------|---------|
+| `&'a str` | a borrow living at least as long as `'a` |
+| `fn f<'a>(...) -> &'a str` | output tied to one named input |
+| `struct S<'a>` | the struct borrows for `'a` |
+| `impl<'a> S<'a> { ... }` | methods on the borrowing struct in the same lifetime |
+| `&'static str` | lives forever (literals, embedded data) |
+
+<FounderLens>
+
+Why does `SystemPromptBuilder<'a, M>` borrow its manager instead of cloning the
+whole prompt config? Building a system prompt happens per session start — not
+per token — so the borrow is safe and the cost profile is exactly right: no
+deep-copy of every extension description (which lives inside the manager).
+Tradeoff: the builder type is now infectious ('a spreads to impl blocks), which
+is why you see `impl<'a> SystemPromptBuilder<'a, PromptManager>` at
+`prompt_manager.rs:57` rather than a clean `impl SystemPromptBuilder`.
+Infectiousness is the real lifetime cost — not runtime money.
+
+</FounderLens>
+
+<MindShift>
+
+TS gives you "undefined" at runtime when a reference outlives its target —
+sometimes, unexplainably, weeks later. Lifetimes move that failure into the
+type of the function: a `-> &'a str` signature is documentation *and*
+enforcement. When goose code won't compile for you, the lifetime error is not
+a nit: it's the compiler refusing to ship a use-after-free. You'll start
+wanting that in TS.
+
+</MindShift>

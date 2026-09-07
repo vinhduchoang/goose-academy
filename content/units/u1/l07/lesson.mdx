@@ -1,0 +1,73 @@
+---
+unit: 1
+unitSlug: architecture
+order: 7
+id: u1-l07
+slug: 07-tool-pipeline-permissions
+title: "Tool pipeline & permissions: dispatch, inspection, confirmation, security"
+topics:
+  - tool-pipeline
+  - permissions
+  - security
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/goose_mode.rs
+    line: 22
+    note: 'pub enum GooseMode { Auto, Approve, SmartApprove, Chat } — the four permission postures'
+  - file: crates/goose/src/tool_inspection.rs
+    line: 57
+    note: 'pub struct ToolInspectionManager — runs all ToolInspectors (security + permission) over pending tool requests'
+  - file: crates/goose/src/permission/permission_inspector.rs
+    line: 15
+    note: 'pub struct PermissionInspector — the ToolInspector that maps permission rules onto requests'
+  - file: crates/goose/src/permission/permission_judge.rs
+    line: 189
+    note: 'pub struct PermissionCheckResult — the approved / needs_approval / denied buckets'
+  - file: crates/goose/src/security/security_inspector.rs
+    line: 57
+    note: 'impl ToolInspector for SecurityInspector — the security layer that can veto tool requests'
+  - file: crates/goose/src/agents/agent.rs
+    line: 2817
+    note: 'if goose_mode == GooseMode::Chat — the legacy loop''s mode gate before inspection'
+  - file: crates/goose/src/agents/tool_execution.rs
+    line: 135
+    note: 'pub const DECLINED_RESPONSE — what the model hears when the user rejects a tool call'
+---
+
+# Tool pipeline & permissions: dispatch, inspection, confirmation, security
+
+Every tool call in goose crosses the same five checkpoints, and each checkpoint is a separable module. The plan's `dispatch`, `tool_confirmation`, `permission/`, `security/` all exist; here is how they chain in v1.49.0.
+
+## The posture: GooseMode
+
+The pipeline's behavior is set by one enum — `GooseMode` at `crates/goose-provider-types/src/goose_mode.rs:22`: `Auto` (approve everything), `Approve` (ask before every call), `SmartApprove` (ask only when inspectors flag it), `Chat` (no tools at all). The mode lives in `AgentConfig` and mirrors into the Session; the CLI surfaces it as `-t/--tools` mode toggling.
+
+## The checkpoints, in order
+
+1. **Mode gate** — legacy loop: `if goose_mode == GooseMode::Chat` at `agents/agent.rs:2817` short-circuits everything with a polite skip response (`CHAT_MODE_TOOL_SKIPPED_RESPONSE` from `tool_execution.rs:135+`). In the state machine this is `ToolExecutionOperation`'s equivalent branch in `ops_toolcalling.rs`.
+2. **Inspection** — `ToolInspectionManager` (`crates/goose/src/tool_inspection.rs:57`) runs every registered `ToolInspector` over the pending `ToolRequest`s + conversation. Two inspectors ship: `SecurityInspector` (`security/security_inspector.rs:57` — scans command args/patterns for abuse signatures, the `security/` module family) and `PermissionInspector` (`permission/permission_inspector.rs:15` — evaluates your permission rules). Inspectors return per-request findings, not verdicts.
+3. **Judging** — `permission/permission_judge.rs:189` defines `PermissionCheckResult { approved, needs_approval, denied }`. The judge turns inspection findings + `GooseMode` + permission-store rules (`config/permission.rs`'s `PermissionManager`, plus auto-approve rules) into those three buckets. `SmartApprove` effectively means "only `needs_approval` gets surfaced".
+4. **Confirmation** — requests landing in `needs_approval` go to the confirmation machinery (l04 layer: `ToolConfirmationCoordinator` in `agents/tool_confirmation_coordinator.rs:149`; UI-mode hooks return `ToolConfirmation` events the frontend renders). On approval they move to dispatch; on decline the reply stream injects `DECLINED_RESPONSE` (`tool_execution.rs:135`) back into the conversation so the model reacts gracefully.
+5. **Dispatch & execution** — `Agent::dispatch_tool_call` (`agent.rs:1063`): telemetry recording, prompt-manager argument capture, PreToolUse hooks, actual execution (via the extension manager's tool registry, which holds built-in + extension + MCP tools), post-tool hooks, then a `ToolCallResult` wrapped as a `ToolResponse` block.
+
+## Where the lists come from
+
+The tool registry itself is the extension manager's job (l08). For this lesson the point is the *pipeline treats all tools uniformly*: whether a tool came from a bundled extension, a remote MCP server, or a plugin, the same five checkpoints apply. The `pending_tool_requests(messages: &[Message])` extraction in the state machine (`ops_toolcalling.rs:622`) shows the pipeline's input contract precisely: pending `ToolRequest` blocks + a disposition per request.
+
+## Permission rules and the inspector
+
+`PermissionInspector` evaluates rules from the permission store — allow/deny patterns keyed by tool name (and extended to pii/security-sensitive cases via `InspectionResult`). Security findings are *separate*: `security/` inspects but does not approve — its findings feed the judge, which can force `needs_approval`/`denied` regardless of mode. That layering matters: `Auto` mode does not bypass the security inspector; it changes only how *permission* findings are disposed.
+
+<FounderLens>
+
+**Problem solved:** users need policy (my rules), safety (adversarial input), and control (confirmations) all enforced at the same chokepoint, without coupling any of them to the model or to the tool implementations. Inspectors/judge/buckets keeps each concern in its own module, and the pipeline is mode-tunable per session.
+
+**Tradeoff:** confirmation UX is a latency + interruption tax, so the default posture is Auto. Rules that make a tool silently auto-approve can be outweighed by a security finding — the judge's precedence (security over permission rules) is the safety-critical line; reordering it is a security review event, not a refactor.
+
+**Where it's heading:** confirmation is migrating into the protocol itself — `MessageContentBlock::ActionRequired` (there is a `ToolConfirmationRequest` block in the datamodel now) is the future: instead of a UI-side ping-pong, the *conversation* is suspended on a pending confirmation block that resumes when the user decides. l04's blocked-tool bookkeeping is the bridge code.
+
+**Where it breaks:** inspectors that return per-request findings must keep request id alignment perfect across async boundaries (inspection runs concurrently); the `request_was_advertised`/pending extraction in `ops_toolcalling.rs` exists because providers sometimes emit tool requests that were never advertised in the tool list — an edge (hallucinated tool) the pipeline must still dispose of cleanly.
+
+**Where you'd extend it:** a new `DataLossInspector` (writes to files outside the working dir) plugged into `ToolInspectionManager` — no pipeline changes needed, just register the inspector. That is the intended extension seam of this subsystem.
+
+</FounderLens>

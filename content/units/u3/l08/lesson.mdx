@@ -1,0 +1,97 @@
+---
+unit: 3
+unitSlug: extensions
+order: 8
+id: u3-l08
+slug: 08-plugins-skills
+title: "Plugins & skills: slash commands and the skills/ directory"
+topics: [plugins, skills, extension-manifest]
+durationMin: 20
+cites:
+  - file: crates/goose/src/plugins/formats/open_plugins.rs
+    line: 21
+    note: 'COMPONENT_MARKERS - hooks/hooks.json, commands, agents, .mcp.json make a repo a plugin'
+  - file: crates/goose/src/plugins/mod.rs
+    line: 17
+    note: 'INSTALL_METADATA (".goose-plugin-install.json") - install provenance + auto-update bookkeeping'
+  - file: crates/goose/src/plugins/discovery.rs
+    line: 52
+    note: 'discover_enabled_plugins - the user + project roots, scoped settings, dedupe pipeline'
+  - file: crates/goose/src/skills/mod.rs
+    line: 33
+    note: 'pub struct SkillFrontmatter - name/description plus a free-form metadata bag per agentskills.io'
+  - file: crates/goose/src/skills/mod.rs
+    line: 47
+    note: 'global_skills_dir - ~/.agents/skills, the canonical writable user location'
+  - file: crates/goose/src/slash_commands/skill_slash_command.rs
+    line: 8
+    note: 'list_commands - every discovered skill becomes a slash command with args support'
+  - file: crates/goose/src/slash_commands/slash_command.rs
+    line: 11
+    note: 'list_builtin_commands - builtins first; merged sources dedupe by normalized name'
+  - file: crates/goose-cli/src/cli.rs
+    line: 706
+    note: 'enum PluginCommand - Install (git URL, auto_update flag) and Update - the plugin lifecycle CLI'
+---
+
+# Plugins & skills: slash commands and the skills/ directory
+
+Providers and MCP servers are *capability* extensions. Plugins are *packages*:
+a git repo bundling commands, skills, hooks, and MCP configs, installed with one
+command. This lesson builds an installable plugin whose skills light up as
+slash commands in goose.
+
+## What makes a repo a plugin
+
+A repo is an Open-Plugins-format plugin if it has any `COMPONENT_MARKERS`
+(`crates/goose/src/plugins/formats/open_plugins.rs:21`):
+
+- `hooks/hooks.json` — lifecycle hooks (l09's subject)
+- `commands/` — markdown prompt files; each becomes a **slash command** whose
+  body is the prompt template, filename = command name
+- `agents/` — bundled sub-agent definitions
+- `.mcp.json` — bundled MCP servers
+
+plus the optional `plugin.json` manifest for `name`/`version`/`skills`/
+`mcpServers`. Installation (`goose plugin install <url>` —
+`crates/goose-cli/src/cli.rs:706`) checks out the repo into a staging dir,
+validates names + MCP docs, rewrites skill names to namespaced form, writes
+`.goose-plugin-install.json` metadata (`crates/goose/src/plugins/mod.rs:17`),
+and atomically renames into place. Auto-update checks run every 24h.
+
+## Skills become slash commands
+
+A skill is a `SKILL.md` with frontmatter — `SkillFrontmatter`
+(`crates/goose/src/skills/mod.rs:33`) requires at least `name` and
+`description`, everything else goes into a free-form `metadata` bag per the
+agentskills.io spec. `discover_enabled_plugins`
+(`crates/goose/src/plugins/discovery.rs:52`) walks user
+(`~/.config/goose/plugins`) and project (`.agents/plugins`) roots; plugin
+skills are surfaced **namespaced** (`plugin-name:skill-name`) so two plugins
+can each ship a `deploy` skill without collision. `skill_slash_command.rs:8`
+turns every discovered skill into a slash command listing; merge order is
+builtins, then recipes, then skills — later sources never shadow reserved or
+earlier names (`slash_command.rs:11`).
+
+Skills also carry a content-body semantics you already know from MCP servers:
+the SKILL.md body is *instructions*, spliced into context when invoked — it is
+a prompt library, not a script.
+
+<FounderLens>
+
+The plugin design's centerpiece is that **a plugin is files, not code**:
+markdown, JSON, YAML. That is why install can be atomic-staged, namespaced,
+and auto-updatable — nothing compiles. The tradeoff is expressiveness parity:
+`commands/` prompts and skills can't run code, so anything stateful must move
+into `hooks/` scripts or `.mcp.json` servers. The collision rule (builtins
+reserved, first writer wins) falls out of the fear that a plugin could shadow
+a core command — a shadowing `deploy` would be indistinguishable from the
+builtin in the UI. Namespacing is how the system stays open *and* safe.
+
+</FounderLens>
+
+## The lab
+
+Author a complete plugin repo: manifest, a `commands/` prompt, two skills, a
+hooks stub — then walk it through name validation, skill naming, and the
+install pipeline checks, ending install-ready.

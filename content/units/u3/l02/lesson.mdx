@@ -1,0 +1,118 @@
+---
+unit: 3
+unitSlug: extensions
+order: 2
+id: u3-l02
+slug: 02-echo-provider
+title: "Provider I: implement the Provider trait - a working echo LLM"
+topics: [echo-provider, providers, generics-traits, traits-async, error-handling]
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/base.rs
+    line: 464
+    note: 'pub trait Provider: Send + Sync - the single trait every provider implements'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 477
+    note: 'async fn stream - the one method you must implement; returns MessageStream'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 485
+    note: 'async fn complete - default implementation that collects the stream for you'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 327
+    note: 'pub type MessageStream - Pin<Box<dyn Stream<Item = Result<(Option<Message>, Option<ProviderUsage>), ProviderError>>>>'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 457
+    note: 'stream_from_single_message - helper that wraps one (message, usage) pair into a stream'
+  - file: crates/goose-provider-types/src/conversation/message.rs
+    line: 318
+    note: 'pub enum MessageContentBlock - the enclosure types (Text/ToolRequest/ToolResponse/Thinking/...)'
+  - file: crates/goose-provider-types/src/conversation/token_usage.rs
+    line: 7
+    note: 'pub struct ProviderUsage - model + Usage + stats + cost + finish_reasons'
+  - file: crates/goose/src/providers/base.rs
+    line: 31
+    note: 'pub trait ProviderDef - registry-facing trait (metadata + from_env) layered on Provider'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 173
+    note: 'async fn stream impl - canonical example of a receiving provider (record/replay)'
+---
+
+# Provider I: implement the `Provider` trait — a working echo LLM
+
+Every provider in goose implements exactly one trait: `Provider`
+(`crates/goose-provider-types/src/base.rs:464`). Reading it like a maintainer
+means knowing which method to implement (one), which methods you get for free
+(the rest), and what "message content" looks like on the wire (the enclosure types).
+
+## The trait surface
+
+```rust
+#[async_trait]
+pub trait Provider: Send + Sync {
+    fn get_name(&self) -> &str;
+    async fn stream(&self, model_config, system, messages, tools)
+        -> Result<MessageStream, ProviderError>;
+    async fn complete(&self, ...) -> Result<(Message, ProviderUsage), ProviderError> { ... }
+}
+```
+
+- **`get_name`** — identity string, must match registration later.
+- **`stream`** (line 477) — the *only* required async method. It returns a
+  `MessageStream` (line 327).
+- **`complete`** (line 485) — has a default body: call `stream`, then
+  `collect_stream` aggregates the chunks into one final `(Message, ProviderUsage)`.
+- Everything else (`retry_config`, `fetch_supported_models`, context limits...)
+  has defaults — a 150-line provider is genuinely possible.
+
+## MessageStream: think deltas
+
+`MessageStream` is `Pin<Box<dyn Stream<Item = Result<(Option<Message>,
+Option<ProviderUsage>), ProviderError>>>>`. Per chunk, either field may be
+`None`: text arrives as many partial Messages, tool calls arrive once complete,
+and usage typically lands alone in the final chunk.
+`stream_from_single_message` (line 457) wraps one full reply + usage in a stream —
+every non-streaming provider (like the lab's echo) uses it, just as
+`TestProvider::stream` does (`crates/goose/src/providers/testprovider.rs:173`).
+
+## The enclosure types: `MessageContentBlock`
+
+Content is *not* a string. `MessageContentBlock`
+(`crates/goose-provider-types/src/conversation/message.rs:318`) is a serde
+tagged enum: `Text`, `Image`, `Document`, `ToolRequest`, `ToolResponse`,
+`ToolConfirmationRequest`, `ActionRequired` (elicitation lives here), `Thinking`,
+`RedactedThinking`, `SystemNotification`, `Error`. A provider that only ever
+emits `Text` is perfectly valid — but machines get tools, humans get text, and
+the enum is where the split happens.
+
+Usage rides beside the message as `ProviderUsage`
+(`crates/goose-provider-types/src/conversation/token_usage.rs:7`): `model`,
+`usage` (input/output/total tokens), `stats` (timings), `cost`, `finish_reasons`.
+
+## ProviderDef: the registration layer above `Provider`
+
+`ProviderDef` (`crates/goose/src/providers/base.rs:31`) is what the *registry*
+consumes: `ProviderDescriptor::metadata()` (name, display name, default model,
+config keys) plus `from_env()` — the constructor the registry calls with parsed
+extension config. Providers that goose builds at startup implement `ProviderDef`;
+a fair number of providers in `crates/goose/src/providers/` implement both.
+
+<FounderLens>
+
+Design tradeoff of the trait split: `stream` is the source of truth and
+`complete` is sugar, so every future transport (SSE, WebSocket, in-process) only
+has to teach goose one shape. The `Option`-laden stream item is the same idea
+pushed further — it lets a provider emit usage *after* its final text delta
+without a second channel. The cost: every consumer must handle
+`(None, None)`-ish states, which is exactly why `collect_stream` exists as the
+safe aggregator. Where it breaks: a provider that emits usage *first* then
+mutates a message later; `collect_stream` keeps the last usage, silently. Test
+your stream contract.
+
+</FounderLens>
+
+## The lab
+
+Stand up a ~150-line crate against a path dependency on
+`crates/goose-provider-types`, implement `Provider` for an `EchoProvider` whose
+answer is the last user message, count "tokens" naively, and prove `complete()`
+works with a test.

@@ -1,0 +1,105 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 5
+id: u2-l05
+slug: 05-clippy-cleanup
+title: "Small fix I: clippy cleanups under workspace lints"
+topics: [clippy-cleanup, justfile]
+durationMin: 20
+cites:
+  - file: Cargo.toml
+    line: 18
+    note: '[workspace.lints.clippy] — the workspace-wide clippy lint policy section'
+  - file: Cargo.toml
+    line: 20
+    note: 'string_slice = "warn" — workspace deliberately flags risky string slicing'
+  - file: Cargo.toml
+    line: 19
+    note: 'uninlined_format_args = "allow" — team explicitly chose not to chase this style lint'
+  - file: Justfile
+    line: 13
+    note: 'check-everything runs cargo clippy --all-targets -- -D warnings — warnings are errors at the gate'
+  - file: AGENTS.md
+    line: 117
+    note: 'Never: merge without running clippy'
+---
+
+# Small fix I: clippy cleanups under workspace lints
+
+Your first real goose PR will probably be a clippy cleanup, and clippy PRs
+fail on culture more than on code. The workspace declares its policy in the
+root `Cargo.toml` at `[workspace.lints.clippy]` (`Cargo.toml:18`). Two lines
+there teach the whole story:
+
+- `string_slice = "warn"` (`Cargo.toml:20`) — slicing `&s[0..1]` is genuinely
+  dangerous. Slicing at a non-boundary panics; slicing into a multibyte char
+  silently produces mojibake. The lint pushes you toward `get(..)` + handling
+  `None`. That's a *correctness* lint the team wants enforced.
+- `uninlined_format_args = "allow"` (`Cargo.toml:19`) — the team *decided*
+  not to chase stylistic churn. Lint policy is a conversation, not a default.
+
+## The gate: warnings are errors
+
+`Justfile:13` runs `cargo clippy --all-targets -- -D warnings`: every warn-level
+lint becomes a hard error at the PR gate. And `AGENTS.md:117` makes the human
+side explicit: *Never merge without running clippy*. So a cleanup PR's job is
+to get the tree from "clippy complains" to "clippy passes with `-D warnings`".
+
+## Cleanup workflow that reviewers respect
+
+1. **Reproduce first**: run `cargo clippy --all-targets` and capture the exact
+   lint names (e.g. `clippy::string_slice`) — never fix what you can't see.
+2. **Understand the lint's rationale** before changing code. `string_slice`
+   means "this can panic or corrupt text on non-ASCII input" — the fix usually
+   swaps in `get(..)` or byte-safe indexing with an explicit `Option`/
+   `unwrap_or` decision, which you must make *on purpose*.
+3. **Fix at the source, not with attributes.** Adding `#[allow(...)]` is a
+   last resort that needs a justifying comment — a PR full of allows gets
+   rejected because it hides, not fixes.
+4. **Never `clippy --fix` blindly on a shared codebase** — it rewrites
+   semantics-adjacent code (auto-`get(..)` can silently change error paths)
+   and creates unreviewable diffs. Hand-fix, review each hunk.
+5. **Keep the PR single-purpose**: lint cleanups only — no refactors hiding
+   inside them. `git add -p` is your friend.
+
+## The labeled exercise
+
+These are exercises modeled on the lint, not code from the repo
+(`Diff` blocks are teaching material):
+
+<Diff title="string_slice: the kind of line the workspace lint catches" oldCode={`
+let initials = &full_name[0..2];
+`} newCode={`
+let initials = full_name.get(0..2).unwrap_or("??");
+`} />
+
+<Diff title="needless_bool: comparator versus plain boolean" oldCode={`
+if is_dirty == true {
+    agent.flush();
+}
+`} newCode={`
+if is_dirty {
+    agent.flush();
+}
+`} />
+
+<Diff title="redundant_clone: cloning a Copy type" oldCode={`
+let label = self.cached_label.clone();
+format_args_reporter.send(label);
+`} newCode={`
+let label = self.cached_label;
+format_args_reporter.send(label);
+`} />
+
+<FounderLens>
+
+Why workspace-level lints instead of per-crate? A single policy at the root
+`Cargo.toml` means every contributor, IDE, and CI job judges code identically,
+and a policy debate happens once. Tradeoff: one globally-denied lint blocks
+legitimate local uses — the escape hatch is a scoped `#[allow]` *with a
+comment*, reviewed like code. Where it breaks: contributors who fix warnings
+without reading the rationale produce "neutral-looking" diffs that quietly
+change behavior (a `.get()` swap that turns a panic into a silent default).
+
+</FounderLens>

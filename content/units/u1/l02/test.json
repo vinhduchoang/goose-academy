@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In goose v1.49.0, what is the core data shape replacing the legacy `Reply`/`ReplyPart`?",
+    "options": [
+      "`Message { id, role, created, content: Vec<MessageContentBlock>, metadata }`",
+      "`Reply { parts: Vec<ReplyPart> }` where ReplyPart is Text or ToolCall",
+      "`Conversation { turns: Vec<ToolCall> }`",
+      "`Message { content: String, role: String }`"
+    ],
+    "answer": 0,
+    "topic": "messages",
+    "explanation": [
+      "ReplyPart no longer exists in the tree — verify by grepping the checkout for ReplyPart.",
+      "ToolCall is one block kind, not the container of the whole conversation.",
+      "content is a Vec<MessageContentBlock>, not a single formatted string."
+    ]
+  },
+  {
+    "q": "Why is `Message.content` a list of typed blocks instead of one text string?",
+    "options": [
+      "One assistant turn can interleave text, tool requests, and thinking; blocks keep them typed, filterable per audience, and serde-round-trippable",
+      "Text cannot store YouTube links safely",
+      "Each provider parses a single string faster than structured data",
+      "Block lists were forced by an old rmcp limitation that is still on the issue tracker"
+    ],
+    "answer": 0,
+    "topic": "data-model",
+    "explanation": [
+      "Content safety has nothing to do with the block design.",
+      "Providers receive structured blocks and format them per envelope — the opposite claim.",
+      "rmcp is the source of Role and CallToolResult types, not the reason for block lists."
+    ]
+  },
+  {
+    "q": "Which crate owns the `Message` struct in v1.49.0?",
+    "options": [
+      "goose-provider-types, re-exported via goose-providers and goose",
+      "The goose crate itself, under src/agents/",
+      "The rmcp crate",
+      "goose-sdk-types"
+    ],
+    "answer": 0,
+    "topic": "crate-graph",
+    "explanation": [
+      "goose consumes it via `pub mod conversation { pub use goose_providers::conversation::*; }` in lib.rs.",
+      "rmcp contributes Role/CallToolResult but not Message.",
+      "goose-sdk-types carries ACP/GDK wire types, a different contract."
+    ]
+  },
+  {
+    "q": "What does the custom serde deserializer wired on `Message.content` do?",
+    "options": [
+      "Migrates legacy shapes: drops `conversationCompacted` blocks, migrates `reasoning` to `thinking`, sanitizes Unicode tags",
+      "Converts content to uppercase for storage",
+      "Rejects any message older than 30 days",
+      "HTTP-encodes the text for safe transfer"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "Storage is lossless; nothing gets uppercased in deserialization.",
+      "There is no age validation in the deserializer.",
+      "Transfer encoding is unrelated to serde's job here."
+    ]
+  },
+  {
+    "q": "Which of these is a field of `ModelConfig` in goose-provider-types/src/model.rs?",
+    "options": [
+      "model_name, context_limit, temperature, max_tokens, toolshim",
+      "model_name, api_key, provider_url, retries",
+      "prompt, response, tokens_in, tokens_out",
+      "workspace_root, git_branch, cwd"
+    ],
+    "answer": 0,
+    "topic": "data-model",
+    "explanation": [
+      "API keys never sit on ModelConfig; secrets live in the config/secrets layer.",
+      "ModelConfig shapes a provider call, it doesn't hold the conversation.",
+      "cwd/workspace belong to Session, not the model fingerprint."
+    ]
+  },
+  {
+    "q": "What would this change mean for your PR? — `git grep -n 'ReplyPart' crates/` returns nothing, but COURSE-PLAN.md says lesson 1.2 covers ReplyPart.",
+    "options": [
+      "The codebase evolved: teach MessageContentBlock as the replacement and mention the legacy ReplyPart naming in the lesson",
+      "Leave the lesson as planned, since the plan document is authoritative",
+      "Rewrite history so ReplyPart appears again",
+      "Skip the lesson entirely"
+    ],
+    "answer": 0,
+    "topic": "data-model",
+    "explanation": [
+      "The plan pins learning intent; the repo is ground truth for paths (drift rule).",
+      "Reintroducing a deleted type to match prose inverts the priority.",
+      "Content drift is expected and handled, not a reason to drop the lesson."
+    ]
+  },
+  {
+    "q": "In `crates/goose/src/agents/reply_parts.rs`, why does `categorize_tool_requests` still exist?",
+    "options": [
+      "It dissects assistant messages into text vs tool-request buckets — legacy reply-assembly logic retained for the legacy loop path",
+      "It double-checks that providers never send tool requests",
+      "It is dead code kept only to satisfy clippy",
+      "It renames tool calls for the UI"
+    ],
+    "answer": 0,
+    "topic": "messages",
+    "explanation": [
+      "It exists precisely because providers DO send tool requests inside content blocks.",
+      "Clippy deletes nothing; dead_code is flagged, and this is called.",
+      "Rename logic lives elsewhere; this function partitions content blocks."
+    ]
+  }
+]

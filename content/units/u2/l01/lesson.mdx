@@ -1,0 +1,92 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 1
+id: u2-l01
+slug: 01-contribution-ops
+title: "Contribution operations: Ready issues, templates, board rituals"
+topics: [issue-triage]
+durationMin: 20
+cites:
+  - file: AGENTS.md
+    line: 7
+    note: 'issue is the source of truth for upstream PRs; track status on the Goose Issues board'
+  - file: AGENTS.md
+    line: 15
+    note: 'structure new issues on .github/ISSUE_TEMPLATE templates; gh issue create does not apply them automatically'
+  - file: .github/ISSUE_TEMPLATE/bug_report.md
+    line: 17
+    note: 'bug template asks for a clear description, then To Reproduce / Expected behavior sections'
+  - file: .github/ISSUE_TEMPLATE/feature_request.md
+    line: 10
+    note: 'feature template opens with "What problem would this solve?" before any implementation talk'
+  - file: .github/ISSUE_TEMPLATE/config.yml
+    line: 1
+    note: 'blank_issues_enabled: false — every issue must come through a template'
+---
+
+# Contribution operations: Ready issues, templates, board rituals
+
+Every upstream goose PR is driven by an issue. `AGENTS.md:7` makes it explicit:
+the issue is the source of truth, and issue status is tracked on the Goose
+Issues board. Before you touch code you must understand that pipeline, because
+PRs that implement un-Ready issues get bounced on principle.
+
+## The status gate
+
+Board statuses matter. **Inbox** = triage needed. **Needs info** = maintainer
+asked for clarification. **Accepted / design** = agreed but not yet scheduled.
+**Ready** = this is the small set you are allowed to implement. If a change is
+needed on those states, your job is to help resolve the *discussion*, not jump
+to code. When implementation reveals a material design change, you return to
+the issue before continuing — that is a rule in `AGENTS.md:11-13`, not advice.
+
+<FounderLens>
+
+Why gate implementation on a board at all? Goose is a fast-moving agent that
+edits code autonomously; the issue->PR flow is the only thing keeping
+contributor labor (human and agent) pointed at problems the maintainers have
+actually scoped. Tradeoff: it adds latency and feels bureaucratic for one-line
+fixes — hence the escape hatch: maintainer-directed work, urgent security
+fixes, and release automation skip the Ready requirement. Where it breaks:
+enthusiastic contributors "helpfully" implement Inbox issues, build the wrong
+thing, and the wasted review effort exceeds the fix effort.
+
+</FounderLens>
+
+## Templates are protocol, not paperwork
+
+The repo ships three template files: `bug_report.md`, `feature_request.md`,
+and `config.yml` with `blank_issues_enabled: false` — you literally cannot file
+a blank issue. The bug template (`bug_report.md:17`) asks for a clear
+description plus **To Reproduce** steps and **Expected behavior**. The feature
+template (`feature_request.md:10-13`) forces problem-first thinking: *What
+problem would this solve?*, *What would a good outcome look like?*, *Possible
+approaches* — outcome before implementation.
+
+One trap, documented at `AGENTS.md:15`: `gh issue create` does **not** apply
+templates automatically. Use the web form or the `--template` flag.
+
+## Board rituals a contributor follows
+
+1. Read the agreed design, constraints, non-goals, and verification plan on
+   the Ready issue before implementing.
+2. Keep the implementation strictly inside the agreed scope.
+3. On the PR: link the Ready issue and explain how you performed its
+   verification plan (`AGENTS.md:14`).
+4. Write comments for humans: lead with the conclusion, keep it concise.
+
+## Real issues for your triage practice
+
+From this repo's own git history (v1.49.0 checkout):
+
+| Issue/PR | What it was | Commit |
+|---|---|---|
+| #11719 | 24-hour locale system bug | `5345d0517` |
+| #4632 | `token_counter` panic with GitHub Copilot | `509fcac69` |
+| #9586 | LRU cache for token counting | `08e748051` |
+| #10482 | Secure large-response spill files | `e7c33077c` |
+
+That last one shows triage value: `#10482` hardened `large_response_handler`'s
+temp-file writes — a bug report classified correctly ("security") gets fast
+maintainer attention in this repo.

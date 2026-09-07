@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Why does `Session` keep `last_message_snippet` and the usage ledger outside the `conversation` blob?",
+    "options": [
+      "So session lists and stats stay cheap — metadata hot, the full message history cold until loaded",
+      "Because serde forbids nested structs",
+      "To avoid the borrow checker in async code",
+      "Legacy: they were never migrated"
+    ],
+    "answer": 0,
+    "topic": "sessions",
+    "explanation": [
+      "Serde handles nesting fine.",
+      "The borrow checker isn't a schema-design constraint here.",
+      "The split is deliberate storage shaping."
+    ]
+  },
+  {
+    "q": "Which layer decides the *effective* context limit for a model?",
+    "options": [
+      "ContextLimitResolver: override -> configured limits -> canonical metadata -> global default",
+      "The MCP server's declaration",
+      "The tokenizer's vocabulary size",
+      "The CLI's --limit flag alone"
+    ],
+    "answer": 0,
+    "topic": "context-window",
+    "explanation": [
+      "Server declarations aren't consulted for model context limits.",
+      "Vocabulary size is about encoding, not window length.",
+      "An explicit override is consumed by the resolver, alongside the other layers."
+    ]
+  },
+  {
+    "q": "What is the fundamental tradeoff of compaction?",
+    "options": [
+      "Lossy by design: a summary replaces real turns, so the model loses verbatim history in exchange for staying under the window",
+      "It is lossless compression, just slow",
+      "It requires no model calls",
+      "It only applies to tool results"
+    ],
+    "answer": 0,
+    "topic": "context-window",
+    "explanation": [
+      "Compaction destroys original wording — that's the loss.",
+      "It calls the model (CompactionModel) to produce summaries.",
+      "Tool-pair summarization is one tier; full compaction covers whole messages."
+    ]
+  },
+  {
+    "q": "`MAX_CONTEXT_ERROR_COMPACTIONS = 2` guards against:",
+    "options": [
+      "A compaction loop: after two context-length-error-triggered compactions the run stops and surfaces the error",
+      "Double billing for summaries",
+      "Two sessions sharing one conversation",
+      "The model returning two summaries"
+    ],
+    "answer": 0,
+    "topic": "context-window",
+    "explanation": [
+      "Billing is unrelated to error compactions.",
+      "Session isolation is enforced elsewhere.",
+      "It caps attempts after context-length errors, not summary count."
+    ]
+  },
+  {
+    "q": "After a compact, can chat-history search still find a fact from an early turn word-for-word?",
+    "options": [
+      "No — the search reads the compacted conversation, so summarized-away wording is gone (it finds what survives)",
+      "Yes, always — the raw log is kept forever",
+      "Yes, but only for tool calls",
+      "Only when the search runs offline"
+    ],
+    "answer": 0,
+    "topic": "sessions",
+    "explanation": [
+      "There is a raw log, but the search targets indexed conversations (ChatRecallResult) — verify what it reads.",
+      "Search covers messages, not just tool calls.",
+      "Offline-ness doesn't change the data source."
+    ]
+  },
+  {
+    "q": "Where was compaction moved in v1.49.0?",
+    "options": [
+      "Into the extracted `goose-context-management` crate, wired in by goose's context_mgmt/mod.rs",
+      "Into the state machine ops file only",
+      "Into goose-providers formats",
+      "It was removed — the model now manages context itself"
+    ],
+    "answer": 0,
+    "topic": "sessions",
+    "explanation": [
+      "ops_compaction.rs wraps the logic; the crate holds it.",
+      "formats translate envelopes and never summarize.",
+      "Compaction still runs (manages_own_context providers excepted)."
+    ]
+  },
+  {
+    "q": "Fix this production loop: goose repeatedly compacts, then errors 'context limit exceeded', compacts again. Per the codebase's own tripwire, the correct behavior is:",
+    "options": [
+      "Stop after MAX_CONTEXT_ERROR_COMPACTIONS attempts and surface the error to the user instead of looping",
+      "Keep compacting until the provider accepts the input",
+      "Switch models automatically",
+      "Clear the session"
+    ],
+    "answer": 0,
+    "topic": "context-window",
+    "explanation": [
+      "Unbounded retries are exactly what the cap prevents.",
+      "Automatic model switching is not a compaction behavior.",
+      "Clearing state is destructive and never automatic."
+    ]
+  }
+]

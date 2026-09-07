@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Rust `match` differs from TS `switch` most importantly because:",
+    "options": [
+      "The compiler enforces every enum variant is handled (exhaustiveness)",
+      "Its arms fall through like switch cases",
+      "It only matches strings",
+      "It requires a `break` per arm"
+    ],
+    "answer": 0,
+    "topic": "pattern-matching",
+    "explanation": [
+      "Rust arms never fall through; switch's fallthrough is a JS/TS problem.",
+      "match works on any type with patterns — enums, ints, strings, ranges.",
+      "Rust match arms contain expressions with commas; break is a loop concept."
+    ]
+  },
+  {
+    "q": "In `RetryResult`, `MaxAttemptsReached(Message)` stores a Message inside the variant. To use that data in a match arm you must:",
+    "options": [
+      "Bind it in the pattern, e.g. `RetryResult::MaxAttemptsReached(msg) => ...`",
+      "Call a `.value()` method on the variant",
+      "Cast the variant to Message first",
+      "Destructure with `..` to access it"
+    ],
+    "answer": 0,
+    "topic": "enums",
+    "explanation": [
+      "No accessor methods exist unless you write them; binding in the pattern is the way.",
+      "The variant IS the storage; the compiler packs and enforces it — no cast needed.",
+      "`..` ignores fields; you want the opposite here."
+    ]
+  },
+  {
+    "q": "What does `if let Some(serde_json::Value::Object(properties)) = schema.get(\"properties\")` do (token_counter.rs:90)?",
+    "options": [
+      "Runs the block only when get returned Some and the value is a JSON object, binding properties to the map",
+      "Panics unless the value is an object",
+      "Loops over all values in the schema",
+      "Converts the schema to a properties String"
+    ],
+    "answer": 0,
+    "topic": "pattern-matching",
+    "explanation": [
+      "Panic requires unwrap/expect; if let silently skips non-matches.",
+      "It's a single test, not a loop.",
+      "The binding is the object's inner map, not a string."
+    ]
+  },
+  {
+    "q": "In testprovider.rs:91, `ref mut req` means:",
+    "options": [
+      "Borrow the matched field mutably instead of moving it, so the message stays intact",
+      "Duplicate the field's data",
+      "Convert the field into a new type called ref",
+      "Match only if the field is already a reference type"
+    ],
+    "answer": 0,
+    "topic": "pattern-matching",
+    "explanation": [
+      "Nothing is copied — ref mut borrows what's already there.",
+      "ref is a binding mode, not a type.",
+      "You can bind ref mut to owned data too; the match wouldn't otherwise move the content out."
+    ]
+  },
+  {
+    "q": "What is the `@` operator in `ref mut result @ CallToolResult { .. }`?",
+    "options": [
+      "It binds `result` to the entire matched value while still matching the inner shape",
+      "It dereferences the value before matching",
+      "It is the Rust namespace separator",
+      "It clones the value into result"
+    ],
+    "answer": 0,
+    "topic": "pattern-matching",
+    "explanation": [
+      "Deref is written with *; the pattern is matching, not dereferencing.",
+      "The namespace separator is ::.",
+      "Binding is by reference/move as declared — no clone happens automatically."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0004]: non-exhaustive patterns: `Quit` not covered`. Your match handles Say, Toast, Retry on an enum with 4 variants. Which change is best?",
+    "options": [
+      "Add a `Command::Quit => ...` arm (or an explicit `_ => ...` if others are genuinely irrelevant)",
+      "Delete the Quit variant",
+      "Wrap the match in a loop",
+      "Annotate the enum with #[derive(Match)]"
+    ],
+    "answer": 0,
+    "topic": "pattern-matching",
+    "explanation": [
+      "Deleting the variant may be right if the enum is yours — but here the enum models reality; the intended fix is handling the case.",
+      "Loops don't change exhaustiveness checking.",
+      "No #[derive(Match)] exists; exhaustiveness is inherent to match."
+    ]
+  },
+  {
+    "q": "What does `matches!(cmd, Command::Retry(n) if *n > 1)` return?",
+    "options": [
+      "A bool: true only when cmd is Retry and the stored n is greater than 1",
+      "The captured n value",
+      "An Option<u32>",
+      "Nothing; matches! is a statement"
+    ],
+    "answer": 0,
+    "topic": "pattern-matching",
+    "explanation": [
+      "A match guard filters, it doesn't select; the macro's value is a bool.",
+      "Option is what you'd get from a fallible access, not matches!.",
+      "matches! is an expression macro returning bool."
+    ]
+  }
+]

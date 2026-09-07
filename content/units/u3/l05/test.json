@@ -1,0 +1,114 @@
+[
+  {
+    "q": "What does the provider registry (provider_registry.rs:26) actually store per entry?",
+    "options": [
+      "A live Arc<dyn Provider> instance",
+      "Metadata + a lazy constructor + inventory resolvers",
+      "only the provider's config.yaml raw text",
+      "A network connection to the vendor"
+    ],
+    "answer": 1,
+    "topic": "registry",
+    "explanation": [
+      "No instances - the registry constructs on demand via the ProviderConstructor closure.",
+      "Raw config text is parsed earlier; the registry holds typed metadata.",
+      "Connections are made by the provider at call time, never at registration."
+    ]
+  },
+  {
+    "q": "Which situation does `ProviderSecretStatus::Unknown` describe?",
+    "options": [
+      "The secret failed a live credential check",
+      "No expiry is known (e.g. env-var API key with no expires_at)",
+      "The user has never configured the provider",
+      "The secret store is offline"
+    ],
+    "answer": 1,
+    "topic": "provider-auth",
+    "explanation": [
+      "A failed live check would be Expired, not Unknown.",
+      "Never-configured is `configured: false`, a different field from status.",
+      "Store availability is not modeled by status."
+    ]
+  },
+  {
+    "q": "Why must OAuth authorization endpoints use HTTPS unless they target loopback?",
+    "options": [
+      "Browsers block HTTP only on Mac",
+      "The auth code can be sniffed/redirected on a plaintext network path; HTTPS is the confidentiality floor",
+      "Loopback HTTP is always safe because it's encrypted",
+      "HTTPS makes the redirect URL shorter"
+    ],
+    "answer": 1,
+    "topic": "security",
+    "explanation": [
+      "The rule is protocol-level, not per-OS.",
+      "Loopback is exempt because traffic never leaves the machine, not because it's encrypted.",
+      "URL length is irrelevant to transport security."
+    ]
+  },
+  {
+    "q": "What is `OAUTH_MUTEX` (oauth.rs:17) for?",
+    "options": [
+      "Rate-limiting token refreshes",
+      "Serializing all OAuth flows so concurrent logins don't race the loopback redirect",
+      "Encrypting secrets in memory",
+      "Locking the config file during writes"
+    ],
+    "answer": 1,
+    "topic": "provider-auth",
+    "explanation": [
+      "Refresh scheduling is not its purpose.",
+      "A TokioMutex is an in-process sync primitive, not encryption.",
+      "Config-file locking is handled by the config module separately."
+    ]
+  },
+  {
+    "q": "A provider whose token refreshes via OAuth should advertise which `can_configure` value?",
+    "options": [
+      "None - secrets cannot be reconfigured",
+      "The flow that renews the token",
+      "Always `false`",
+      "The user's raw refresh token"
+    ],
+    "answer": 1,
+    "topic": "config-system",
+    "explanation": [
+      "Reconfiguring is the point of can_configure for renewable credentials.",
+      "False would block renewal UI.",
+      "Raw tokens are never passed back through configuration metadata."
+    ]
+  },
+  {
+    "q": "Where does goose complete the OAuth handshake for a `streamable_http` MCP extension that returns `AuthRequired`?",
+    "options": [
+      "In the extension's own process",
+      "create_streamable_http_client in extension_manager.rs",
+      "The OS browser only",
+      "provider_secrets.rs"
+    ],
+    "answer": 1,
+    "topic": "extension-system",
+    "explanation": [
+      "The client side of the handshake is goose's to drive; the server just demands auth.",
+      "The browser only renders the consent page; code completes the flow.",
+      "provider_secrets stores results; it does not run transports."
+    ]
+  },
+  {
+    "q": "Fix this: `from_env` returns `Err('ECHO_API_KEY is required')` in tests that never set the env var, breaking unrelated suites. The right change is:",
+    "options": [
+      "Hardcode a fallback key",
+      "Read the key lazily inside stream() instead of failing construction, OR keep the fallback secret-empty and only error at call time",
+      "Delete the ConfigKey from metadata",
+      "Return an empty provider and let it panic later"
+    ],
+    "answer": 1,
+    "topic": "registry",
+    "explanation": [
+      "Hardcoding defeats the secret model and leaks credentials.",
+      "The ConfigKey drives UI required-ness; removing it hides a real requirement.",
+      "Panicking later converts a construction error into a runtime crash."
+    ]
+  }
+]

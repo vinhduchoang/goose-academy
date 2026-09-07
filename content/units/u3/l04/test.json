@@ -1,0 +1,114 @@
+[
+  {
+    "q": "On the OpenAI wire, a tool call's arguments are a JSON...",
+    "options": [
+      "object",
+      "string containing serialized JSON",
+      "array of key-value pairs",
+      "base64 blob"
+    ],
+    "answer": 1,
+    "topic": "formats-openai",
+    "explanation": [
+      "The Object form is Anthropic's input style, not OpenAI chat.completions.",
+      "There is no such envelope in chat.completions tool_calls.",
+      "Arguments arrive as a serialized JSON string; the mapper parses it."
+    ]
+  },
+  {
+    "q": "In `response_to_message` (openai.rs:708), empty tool-call arguments are handled by:",
+    "options": [
+      "Dropping the tool call",
+      "Defaulting them to \"{}\" before parsing",
+      "Returning an error",
+      "Escaping them as text"
+    ],
+    "answer": 1,
+    "topic": "tool-call-mapping",
+    "explanation": [
+      "A call with no payload is valid (no-arg tools); dropping it would hide a real call.",
+      "Only unparseable JSON errors; empty becomes the empty object.",
+      "Treating arguments as text would break the ToolRequest contract."
+    ]
+  },
+  {
+    "q": "What does the Anthropic mapper do when a `tool_result` block appears without a preceding `tool_use`?",
+    "options": [
+      "Crashes with a panic",
+      "Emits a placeholder tool_use block with the same id so history stays valid",
+      "Skips the result silently",
+      "Converts the result into a user message"
+    ],
+    "answer": 1,
+    "topic": "formats-anthropic",
+    "explanation": [
+      "Mappers never panic on malformed history; they repair.",
+      "Silently dropping results would corrupt conversation continuity.",
+      "The repair keeps role structure; nothing becomes a user message."
+    ]
+  },
+  {
+    "q": "How does Anthropic's streaming parser know when to emit a complete ToolRequest?",
+    "options": [
+      "It waits for the HTTP response to end",
+      "It accumulates per-index StreamingToolCall state and flushes when the content_block closes",
+      "It parses the whole SSE stream at once",
+      "It guesses from the tool name"
+    ],
+    "answer": 1,
+    "topic": "streaming",
+    "explanation": [
+      "Blocks close mid-response; waiting for EOF would delay every tool call.",
+      "SSE is incremental by design - state must accumulate across events.",
+      "Names are irrelevant to block boundary detection."
+    ]
+  },
+  {
+    "q": "What is the `merge_split_tool_call_messages` function (openai.rs:566) for?",
+    "options": [
+      "Reuniting an assistant tool call with its own follow-up reply into one message for ReST API compatibility",
+      "Merging two user messages in a row",
+      "Deduplicating identical tool calls",
+      "Combining system + user messages"
+    ],
+    "answer": 0,
+    "topic": "formats-openai",
+    "explanation": [
+      "User-message merging is not a wire-format concern.",
+      "Deduplication would change semantics, not fix history shape.",
+      "System/user roles stay distinct; only split assistant turns merge."
+    ]
+  },
+  {
+    "q": "In `ToolRequest` (message.rs:133), what type holds the tool's arguments?",
+    "options": [
+      "String (kept verbatim)",
+      "serde_json::Value",
+      "Vec<u8>",
+      "A vendor-specific enum"
+    ],
+    "answer": 1,
+    "topic": "tool-call-mapping",
+    "explanation": [
+      "The string is only the wire form; internally the call keeps parsed JSON.",
+      "Arguments are structured JSON, not byte blobs.",
+      "One canonical type across vendors is the point of the format layer."
+    ]
+  },
+  {
+    "q": "Which change fixes this round-trip bug: `from_openai_tool_call` receives `{\"function\":{\"arguments\":\"{\\\"cmd\\\":\\\"hi\\\"}\"}}` but returns no arguments?",
+    "options": [
+      "Switch the parser to read `arguments` as an object",
+      "Call `serde_json::from_str` on the arguments string and store the result in the ToolRequest",
+      "Rename the function to end in `_parse`",
+      "Add a retry loop around the parse"
+    ],
+    "answer": 1,
+    "topic": "tool-call-mapping",
+    "explanation": [
+      "That would fail: on the OpenAI wire arguments IS a string, not an object.",
+      "Names do not change deserialization behavior.",
+      "a retry loop cannot turn a string into parsed JSON."
+    ]
+  }
+]

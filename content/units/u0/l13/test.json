@@ -1,0 +1,130 @@
+[
+  {
+    "q": "Why does goose's library crate (`goose-provider-types`) use thiserror while app code uses anyhow?",
+    "options": [
+      "Libraries publish typed, matchable error enums; apps carry open-ended contextual failures upward",
+      "anyhow cannot be used in libraries at all",
+      "thiserror is faster at runtime",
+      "The two crates target different Rust editions"
+    ],
+    "answer": 0,
+    "topic": "error-handling",
+    "explanation": [
+      "anyhow works fine in libraries — it's a style choice, not a restriction.",
+      "Speed is not the differentiator; the match-mandate is.",
+      "Editions are a compiler concept; both crates compile together."
+    ]
+  },
+  {
+    "q": "What does `let content = fs::read_to_string(path)?;` do when the read fails?",
+    "options": [
+      "Returns the error from the enclosing function early, converting it to the function's error type if needed",
+      "Panics with the io::Error",
+      "Retries the read once",
+      "Ignores the error and uses an empty string"
+    ],
+    "answer": 0,
+    "topic": "error-handling",
+    "explanation": [
+      "Panic is `.unwrap()`'s behavior; `?` returns instead.",
+      "No retry semantics exist in `?`.",
+      "`?` never fabricates values; silence requires explicit handling."
+    ]
+  },
+  {
+    "q": "`#[derive(Error, Debug, Clone, PartialEq)]` on ProviderError generates:",
+    "options": [
+      "Display and std::error::Error impls from the #[error(\"...\")] templates, making the enum a first-class error",
+      "Automatic retry logic per variant",
+      "Stack traces for every variant",
+      "A try/catch wrapper around matching"
+    ],
+    "answer": 0,
+    "topic": "thiserror",
+    "explanation": [
+      "The derive handles impls, not runtime behavior like retries.",
+      "Stack traces are not part of thiserror's derive.",
+      "try/catch doesn't exist in Rust."
+    ]
+  },
+  {
+    "q": "`anyhow!(\"TestProvider must be constructed explicitly\")` (testprovider.rs:163) produces:",
+    "options": [
+      "An anyhow::Error carrying that message, ready to flow upward through ?",
+      "A panic with that message",
+      "A ProviderError enum variant",
+      "A string that must be logged manually"
+    ],
+    "answer": 0,
+    "topic": "anyhow",
+    "explanation": [
+      "anyhow! builds an error value; panic! would unwind, and it's not used here.",
+      "ProviderError is the library type; app code uses the open-ended anyhow error.",
+      "The macro returns an Error value — logging is the caller's choice."
+    ]
+  },
+  {
+    "q": "`.ok_or(\"config is empty\")` on an Option transforms:",
+    "options": [
+      "None into Err(\"config is empty\"), Some(v) into Ok(v)",
+      "Some into Err, None into Ok",
+      "The Option into a bool",
+      "The inner value into a String error"
+    ],
+    "answer": 0,
+    "topic": "option-result",
+    "explanation": [
+      "ok_or converts absence to error; the Some case becomes Ok.",
+      "Bools come from is_some/is_none.",
+      "The error message is the new payload for None — the inner value passes through."
+    ]
+  },
+  {
+    "q": "`io_error` flowing through a chain of `?` in an anyhow function gains what goose values?",
+    "options": [
+      "Accumulated context: each layer's message wraps the layer below's error",
+      "A permanent stack of all heap allocations",
+      "Automatic email alerts",
+      "Nothing — errors are strings and stay flat"
+    ],
+    "answer": 0,
+    "topic": "anyhow",
+    "explanation": [
+      "anyhow enables .context() layers; `?` itself threads the chain.",
+      "No notifications exist in anyhow.",
+      "anyhow errors compose; with context(), they are not flat strings at all."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0308]: mismatched types — expected Result<ModelConfig, (), found Result<ModelConfig, String>`. You added `?` on a String-errored call at the end of a fn and declared a plain `Ok(config)`. The fix:",
+    "options": [
+      "Make the fn's error type the String variant (or add a map_err/: `?` conversion), and return the full Result",
+      "Replace `?` with `.unwrap()`",
+      "Change the fn to return ModelConfig directly and add `return config;` before the `?`",
+      "Annotate the fn with `-> String`"
+    ],
+    "answer": 0,
+    "topic": "error-handling",
+    "explanation": [
+      "unwrap re-introduces the panic style the whole lesson removed.",
+      "A fn containing `?` must return a compatible Result; `?` early-returns errors.",
+      "String is not an error type; `?` needs the Result signature."
+    ]
+  },
+  {
+    "q": "What does `error.downcast()` in `from_stream_error(error: anyhow::Error)` do (errors.rs:94)?",
+    "options": [
+      "Attempts to recover a concrete ProviderError that was previously wrapped as anyhow::Error",
+      "Deletes the error",
+      "Pads the error to a fixed length",
+      "Casts anyhow::Error to io::Error"
+    ],
+    "answer": 0,
+    "topic": "error-handling",
+    "explanation": [
+      "downcast inspects the boxed dynamic error for a known concrete type; it never discards.",
+      "Padding/formatting is unrelated to downcasting.",
+      "io::Error is only one of many possible concrete types inside."
+    ]
+  }
+]

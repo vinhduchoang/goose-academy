@@ -1,0 +1,421 @@
+{
+  "unitSlug": "core-contribution",
+  "unitIndex": 2,
+  "title": "Unit 2 Exam — Core Contribution",
+  "questions": [
+    {
+      "q": "A goose issue sits in Inbox and a contributor wants to implement it. Per AGENTS.md, the correct action is:",
+      "options": [
+        "Help resolve the issue discussion; only Status Ready issues may be implemented",
+        "Implement immediately since speed helps triage",
+        "Ask GitHub support to move it to Ready",
+        "Only implement it if the title contains the word 'fix'"
+      ],
+      "answer": 0,
+      "topic": "issue-triage",
+      "explanation": [
+        "Implementing Inbox issues is explicitly prohibited; triage first, code later.",
+        "Support moves no board statuses; maintainers do.",
+        "Title keywords are not a triage criterion."
+      ]
+    },
+    {
+      "q": "Which template structure does .github/ISSUE_TEMPLATE/bug_report.md demand?",
+      "options": [
+        "Description, To Reproduce steps, Expected behavior, plus diagnostics zip guidance",
+        "Only a one-line summary typed in the title",
+        "An attached gdb backtrace for every bug",
+        "A link to a pre-opened PR as proof"
+      ],
+      "answer": 0,
+      "topic": "issue-triage",
+      "explanation": [
+        "The template requires body sections, not just a title.",
+        "Backtraces are not required by the template; the diagnostics zip is.",
+        "Bugs and PRs are filed separately; no proof link is required."
+      ]
+    },
+    {
+      "q": "In the real v1.49.0 history, `509fcac69` is:",
+      "options": [
+        "fix(token_counter): fix panic with GitHub Copilot (#4632)",
+        "the commit that introduced the state machine",
+        "the version bump to 1.49.0",
+        "the desktop UI freeze fix"
+      ],
+      "answer": 0,
+      "topic": "reproduction",
+      "explanation": [
+        "The state machine evolved over many commits; no single introduction hash is this one.",
+        "The 1.49.0 bump is dd8de0196.",
+        "The desktop freeze fix is ec96aa059."
+      ]
+    },
+    {
+      "q": "The most useful form of a bug reproduction for a maintainer is:",
+      "options": [
+        "A minimal runnable script whose exit code distinguishes good from bad behavior",
+        "A video of the bug happening once",
+        "A 200-line stack trace with no input data",
+        "A theory of which commit caused it, without verification"
+      ],
+      "answer": 0,
+      "topic": "reproduction",
+      "explanation": [
+        "Videos cannot be re-executed or asserted against.",
+        "A trace without inputs is not rerunnable.",
+        "Theories without a runnable check are not reproductions."
+      ]
+    },
+    {
+      "q": "git bisect's exit-code contract under `git bisect run`:",
+      "options": [
+        "0 = good, 1-127 excluding 125 = bad, 125 = skip",
+        "0 = bad, 1 = good — inverted from manual bisect",
+        "Any exit code ends the bisect and marks the commit bad",
+        "Exit codes are ignored; output text decides"
+      ],
+      "answer": 0,
+      "topic": "bisect",
+      "explanation": [
+        "The run convention matches manual semantics: 0 good, non-zero bad (125 skip).",
+        "Only exhaustive manual resets behave that way; run stops when a first bad commit is found.",
+        "Output text is never parsed by bisect run."
+      ]
+    },
+    {
+      "q": "On a 6-commit history with one regression, why is bisect exponentially better than cherry-pick hunting?",
+      "options": [
+        "Each repro run halves the remaining candidate space (~log2 N runs)",
+        "Bisect runs the test suite in parallel on all commits",
+        "Bisect reads the commit messages to guess the bug",
+        "Bisect uses the reflog to skip commits automatically"
+      ],
+      "answer": 0,
+      "topic": "bisect",
+      "explanation": [
+        "Bisect checks out one commit at a time; there is no parallel execution.",
+        "Messages are not parsed for bug-guessing; the repro is the judge.",
+        "The reflog is unrelated to bisect's midpoint search."
+      ]
+    },
+    {
+      "q": "With no RUST_LOG set, goose's EnvFilter (logging.rs:30-38) defaults to:",
+      "options": [
+        "goose=info and mcp_client=info, WARN for the rest",
+        "trace for the entire workspace",
+        "error only",
+        "RUST_LOG=off semantics with no output"
+      ],
+      "answer": 0,
+      "topic": "rust-log-tracing",
+      "explanation": [
+        "Whole-workspace trace is never the default.",
+        "INFO/WARN baseline beats error-only.",
+        "Output is not off; the defaults are deliberately conservative but active."
+      ]
+    },
+    {
+      "q": "The `--test-threads=1` run fixes a test that fails only in CI most reliably when the test's real problem is:",
+      "options": [
+        "Shared global state mutated by multiple tests",
+        "Compilation timeouts",
+        "Missing dev-dependencies",
+        "Unstable network requests to the crates.io API at test time"
+      ],
+      "answer": 0,
+      "topic": "tracing",
+      "explanation": [
+        "Thread count does not affect compile time.",
+        "Missing dev-deps fail deterministically regardless of threads.",
+        "crates.io is not queried during test execution."
+      ]
+    },
+    {
+      "q": "Which of these is the repo's expected use of .snap files?",
+      "options": [
+        "Accept deliberate diffs through the documented insta update path, and review .snap changes in the PR",
+        "Hand-edit .snap text when the prompt changes",
+        "Delete .snap files whenever a test fails to regenerate clean",
+        "Keep .snap files in .gitignore to avoid noise"
+      ],
+      "answer": 0,
+      "topic": "observability",
+      "explanation": [
+        "Hand-editing fights the tool that owns the files.",
+        "Deleting evidence to pass is exactly the anti-pattern.",
+        ".snap files are tracked (only .snap.new is gitignored) because they are evidence."
+      ]
+    },
+    {
+      "q": "Doctrine: a mock provider in goose tests such as mcp_integration_test.rs:44 is defined how?",
+      "options": [
+        "As a plain struct implementing the real Provider trait inside the test crate",
+        "By subclassing the base provider class with mock overrides",
+        "By recording HTTP traffic with mitmproxy at test setup",
+        "By pointing the provider at a localhost echo server"
+      ],
+      "answer": 0,
+      "topic": "mock-provider",
+      "explanation": [
+        "There is no class hierarchy; the trait is the seam.",
+        "Traffic proxies are not how the crate builds its in-process mock.",
+        "An echo server would be an MCP fixture concern, not a provider mock."
+      ]
+    },
+    {
+      "q": "What does record mode write and replay mode read in the MCP integration test?",
+      "options": [
+        "Responses keyed to request inputs under crates/goose/tests/mcp_replays/",
+        "Only the timestamps of each tool call",
+        "Screenshots of the running server console",
+        "A truncated log of the last server restart"
+      ],
+      "answer": 0,
+      "topic": "mcp-test-recording",
+      "explanation": [
+        "Timestamps alone are insufficient to replay responses.",
+        "Console screenshots are not replayable data.",
+        "Restart logs carry no response payloads."
+      ]
+    },
+    {
+      "q": "In Justfile:456-458, after the record run the recipe runs `git add crates/goose/tests/mcp_replays/` because:",
+      "options": [
+        "Replays are committed evidence — the recorded artifacts must be staged for review with the change",
+        "Git requires test fixtures to be staged before cargo test",
+        "The directory might otherwise be deleted by cargo clean",
+        "CI only runs tests whose fixtures are listed in the index"
+      ],
+      "answer": 0,
+      "topic": "mcp-test-recording",
+      "explanation": [
+        "cargo test does not require staged fixtures.",
+        "cargo clean removes build artifacts, not src/tests directories.",
+        "CI decides test selection, not the git index."
+      ]
+    },
+    {
+      "q": "The root Cargo.toml sets `string_slice = \"warn\"` at [workspace.lints.clippy]. The fix pattern for that lint is:",
+      "options": [
+        "get(..) with an explicit fallback/error decision instead of direct slicing",
+        "Always disable the lint at crate level",
+        "Convert all strings to ASCII-Latin-1 before slicing",
+        "Slice only inside unsafe blocks"
+      ],
+      "answer": 0,
+      "topic": "clippy-cleanup",
+      "explanation": [
+        "Crate-level allows hide the risk the lint exists for.",
+        "Encoding conversion changes the data; slicing correctness remains the issue.",
+        "unsafe slicing still panics at boundaries — no help."
+      ]
+    },
+    {
+      "q": "In the v1.49.0 checkout, deny.toml's advisory policy sets `unmaintained = \"none\"` and `unsound = \"none\"` while `yanked = \"deny\"`. The design intent is:",
+      "options": [
+        "Mirror cargo-audit semantics: hard-block yanked crates, stay silent on the more opinionated categories unless a reason is documented",
+        "Yanked and unmaintained crates are both irrelevant to CI",
+        "Only crates with active CVEs are ever blocked",
+        "All three categories were disabled to speed up CI runs"
+      ],
+      "answer": 0,
+      "topic": "deny-toml",
+      "explanation": [
+        "The comment in the file states it emulates cargo-audit: vulns+yanked checked, unmaintained/unsound not.",
+        "CVE blocking is one part; yanked is an independent hard failure beyond CVEs.",
+        "Levels are a security-policy choice, not a performance knob."
+      ]
+    },
+    {
+      "q": "A contributor fixes a tool-label truncation in crates/goose/src/agents/agent.rs only. Per AGENTS.md:32 a maintainer must flag:",
+      "options": [
+        "Missing parity — the same behavior in the state-machine path needs the fix and a test too",
+        "The file choice — agent.rs is not the right location for labels",
+        "The change being too small to review",
+        "Missing a benchmark table in the PR body"
+      ],
+      "answer": 0,
+      "topic": "parity",
+      "explanation": [
+        "agent.rs is a legitimate location; the objection is incompleteness across universes.",
+        "Small focused fixes are welcome in this repo.",
+        "Benchmarks are not a review requirement for correctness fixes."
+      ]
+    },
+    {
+      "q": "state_machine::enabled() returns true for which env value?",
+      "options": [
+        "GOOSE_STATE_MACHINE=TRUE",
+        "GOOSE_STATE_MACHINE=2",
+        "GOOSE_STATE_MACHINE=false",
+        "GOOSE_STATE_MACHINE="
+      ],
+      "answer": 0,
+      "topic": "state-machine",
+      "explanation": [
+        "Only the spellings 1/true/TRUE/yes enable the path; 2 is not one of them.",
+        "false is not in the accepted set and falls back to legacy.",
+        "An empty value also falls through to legacy (unwrap_or(false))."
+      ]
+    },
+    {
+      "q": "A correct parity regression test for an agent-loop fix must:",
+      "options": [
+        "Run the SAME assertion pinned once to GOOSE_STATE_MACHINE=0 and once to =1 via scoped env guards",
+        "Run once with the env var unset to cover both paths",
+        "Randomize the env var per CI job",
+        "Test only the state-machine path since legacy is deprecated"
+      ],
+      "answer": 0,
+      "topic": "regression-tests",
+      "explanation": [
+        "Unset picks the legacy default — the second path never runs.",
+        "Randomization makes failures unreproducible.",
+        "Legacy is live until migration completes; ignoring it ships buggy behavior to current users."
+      ]
+    },
+    {
+      "q": "Where do the repo's own parity tests pin the env var, showing the approved pattern?",
+      "options": [
+        "agent_reply.rs and agent.rs tests using env_lock::lock_env / clear_otel_env guards",
+        "In build.rs at compile time",
+        "In docker-compose environment blocks",
+        "Inside the Provider trait impls"
+      ],
+      "answer": 0,
+      "topic": "parity",
+      "explanation": [
+        "build.rs runs before tests and cannot pin per-test runtime state.",
+        "No compose-based pinning exists for Rust test env.",
+        "Provider impls are test-agnostic production code."
+      ]
+    },
+    {
+      "q": "The correct full sequence a feature PR must document, per AGENTS.md:94:",
+      "options": [
+        "impl → tests → goose-self-test.yaml scenario added → rebuild → goose run --recipe goose-self-test.yaml",
+        "recipe scenario first, code after validation, tests optional",
+        "unit tests only; recipes are optional for small features",
+        "impl → cargo publish → update recipe if time permits"
+      ],
+      "answer": 0,
+      "topic": "feature-workflow",
+      "explanation": [
+        "The recipe validates the code, so it comes after the impl lands.",
+        "The rule does not exempt small features from the recipe update.",
+        "cargo publish is release work, never a feature-validation step."
+      ]
+    },
+    {
+      "q": "The feature_request template ordering — problem, outcome, approaches — exists to make the issue:",
+      "options": [
+        "Judged on the outcome before any implementation is preselected",
+        "Long enough to satisfy GitHub search indexing",
+        "Compatible with the Issues board kanban columns",
+        "Auto-generatable from PR descriptions"
+      ],
+      "answer": 0,
+      "topic": "feature-workflow",
+      "explanation": [
+        "Search indexing is not a template design goal.",
+        "Board compatibility is about status fields, not body order.",
+        "Templates shape issues, not PR description generation."
+      ]
+    },
+    {
+      "q": "The `{{ test_phases }}` placeholder inside goose-self-test.yaml's prompt is filled from:",
+      "options": [
+        "The parameters block, overridable by CLI key-value flags at run time",
+        "The environment variable TEST_PHASES only",
+        "The recipe's title block",
+        "Hard-coded session state JSON"
+      ],
+      "answer": 0,
+      "topic": "goose-self-test",
+      "explanation": [
+        "Env vars are not the recipe's parameter channel.",
+        "The title is static display text.",
+        "No session-state JSON powers recipe interpolation."
+      ]
+    },
+    {
+      "q": "A recipe run blocked by a missing provider configuration should be handled in a PR verification plan by:",
+      "options": [
+        "Stating the exact blocker and the planned command, then validating once a provider is available",
+        "Claiming the run passed with an invented summary",
+        "Skipping the recipe update entirely",
+        "Running only cargo test and calling it equivalent"
+      ],
+      "answer": 0,
+      "topic": "goose-self-test",
+      "explanation": [
+        "Fabricated run results are the one unrecoverable failure mode.",
+        "The rule requires the recipe update regardless of local run ability.",
+        "Unit tests and recipe runs validate different layers; they are not equivalent."
+      ]
+    },
+    {
+      "q": "A tool response above the large_response_handler threshold results in:",
+      "options": [
+        "A spill to a temp file and a pointer message, keeping the transcript small",
+        "A silent truncation to the threshold in-place",
+        "A rejected tool call with a user-facing error",
+        "The full text re-encoded to tokens to save space"
+      ],
+      "answer": 0,
+      "topic": "context-window",
+      "explanation": [
+        "Truncation loses data; the handler preserves it on disk.",
+        "The result is relocated, not rejected.",
+        "Re-encoding does not reduce content; tokenization is not compression."
+      ]
+    },
+    {
+      "q": "Why is the token counter cache bounded at 1,024 entries with a hash-keyed LRU?",
+      "options": [
+        "Duplicate content (repeated prompts, tool schemas) avoids expensive tokenization, while memory stays constant",
+        "Rust requires all LRU caches to be exactly 1,024 entries",
+        "The tokenizer can only produce 1,024 distinct outputs per session",
+        "CI enforces a 1,024-crate limit in the dependency graph"
+      ],
+      "answer": 0,
+      "topic": "token-counter",
+      "explanation": [
+        "The bound is a design constant (MAX_TOKEN_CACHE_SIZE), not a language limit.",
+        "Tokenizer output space is unbounded; only the cache is bounded.",
+        "Dependency limits are unrelated to in-memory caching."
+      ]
+    },
+    {
+      "q": "Reviewing a diff that adds a new dependency, the two consistency checks besides advisories are:",
+      "options": [
+        "Dependency added via cargo add and Cargo.lock updated consistently",
+        "Dependency pinned to exactly three minor versions and vendored under vendor/",
+        "Dependency has more than 1,000 GitHub stars and a sponsor page",
+        "Dependency is compiled with --release in CI before merge"
+      ],
+      "answer": 0,
+      "topic": "review-doctrine",
+      "explanation": [
+        "Triple version pinning and vendoring are not repo requirements.",
+        "Stars and sponsorship are popularity signals, not policy.",
+        "Release-mode prebuilding is not a merge gate for dependencies."
+      ]
+    }
+  ],
+  "miniLab": {
+    "title": "Real PR simulator: land a UTF-8-safe bug fix on your fork (scratch)",
+    "instructions": "Simulate the full Unit 2 pipeline in a LOCAL scratch repo (not the real goose repository).\n\n1. Create `u2-exam-fork/` under your labs directory. `git init` it and scaffold a tiny Rust lib crate inside with `cargo new --lib u2-exam-fork/fixer`.\n2. Seed the bug in `fixer/src/lib.rs`: a `pub fn truncate_label(text: &str, max: usize) -> String` that does `text[..max]` byte slicing — it panics on multibyte text and corrupts labels.\n3. Implement the fix: char-boundary-safe truncation (e.g. `text.chars().take(max).collect()` with an exact-fit fast path). Do not add comments that restate code.\n4. Add two regression tests in `fixer/tests/truncate_label_regression.rs`: (a) `multibyte_label_never_panics` — multibyte input longer than max returns valid UTF-8 with exactly `max` chars; (b) `exact_fit_returns_original` — input of exactly `max` chars is returned unchanged.\n5. Write `fixer/PR.md` with: the issue link line (dummy Ready issue URL is fine), one-paragraph implementation note, a `## Tests` section listing both regression test names, and a verification plan section that MUST contain these lines: `fmt: cargo fmt --check`, `clippy: cargo clippy -- -D warnings`, `parity: checked both legacy and state-machine paths (agent-loop drill from l06/l08)`, `state machine: GOOSE_STATE_MACHINE=1 run (mock provider drill)`.\n6. Run `cargo fmt`, `cargo test`, `cargo clippy -- -D warnings` in `fixer/` so the checks below pass.\n\nThis simulates, in lightweight form, the real auto-grade: fmt + clippy + tests + parity note + GOOSE_STATE_MACHINE=1 run — on a scratch crate instead of the goose workspace.",
+    "verifyScript": "# Goose Contributor Academy - Unit 2 exam miniLab: scratch-fork PR simulator\n# Grading: fmt + clippy + tests + regression coverage + parity note +\n# GOOSE_STATE_MACHINE=1 mention, all in lightweight form.\nparam(\n    [string]$ForkDir = \"\"\n)\n\n$ErrorActionPreference = \"Stop\"\n$fails = 0\n$passes = 0\n\nif (-not $ForkDir) {\n    $ForkDir = Join-Path (Get-Location) \"u2-exam-fork\"\n    Write-Host \"[INFO]  ForkDir not set; trying default: $ForkDir\"\n}\n\nfunction Check {\n    param([string]$Name, [bool]$Ok, [string]$Detail)\n    if ($Ok) {\n        Write-Host \"[PASS]  $Name\"\n        $script:passes++\n    } else {\n        Write-Host \"[FAIL]  $Name - $Detail\"\n        $script:fails++\n    }\n}\n\n$crate = Join-Path $ForkDir \"fixer\"\n$lib = Join-Path $crate \"src\\lib.rs\"\n$tests = Join-Path $crate \"tests\\truncate_label_regression.rs\"\n$pr = Join-Path $crate \"PR.md\"\n\n# 1. Scratch fork is a git repo\nCheck \"fork is a git repo\" (Test-Path (Join-Path $ForkDir \".git\")) \"run git init in u2-exam-fork\"\n\n# 2. Seeded bug replaced: no byte slicing remains, char-safe API present\n$libOk = $false\nif (Test-Path $lib) {\n    $l = Get-Content $lib -Raw\n    $libOk = ($l -match \"fn truncate_label\") -and ($l -match \"chars\\(\\)\") -and ($l -notmatch \"text\\[\\.\\.max\\]\")\n}\nCheck \"lib.rs has char-safe truncate_label (no byte slice)\" $libOk \"use chars().take(max).collect() pattern\"\n\n# 3. Two named regression tests exist\n$testsOk = $false\nif (Test-Path $tests) {\n    $t = Get-Content $tests -Raw\n    $testsOk = ($t -match \"multibyte_label_never_panics\") -and ($t -match \"exact_fit_returns_original\") -and ($t -match \"#\\[test\\]\")\n}\nCheck \"both regression tests present\" $testsOk \"multibyte_label_never_panics + exact_fit_returns_original\"\nif ($testsOk) { Write-Host \"REGRESSION-TESTS: 2\" } else { Write-Host \"REGRESSION-TESTS: FAILED\" }\n\n# 4. PR.md verification plan markers\n$prOk = $false\n$prRaw = \"\"\nif (Test-Path $pr) {\n    $prRaw = Get-Content $pr -Raw\n    $prOk = ($prRaw -match \"Tests\") -and ($prRaw -match \"cargo fmt --check\") -and ($prRaw -match \"cargo clippy -- -D warnings\")\n}\nCheck \"PR.md has Tests section + fmt/clippy lines\" $prOk \"follow the required verification plan format\"\n$parityOk = $prRaw -match \"parity\"\nCheck \"PR.md notes parity (both paths)\" $parityOk \"mention legacy + state-machine check\"\nif ($parityOk) { Write-Host \"PARITY-CHECK: OK\" } else { Write-Host \"PARITY-CHECK: FAILED\" }\n$smOk = $prRaw -match \"GOOSE_STATE_MACHINE=1\"\nCheck \"PR.md mentions GOOSE_STATE_MACHINE=1 run\" $smOk \"line: state machine: GOOSE_STATE_MACHINE=1 run\"\nif ($smOk) { Write-Host \"STATE-MACHINE-CHECK: OK\" } else { Write-Host \"STATE-MACHINE-CHECK: FAILED\" }\n\n# 5. Lightweight real checks on the tiny crate (fmt + clippy + tests)\nif (Test-Path $crate) {\n    Push-Location $crate\n    try {\n        $haveCargo = $null -ne (Get-Command cargo -ErrorAction SilentlyContinue)\n        if ($haveCargo) {\n            $ErrorActionPreference = \"Continue\"\n            cargo fmt --check *> $null\n            $fmtOk = ($LASTEXITCODE -eq 0)\n            $ErrorActionPreference = \"Stop\"\n            Check \"cargo fmt --check passes\" $fmtOk \"run cargo fmt first\"\n            if ($fmtOk) { Write-Host \"FMT-CONVENTION: OK\" } else { Write-Host \"FMT-CONVENTION: FAILED\" }\n\n            $ErrorActionPreference = \"Continue\"\n            cargo clippy -- -D warnings *> $null\n            $clipOk = ($LASTEXITCODE -eq 0)\n            $ErrorActionPreference = \"Stop\"\n            Check \"cargo clippy -D warnings passes\" $clipOk \"fix remaining warnings\"\n            if ($clipOk) { Write-Host \"CLIPPY-CONVENTION: OK\" } else { Write-Host \"CLIPPY-CONVENTION: FAILED\" }\n\n            $ErrorActionPreference = \"Continue\"\n            cargo test --test truncate_label_regression *> $null\n            $testOk = ($LASTEXITCODE -eq 0)\n            $ErrorActionPreference = \"Stop\"\n            Check \"cargo test --test truncate_label_regression passes\" $testOk \"tests must pass both cases\"\n            if ($testOk) { Write-Host \"TESTS: PASSED\" } else { Write-Host \"TESTS: FAILED\" }\n        } else {\n            Check \"cargo available for fmt/clippy/tests\" $false \"install Rust toolchain (Unit 0) and rerun\"\n        }\n    } finally {\n        Pop-Location\n    }\n} else {\n    Check \"fixer crate exists\" $false \"cargo new --lib u2-exam-fork/fixer\"\n}\n\nWrite-Host \"\"\nif ($fails -eq 0) {\n    Write-Host \"VERIFY PASSED $passes/$($passes + $fails)\"\n    exit 0\n} else {\n    Write-Host \"VERIFY FAILED - $fails of $($passes + $fails) checks failed\"\n    exit 1\n}",
+    "passMarkers": [
+      "VERIFY PASSED",
+      "FMT-CONVENTION: OK",
+      "CLIPPY-CONVENTION: OK",
+      "PARITY-CHECK: OK",
+      "STATE-MACHINE-CHECK: OK",
+      "REGRESSION-TESTS: 2",
+      "TESTS: PASSED"
+    ]
+  }
+}

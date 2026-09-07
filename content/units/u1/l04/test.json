@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Which function is the public entry of a legacy agent turn?",
+    "options": [
+      "`Agent::reply` (agent.rs:2020), which wraps the reply_impl stream with a live-event id boundary",
+      "`Agent::run`",
+      "`Session::chat`",
+      "`dispatch_tool_call`"
+    ],
+    "answer": 0,
+    "topic": "agent-lifecycle",
+    "explanation": [
+      "There is no `run` entry on the legacy Agent in v1.49.0.",
+      "Session stores conversation state; the turn is driven by Agent::reply.",
+      "dispatch_tool_call is a mid-loop stage, not the turn entry."
+    ]
+  },
+  {
+    "q": "What does `prepare_reply_context` (agent.rs:855) assemble?",
+    "options": [
+      "Conversation, tools + toolshim tools, system prompt, tool-call cutoff, GooseMode, ModelConfig",
+      "Only the api key and model name",
+      "The session name and archive flag",
+      "A new thread pool for provider calls"
+    ],
+    "answer": 0,
+    "topic": "agent-lifecycle",
+    "explanation": [
+      "Secrets live in the config layer; ModelConfig is only one piece here.",
+      "Session naming is a separate spawned task in reply_internal.",
+      "No per-turn thread pool exists; tokio drives everything."
+    ]
+  },
+  {
+    "q": "The legacy loop increments `turns_taken` inside an `async_stream::try_stream!`. Why not a plain `for turn in 0..max` loop?",
+    "options": [
+      "The loop must yield live stream items mid-iteration (UI token streaming); a plain loop cannot emit without buffering",
+      "A plain loop would compile but panic at runtime",
+      "Rust forbids for loops inside async functions",
+      "The team prefers while loops for style reasons"
+    ],
+    "answer": 0,
+    "topic": "agent-lifecycle",
+    "explanation": [
+      "Plain loops compile fine here; the constraint is yielding, not crashing.",
+      "for loops are legal in async fn bodies.",
+      "The choice is architectural (streaming), not stylistic."
+    ]
+  },
+  {
+    "q": "In the legacy loop, what happens to a tool request when goose_mode is Chat?",
+    "options": [
+      "A synthetic skip response is appended (CHAT_MODE_TOOL_SKIPPED_RESPONSE) so the model sees the call was not executed",
+      "The loop panics",
+      "The request is silently dropped with no response",
+      "Goose switches to Approve mode automatically"
+    ],
+    "answer": 0,
+    "topic": "agent-lifecycle",
+    "explanation": [
+      "Chat mode is a supported path; no panic occurs.",
+      "The skip is always answered — otherwise the model can't correct course.",
+      "Mode changes require user action via update_goose_mode."
+    ]
+  },
+  {
+    "q": "What lands in question: after `inspect_tools` runs, which buckets does the permission result carry?",
+    "options": [
+      "approved, needs_approval, denied",
+      "safe, unsafe, unknown",
+      "local, remote, hybrid",
+      "read, write, execute"
+    ],
+    "answer": 0,
+    "topic": "agent-lifecycle",
+    "explanation": [
+      "safe/unsafe language belongs to security inspectors, not the dispatch buckets.",
+      "Tool locality is a server concept, not the permission split.",
+      "read/write/execute is an OS permission vocabulary."
+    ]
+  },
+  {
+    "q": "Fix this compile error in the loop: `error[E0599]: no method named \"resume\" found for struct \"Agent\"`. The method exists on the provider handle instead. Which change unblocks it?",
+    "options": [
+      "Call `self.provider().await?.resume(saved_provider_session_id).await` instead of `self.resume(...)`",
+      "Add `unsafe` before the call",
+      "Move the call outside the async_stream",
+      "Implement resume on Agent by delegating to the UI"
+    ],
+    "answer": 0,
+    "topic": "agent-lifecycle",
+    "explanation": [
+      "unsafe never adds missing methods; it only permits danger.",
+      "The call is already inside an async context; placement is not the issue.",
+      "resume is a provider-session concept (picking up a prior upstream session), not a UI concern."
+    ]
+  },
+  {
+    "q": "Which observation is true about reply_internal in v1.49.0?",
+    "options": [
+      "It is async fn on Agent, opens the reply_stream tracing span, and contains the legacy turn loop",
+      "It was deleted when the state machine landed",
+      "It only runs when GOOSE_STATE_MACHINE=1",
+      "It is a CLI-only helper outside the goose crate"
+    ],
+    "answer": 0,
+    "topic": "agent-lifecycle",
+    "explanation": [
+      "Both paths coexist; reply_internal is the legacy one and still shipped.",
+      "The state-machine flag flips to reply_with_state_machine, not reply_internal.",
+      "It lives in crates/goose/src/agents/agent.rs, the core library."
+    ]
+  }
+]

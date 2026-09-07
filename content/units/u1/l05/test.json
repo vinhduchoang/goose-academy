@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In the state machine, what is the relationship between Operations and Effects?",
+    "options": [
+      "Operations decide and emit Effects (data); an EffectHandler performs the actual persistence",
+      "Effects call Operations in a loop",
+      "They are the same trait with different names",
+      "Effects only appear in the legacy loop"
+    ],
+    "answer": 0,
+    "topic": "ops-effects",
+    "explanation": [
+      "The flow is step -> operation -> effects -> handler, not the reverse.",
+      "Operation and ConversationEffect are distinct types in goose-agent.",
+      "Effects are the machine's invention; the legacy loop does side effects inline."
+    ]
+  },
+  {
+    "q": "Which crate owns `StateMachine`, `Step`, and the `Operation` trait in v1.49.0?",
+    "options": [
+      "goose-agent, re-exported by crates/goose/src/agents/state_machine/",
+      "The goose crate itself under agents/state_machine/",
+      "goose-mcp",
+      "rmcp"
+    ],
+    "answer": 0,
+    "topic": "state-machine",
+    "explanation": [
+      "goose's state_machine module defines ops, but modular.rs re-exports the executor from goose_agent.",
+      "goose-mcp only hosts built-in MCP servers.",
+      "rmcp is the MCP protocol implementation."
+    ]
+  },
+  {
+    "q": "`create_state_machine` (agent.rs:1619) builds a `Vec<Step>`. What always terminates each round?",
+    "options": [
+      "`Step::Inference(inference)` — the model call step chained after all operations",
+      "`Step::Exit`",
+      "`StopHookOperation`",
+      "The last operation in the vec"
+    ],
+    "answer": 0,
+    "topic": "state-machine",
+    "explanation": [
+      "There is no Step::Exit variant in machine.rs.",
+      "StopHookOperation is one op among many, not a sentinel.",
+      "Inference is chained after operations via .chain(Step::Inference)."
+    ]
+  },
+  {
+    "q": "Which function decides whether the state machine is active?",
+    "options": [
+      "`enabled()` in state_machine/mod.rs, which checks the GOOSE_STATE_MACHINE env var",
+      "A compile-time feature flag only",
+      "`Agent::new()` always",
+      "The CLI version string"
+    ],
+    "answer": 0,
+    "topic": "state-machine",
+    "explanation": [
+      "The gate is an env-var runtime check (values 1/true/TRUE/yes).",
+      "Agent::new always exists; routing happens in reply/reply_with_state_machine.",
+      "Version strings carry no runtime gate."
+    ]
+  },
+  {
+    "q": "`ToolExecutionOperation` (ops_toolcalling.rs:734) is the machine twin of which legacy method?",
+    "options": [
+      "`Agent::dispatch_tool_call` (agent.rs:1063)",
+      "`Session::archive`",
+      "`ExtensionManager::get`",
+      "`Agent::reply_internal`"
+    ],
+    "answer": 0,
+    "topic": "ops-effects",
+    "explanation": [
+      "Session::archive manages sessions, not tool calls.",
+      "ExtensionManager resolves extensions.",
+      "reply_internal is the whole legacy loop, not just dispatch."
+    ]
+  },
+  {
+    "q": "What is a parity gap?",
+    "options": [
+      "A behavior that exists or differs in only one of the two agent loops, breaking the legacy/state-machine parity rule",
+      "A hidden tax in provider pricing",
+      "The difference between compiled and interpreted code",
+      "A gap between local and remote sessions"
+    ],
+    "answer": 0,
+    "topic": "parity",
+    "explanation": [
+      "Pricing issues are provider economics, not loop parity.",
+      "Goose ships compiled Rust only — no interpreter exists.",
+      "Local/remote parity is a narrower concept than loop parity."
+    ]
+  },
+  {
+    "q": "The `Operation` trait requires several methods. Which one lets the machine decide whether a step consumes a turn?",
+    "options": [
+      "`effect_usage` / `turn_count` — describing whether applied effects count against the turn budget",
+      "`apply` always increments",
+      "`ends_turn` deletes the session",
+      "The machine never counts turns"
+    ],
+    "answer": 0,
+    "topic": "state-machine",
+    "explanation": [
+      "Turn counting is per-step metadata, not automatic for every apply.",
+      "ends_turn reports turn completion; it does not delete sessions.",
+      "MaxTurnsOperation exists precisely because turns are counted."
+    ]
+  }
+]

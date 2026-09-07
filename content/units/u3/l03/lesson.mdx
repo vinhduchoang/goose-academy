@@ -1,0 +1,101 @@
+---
+unit: 3
+unitSlug: extensions
+order: 3
+id: u3-l03
+slug: 03-provider-streaming
+title: "Provider II: streaming, usage accounting, cost, telemetry"
+topics: [streaming, usage-tracking, cost-usages, token-counter, observability]
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/base.rs
+    line: 365
+    note: 'pub async fn collect_stream - the aggregator that coalesces text and captures the last usage'
+  - file: crates/goose-provider-types/src/conversation/token_usage.rs
+    line: 93
+    note: 'pub struct Usage - input_tokens/output_tokens/total_tokens/cache_read_input_tokens'
+  - file: crates/goose/src/providers/usage_estimator.rs
+    line: 9
+    note: 'ensure_usage_tokens - fallback that fills missing counts with the real token counter'
+  - file: crates/goose/src/token_counter.rs
+    line: 215
+    note: 'create_token_counter - loads the tiktoken-style counter goose uses for estimation'
+  - file: crates/goose/src/token_counter.rs
+    line: 129
+    note: 'count_chat_tokens - chat-template token counting over system/messages/tools'
+  - file: crates/goose/src/providers/canonical_cost.rs
+    line: 36
+    note: 'estimate_model_cost - USD estimate from Pricing resolved via 4-source precedence'
+  - file: crates/goose/src/agents/gen_ai_telemetry.rs
+    line: 9
+    note: 'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT - opt-in env for content capture'
+  - file: crates/goose/src/agents/gen_ai_telemetry.rs
+    line: 52
+    note: 'record_usage - writes gen_ai.usage.* attributes (input_tokens/output_tokens/cache_read) onto the span'
+---
+
+# Provider II: streaming, usage accounting, cost, telemetry
+
+An echo that returns one blob is a provider. A production provider streams
+deltas, reports token counts its vendor actually measured, prices the call, and
+emits observability data. This lesson upgrades the echo along all four axes —
+using the same seams goose itself uses.
+
+## Streaming
+
+`stream` may yield as many messages as it likes. Text deltas get coalesced by
+`collect_stream` (`crates/goose-provider-types/src/base.rs:365`): consecutive
+`Text` blocks are appended (audience-aware), consecutive `Thinking` blocks are
+appended under signature rules, and everything else is pushed as a new block.
+The final chunk typically carries `ProviderUsage` only. Rule for implementors:
+**text partial, tool calls whole, usage last.**
+
+## Usage accounting
+
+`Usage` (`crates/goose-provider-types/src/conversation/token_usage.rs:93`) is
+four optional counts — `input_tokens`, `output_tokens`, `total_tokens`,
+`cache_read_input_tokens` — plus `ProviderStats`
+(`time_to_first_token_ms`, `model_load_ms`, `elapsed_ms`, draft stats). When the
+vendor omits counts, goose falls back to estimation in
+`ensure_usage_tokens` (`crates/goose/src/providers/usage_estimator.rs:9`): it
+creates the real token counter (`crates/goose/src/token_counter.rs:215`) and
+counts with `count_chat_tokens` (line 129) — chat-template aware, not a whitespace
+split. The lab echo will replace its naive split with a chat-shaped count.
+
+## Cost
+
+`estimate_model_cost` (`crates/goose/src/providers/canonical_cost.rs:36`)
+resolves `Pricing` (input/output/cache rates per 1M tokens) by a documented
+precedence: (1) provider-reported cost, (2) user-declared custom prices,
+(3) bundled canonical registry, (4) declarative provider definitions. Providers
+rarely price calls themselves — they ship usage; goose prices it.
+
+## Telemetry
+
+The agent records every provider turn as an OpenTelemetry `gen_ai` span through
+`crates/goose/src/agents/gen_ai_telemetry.rs`. `record_usage` (line 52) writes
+`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`,
+`gen_ai.usage.cache_read.input_tokens`. Message content capture is **opt-in**:
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` gates
+`capture_message_content()` (line 9) — the default never logs prompt text, and
+your extension must respect that split.
+
+<FounderLens>
+
+Why estimate at all? Because a provider without usage breaks every downstream
+pricing/context tool. `ensure_usage_tokens` exists so *no* provider can dodge
+accounting. The tradeoff: estimation runs the tokenizer over the whole request,
+costing CPU per call — acceptable today, but the counter is async-loaded
+(`create_token_counter`), so it can be a latency surprise on cold paths. Where
+it breaks: estimation used concurrently with the real model counts will *diverge*
+— goose always prefers the vendor's numbers and only fills gaps, so divergence
+is contained. Telemetry's biggest design bet: content capture is off by default
+because the cost of leaking prompts is unbounded and the cost of missing one
+debug artifact is one incident of `curl`-ing the vendor dashboard.
+
+</FounderLens>
+
+## The lab
+
+Give the echo a word-by-word stream, first-token timing, chat-shaped counts,
+manual pricing, and a gen_ai-style span — all inside your existing crate.

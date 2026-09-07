@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Which GooseMode variant means 'ask before every tool call'?",
+    "options": [
+      "Approve",
+      "Auto",
+      "SmartApprove",
+      "Chat"
+    ],
+    "answer": 0,
+    "topic": "permissions",
+    "explanation": [
+      "Auto's strum message is 'Automatically approve tool calls'.",
+      "SmartApprove asks only for sensitive calls.",
+      "Chat allows no tool calls at all."
+    ]
+  },
+  {
+    "q": "What do security findings change, relative to permission rules?",
+    "options": [
+      "Security findings feed the judge and can force needs_approval/denied even in Auto mode; permission rules are soft policy",
+      "Security findings are advisory logs with no pipeline effect",
+      "Security findings only apply in Chat mode",
+      "Security findings auto-delete the offending extension"
+    ],
+    "answer": 0,
+    "topic": "security",
+    "explanation": [
+      "Findings specifically alter disposition via the judge — not just logs.",
+      "Chat mode bypasses tool execution entirely, so findings never surface there.",
+      "Deletion is not part of the pipeline; extension lifecycle is separate."
+    ]
+  },
+  {
+    "q": "What lands in question: after inspection + judging, where does a request in `needs_approval` go next?",
+    "options": [
+      "To the confirmation machinery (ToolConfirmationCoordinator / UI confirm hook), then dispatch or decline",
+      "Straight to dispatch, as the judge is advisory",
+      "To the security scanner a second time",
+      "Nowhere — needs_approval requests are discarded"
+    ],
+    "answer": 0,
+    "topic": "tool-pipeline",
+    "explanation": [
+      "needs_approval exists precisely to NOT dispatch silently.",
+      "The scanner already ran during inspection.",
+      "Decline is a possible outcome, discard never is."
+    ]
+  },
+  {
+    "q": "When the user rejects a tool call, what does the model receive?",
+    "options": [
+      "A ToolResponse carrying DECLINED_RESPONSE text so the model reacts gracefully",
+      "Nothing — the call is silently dropped from the stream",
+      "An HTTP 403 error",
+      "A cancellation of the whole turn"
+    ],
+    "answer": 0,
+    "topic": "tool-pipeline",
+    "explanation": [
+      "Silent drops make the model believe the tool succeeded — the comments on the constants say why that's bad.",
+      "The decision is not an HTTP-layer event.",
+      "Rejecting one call must not kill the conversation."
+    ]
+  },
+  {
+    "q": "Why do both Auto and Approve run the same inspectors?",
+    "options": [
+      "Inspectors produce findings for the judge; mode only changes how permission findings are disposed, never whether inspection happens",
+      "They don't: Auto skips all inspectors for speed",
+      "Inspectors are only for SmartApprove",
+      "It's a legacy path bug kept for parity"
+    ],
+    "answer": 0,
+    "topic": "permissions",
+    "explanation": [
+      "Inspection always runs; the disposition is what varies by mode.",
+      "SmartApprove consumes findings, but it doesn't own inspection.",
+      "It is designed, not a parity accident."
+    ]
+  },
+  {
+    "q": "`Auto` mode means:",
+    "options": [
+      "Approve tool calls automatically (the default posture), disposal still judge-driven",
+      "The model picks its own tools from the registry",
+      "Every call is approved AND logged nowhere",
+      "Tools run on a different thread pool"
+    ],
+    "answer": 0,
+    "topic": "permissions",
+    "explanation": [
+      "Tool choice is the model's regardless of mode; Auto is about approval.",
+      "Telemetry/logging is independent of mode.",
+      "Execution is managed uniformly by dispatch."
+    ]
+  },
+  {
+    "q": "Fix this compile error: a PR makes `inspect_tools` return `Vec<InspectionResult>` directly, but the judge integration fails with a type mismatch. What was the correct contract?",
+    "options": [
+      "Inspection returns per-request findings, not verdicts — the judge must still combine them with GooseMode + rules into PermissionCheckResult",
+      "Findings must be converted to strings",
+      "The judge must be deleted",
+      "Findings must be Option instead of Vec"
+    ],
+    "answer": 0,
+    "topic": "permissions",
+    "explanation": [
+      "The pipeline depends on structured findings, not display strings.",
+      "The judge is the verdict stage; deleting it collapses checkpoints 2-3.",
+      "Optionality is not the problem — the missing judge step is."
+    ]
+  }
+]

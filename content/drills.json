@@ -1,0 +1,212 @@
+[
+  {
+    "id": "dr-01",
+    "topic": "ownership",
+    "title": "Move semantics in a message collector",
+    "prompt": "Write a function wn collect_messages() -> Vec<String> that creates an empty Vec<String>, builds one String named 'draft', pushes it into the vec, and then reuses 'draft' to print its length. Compile it. Read the exact compiler error, then explain in one sentence why 'draft' cannot be used after being pushed, and show the two different fixes (one using clone, one restructuring the code so no clone is needed).",
+    "hint": "The error number tells you the value was moved. Ask: does `Vec::push` take ownership of its argument? Which of your two fixes avoids copying the string data entirely?"
+  },
+  {
+    "id": "dr-02",
+    "topic": "borrowing",
+    "title": "trim_prompt: shared-borrow signature",
+    "prompt": "Write fn trim_prompt(input: &str) -> &str that returns the input with leading and trailing whitespace removed, without allocating a new String. Compile and run it on '  write goose tests  '. Then modify the function to take `&String` instead of `&str` and note how callers must change. Which parameter type is more idiomatic and why?",
+    "hint": "`str::trim` already returns a `&str` borrowed from the input. The lifetime of the returned slice is tied to the input, so the borrow checker needs no annotations here. For the caller question: how does deref coercion help callers who only have a String?"
+  },
+  {
+    "id": "dr-03",
+    "topic": "lifetimes",
+    "title": "longest of two: when elision gives up",
+    "prompt": "Write fn longest(a: &str, b: &str) -> &str that returns the longer of two slices using `if a.len() >= b.len() { a } else { b }`. The compiler will reject it. Explain in one sentence WHY the compiler cannot accept this signature, then write the corrected version with an explicit lifetime annotation. Why did your trim_prompt drill from dr-02 compile without any annotation, but this one needs one?",
+    "hint": "With two borrowed inputs, the compiler cannot guess which input the output borrows from, so the lifetime rules (elision) no longer apply. Your annotation must name one lifetime shared by both inputs and the output."
+  },
+  {
+    "id": "dr-04",
+    "topic": "ownership",
+    "title": "Predict the compile result",
+    "prompt": "Predict the exact outcome of compiling this program — which error number and which line makes it fail — and fix the line without changing what the program prints.\nfn main() {\n    let role = String::from(\"assistant\");\n    let nickname = role;\n    println!(\"{} says hi\", nickname);\n    println!(\"{}\", role.len());\n}",
+    "hint": "Which line performs the move and which line uses the moved value afterwards? Check what the println! macros borrow — one of them still triggers the error even though it only needs a read."
+  },
+  {
+    "id": "dr-05",
+    "topic": "async",
+    "title": "Sequential awaits in a fake reply stream",
+    "prompt": "Write an async fn send_replies(replies: Vec<&'static str>) that loops over the slice, awaits tokio::time::sleep(std::time::Duration::from_millis(10)) before each item, and prints it. Drive it from a #[tokio::main] async fn main(). Run it. Then explain why the replies always print in order even though await points can 'pause', and why removing the sleep would NOT make the loop parallel.",
+    "hint": "An .await suspends only the current future — flow resumes at that exact point. Parallelism would require spawning tasks or using a Stream. What does awaiting inside a for loop guarantee about ordering?"
+  },
+  {
+    "id": "dr-06",
+    "topic": "async",
+    "title": "Predict spawn ordering",
+    "prompt": "Given this program, state exactly what you can and cannot predict about the order of printed lines, and why.\n#[tokio::main]\nasync fn main() {\n    let h1 = tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_millis(20)).await; println!(\"first\"); });\n    let h2 = tokio::spawn(async { tokio::time::sleep(std::time::Duration::from_millis(10)).await; println!(\"second\"); });\n    h1.await.unwrap(); h2.await.unwrap();\n    println!(\"done\");\n}",
+    "hint": "Each spawned task is an independent future scheduled by the tokio runtime. The sleep durations do not create a guarantee on a single-threaded runtime. What IS guaranteed about when \"done\" prints?"
+  },
+  {
+    "id": "dr-07",
+    "topic": "serde",
+    "title": "Backward-compatible config round-trip",
+    "prompt": "Define struct ModelSettings { model: String, max_tokens: u32 } with Serialize and Deserialize derives. Serialize it to a JSON string and deserialize it back. Then add a new field temperature: f32 with #[serde(default)] and show that deserializing OLD JSON that has no \"temperature\" key still succeeds. Print the deserialized struct with {:?}. Explain what value 'default' supplies and why Option<f32> would have worked even without the attribute.",
+    "hint": "`#[serde(default)]` calls Default::default() for the missing field (0.0 for f32). Ask: what does Option default to, and why does that matter for backward compatibility?"
+  },
+  {
+    "id": "dr-08",
+    "topic": "option-result",
+    "title": "Parse chain with friendly errors",
+    "prompt": "Write fn parse_delay(input: &str) -> Result<u64, String> that parses the input into u64 via input.parse() and converts any parse error into the friendly message \"delay must be a number, got: <input>\". Then written a caller that matches on the Result: prints the delay on Ok, and the message on Err. Also handle the separate case of empty input gracefully by explaining which variant of a two-step parse (Option then Result) you would use and why.",
+    "hint": "`str::parse::<u64>()` returns Result<u64, std::num::ParseIntError>. map_err lets you build your own String error. For the empty-input case: which error-type does `.get(index)`/`first()` use instead of Result?"
+  },
+  {
+    "id": "dr-09",
+    "topic": "error-handling",
+    "title": "Fix the unwrap storm",
+    "prompt": "The code below compiles but panics on missing or malformed config. Rewrite load_config and print_config to use the ? operator with an anyhow::Result return type, and add .context(\"...\") to each fallible call so a future log line explains WHICH step failed.\nfn load_config() -> ModelSettings {\n    let raw = std::fs::read_to_string(\"config.json\").unwrap();\n    serde_json::from_str(&raw).unwrap()\n}\nfn print_config() {\n    let cfg = load_config();\n    println!(\"model: {}\", cfg.model);\n}",
+    "hint": "anyhow::Result<T> works in any function where errors all implement std::error::Error. `.context` comes from the anyhow::Context trait — import it. Then callers can log the full error chain instead of a bare panic."
+  },
+  {
+    "id": "dr-10",
+    "topic": "arc-mutex",
+    "title": "Shared counter across ten threads",
+    "prompt": "Write a program that creates Arc<Mutex<u32>> starting at 0, spawns 10 std::thread::threads, each locking the mutex and adding 1, then joins them all and prints the final value. Verify it prints 10. Then change the mutex to lock only once per thread outside a short loop and explain what `let guard = counter.lock().unwrap()` gives you when you write `*guard += 1`.",
+    "hint": "Each thread needs its own Arc clone moved into the closure (use `move`). The lock() result is a MutexGuard — why must you dereference it to mutate the value, and what happens if a thread panics while holding it?"
+  },
+  {
+    "id": "dr-11",
+    "topic": "strings",
+    "title": "Fix the escaped reference",
+    "prompt": "Fix this program so it compiles, then explain exactly which rule of the borrow checker it violates and why returning an owned String is the correct fix.\nfn clean_names(names: &[String]) -> &str {\n    let joined = names.join(\", \");\n    let cleaned = joined.trim();\n    cleaned\n}\nfn main() {\n    let names = vec![String::from(\"goose\"), String::from(\"claude\")];\n    println!(\"{}\", clean_names(&names));\n}",
+    "hint": "Does 'cleaned' borrow from `names` or from the local `joined`? What is the storage location (stack or heap) of `joined`, and what happens to that memory when clean_names returns?"
+  },
+  {
+    "id": "dr-12",
+    "topic": "generics-traits",
+    "title": "Generic summarize with a trait bound",
+    "prompt": "Write fn summarize<T>(items: &[T]) -> String that joins the elements into a comma-separated string using a trait bound so any printable type works. Compile and call it once with &[1u8, 2, 3] and once with &[&\"goose\", &\"claude\"]. Then explain which trait you bound, why the bound is on the generic parameter rather than in the body, and what happens if you remove the bound.",
+    "hint": "You need a trait that gives you a human-readable string of any printable value — think of the format! macro's {} placeholder. The bound is the contract that lets the body use `item` in formatting at all."
+  },
+  {
+    "id": "dr-13",
+    "topic": "parity",
+    "title": "Legacy vs state-machine loop",
+    "prompt": "Goose maintains both the legacy imperative agent loop (crates/goose/src/agents/agent.rs) and the state-machine implementation driven by Operation types (crates/goose/src/agents/state_machine/ops_llm.rs). Explain in 3-4 sentences: why BOTH exist in the same release, what the AGENTS.md parity rule requires when you change one of them, and what env var or flag flips between the two paths. Then name one concrete risk a contributor creates by fixing a bug in only one of the two loops.",
+    "hint": "The repository's AGENTS.md is the authority here. Search it for 'parity' or 'state machine'. Also check ops_llm.rs against the corresponding legacy loop section - which behavior must be identical in both?"
+  },
+  {
+    "id": "dr-14",
+    "topic": "providers",
+    "title": "Find the Provider trait contract",
+    "prompt": "Open crates/goose-provider-types/src/base.rs and find `pub trait Provider` (around line 464). Read it. List four things a type must provide to implement Provider, including the signature-level inputs and outputs of the `complete` method, and explain in your own words what the method returns when the model wants to call a tool instead of emitting plain text.",
+    "hint": "Look at the return type of `complete` — it is a stream of what? Check how a tool call is represented in that stream (a Content variant or a special part), and do not forget the associated types and marker bounds like Send + Sync."
+  },
+  {
+    "id": "dr-15",
+    "topic": "context-window",
+    "title": "Why and when compaction fires",
+    "prompt": "The state-machine op Compaction lives in crates/goose/src/agents/state_machine/ops_compaction.rs. Read its doc comment and the context_mgmt module it delegates to. Then answer: what condition makes goose decide history is too large, where does the limit come from (which field on the model config), and what is the job of the compaction summary vs the retained item that cannot be dropped?",
+    "hint": "Compaction is triggered against the configured context limit of the model — check ops_compaction.rs for how it reads that limit and what data goes into the compaction request versus what stays in the conversation."
+  },
+  {
+    "id": "dr-16",
+    "topic": "permissions",
+    "title": "Find the read-only auto-approver",
+    "prompt": "Open crates/goose/src/permission/permission_judge.rs. Find detect_read_only_requests and the helper that builds the conversation sent to the judge model. Explain in your own words: which tool calls goose asks the judge to classify, what makes a request 'read-only', and why goose can auto-approve those without asking the user — and name one reason the judge prompt must keep the user's original request OUT of the system prompt.",
+    "hint": "Search for 'read_only' in the file. The test names in the same file reveal the two properties the judge classification must have — read them carefully."
+  },
+  {
+    "id": "dr-17",
+    "topic": "mcp-schemas",
+    "title": "Find the schema normalizer",
+    "prompt": "Open crates/goose/src/agents/tool_schema_normalize.rs. Find normalize_input_schema and collapse_const_unions. Explain: what JSON-schema construct from one MCP server dialect gets rewritten into another, why different servers emit these two incompatible shapes, and what happens at runtime (to tool-call parsing) if a schema is NOT normalized.",
+    "hint": "Focus on how a JSON schema can express an enum: one dialect uses \"enum\", another uses \"const\" inside a oneOf/anyOf - the reader is in the other. The file's function names describe which way the rewrite goes."
+  },
+  {
+    "id": "dr-18",
+    "topic": "tool-call-mapping",
+    "title": "Find response_to_message",
+    "prompt": "Open crates/goose-providers/src/openrouter_format.rs. Read response_to_message. Trace what it does when an outgoing provider response JSON contains a tool calls array. Answer: which fields of each entry become the tool NAME and the tool ARGUMENTS on the goose side, and what does the function do when the response instead has plain text content?",
+    "hint": "Follow the parsing from the top-level JSON object down to the message content. Watch for where the raw Value is converted to typed goose message content — the tool call mapping is exactly that conversion."
+  },
+  {
+    "id": "dr-19",
+    "topic": "validation",
+    "title": "Extension validation pipeline",
+    "prompt": "Open crates/goose/src/agents/validate_extensions.rs. Read validate_bundled_extensions and the checks around it. Then open crates/goose/src/agents/extension_malware_check.rs. List three distinct things that happen to an extension on disk BEFORE any of its tools become callable, and for each one explain what failure would look like to a user trying to enable the extension.",
+    "hint": "Think of validation as stages: field-level mistakes in the manifest JSON, security scanning of extension content, and finally loading into the manager that registers tools. Map each file you read to one stage."
+  },
+  {
+    "id": "dr-20",
+    "topic": "sessions",
+    "title": "Find the session builder",
+    "prompt": "Open crates/goose/src/session/session_manager.rs. Find the builder-style methods (user_provided_name, system_generated_name, session_type, working_dir, extension_data, usage) and the apply() method they feed into. Explain: what does apply() persist, and read token_state_from_session_and_totals — where do the two halves of the token usage state come from, and why must BOTH be stored on the session?",
+    "hint": "Look at the struct that is being built — it has a number of Option fields. The token state function name tells you it combines session usage with something else; find what that 'totals' source is."
+  },
+  {
+    "id": "dr-21",
+    "topic": "tracing",
+    "title": "Instrument a provider call",
+    "prompt": "Write a toy async fn complete_user_request(model: &str, text: &str) that emits three tracing events: a debug entry with the model name, an info after echoing the text, and an error branch when text is empty. Then add #[tracing::instrument] to an outer fn run() that calls it so the two events become children of one span. Explain how you would filter in production so debug spans are invisible unless a model name contains 'debug' and why tracing beats println! for this.",
+    "hint": "Use tracing::debug!/info!/error! with field syntax (model = %model). For filtering, think of the RUST_LOG / EnvFilter syntax. Spans collect multiple events under one parent - what does that give you for error correlation?"
+  },
+  {
+    "id": "dr-22",
+    "topic": "token-counter",
+    "title": "Find the counting heuristics",
+    "prompt": "Open crates/goose/src/token_counter.rs. Find struct TokenCounter, its count_tokens method, and get_tokenizer. Answer: what tokenizer type does get_tokenizer return (what library type is CoreBPE), when does the counter fall back to an estimation instead of an exact tokenization, and what unit does the estimates approximate (chars per token)? Cite the fallback function by name.",
+    "hint": "Read the region around get_tokenizer and the struct fields. The offline fallback uses a heuristic — the classic chars-to-tokens ratio. Then find which public methods (count_tokens_for_tools, count_chat_tokens, count_everything) reuse that same core logic."
+  },
+  {
+    "id": "dr-23",
+    "topic": "testing-doctrine",
+    "title": "Where provider tests live",
+    "prompt": "Categorize each of the three nooks where goose tests a provider and explain why each nook exists: (1) unit tests at the bottom of a provider implementation file, (2) integration tests under crates/goose/tests/, (3) recorded MCP snapshot tests. For each, name what the crates/goose-test-support crate provides to mock a provider, and when you would reach for `just record-mcp-tests` instead of writing a Rust test.",
+    "hint": "The doctrine separates fast deterministic units from full-loop integration. goose-test-support ships a reusable fake that implements the Provider surface. Recording is for protocol-level expectations against a REAL server - what does the recording capture instead of asserting?"
+  },
+  {
+    "id": "dr-24",
+    "topic": "state-machine",
+    "title": "Ops as data, not loop code",
+    "prompt": "The state-machine rewrite models each agent step as an Operation (see crates/goose-agent/src/operation.rs around line 74) producing GooseEffect values (crates/goose/src/agents/state_machine/effects.rs). Explain in 3-4 sentences: what Operation::should_apply and Operation::applied exist for, why emitting effects as DATA makes the machine testable without running a live model, and give one concrete example of a regression test (from state_machine/tests/) that this design made possible.",
+    "hint": "Look at the GooseEffect enum variants (Conversation, RecordUsage, SetRecipe...). Data effects can be compared with assert_eq! in tests. Find a test file in state_machine/tests and name the category of scenario it locks in."
+  },
+  {
+    "id": "dr-25",
+    "topic": "crate-graph",
+    "title": "Why the types crates exist",
+    "prompt": "In the goose workspace, explain the roles of crates/goose-sdk-types and crates/goose-provider-types (the Provider trait you read in crates/goose-provider-types/src/base.rs). Who is allowed to depend on whom, and why? Run `cargo metadata --format-version 1 --no-deps` in the goose checkout and name the crates that depend on goose-provider-types. Finally: what would break if a PROVIDER crate were forced to depend on the full crates/goose crate instead?",
+    "hint": "These crates exist to break dependency cycles and to let third-party extension authors compile against a small stable surface. Trace a dep from declarative providers to the big goose crate - is there one, and what does that tell you about direction rules?"
+  },
+  {
+    "id": "dr-26",
+    "topic": "data-model",
+    "title": "Mirror the reply-part enum",
+    "prompt": "Using the lesson on the core data model (Unit 1.2), write a small enum in your own words that mirrors goose's reply-part structure: a variant holding plain text and a variant holding a tool call with name + arguments JSON. Then write a helper fn extract_tool_name(parts: &[YourPart]) -> Vec<String> that returns the names of all tool-call parts using match with a binding pattern. Explain which goose file this mirrors and what the real types add on top (metadata, thought blocks).",
+    "hint": "The real implementation lives in crates/goose/src/agents/reply_parts.rs (or the Reply type). Your enum variant can hold fields like { name: String, arguments: serde_json::Value } — match can destructure those fields directly."
+  },
+  {
+    "id": "dr-27",
+    "topic": "formats-openai",
+    "title": "Build an OpenAI chat request",
+    "prompt": "Write a helper fn to_openai_request(messages: &[YourMessage]) -> serde_json::Value building an OpenAI Chat Completions request body from goose-typed messages (use a tiny local struct with role: &str and content: String). Map assistant tool-call messages to the OpenAI shape (role \"assistant\" with a tool_calls array whose entries have id, type \"function\", and a function object holding name + arguments), and map tool results to role \"tool\" entries carrying tool_call_id. Serialize and pretty-print the result.",
+    "hint": "In the OpenAI envelope, tool_calls entries are OBJECTS with nested 'function'. Arguments in OpenAI are passed as a JSON STRING, not as a nested object - serialize them accordingly and check your printed output for this subtle shape."
+  },
+  {
+    "id": "dr-28",
+    "topic": "formats-anthropic",
+    "title": "Build an Anthropic content block",
+    "prompt": "Write a helper fn to_anthropic_blocks(message: &YourMessage) -> Vec<serde_json::Value> that maps one goose message to Anthropic content blocks. Text becomes {\"type\":\"text\",\"text\":...}. A tool call becomes a tool_use block: {\"type\":\"tool_use\",\"id\":...,\"name\":...,\"input\":{...}} — note the input is a real JSON object here. A tool RESULT becomes {\"type\":\"tool_result\",\"tool_use_id\":...,\"content\":...}. Clue: what key links the result block back to the use block, and how does that differ from what you built for OpenAI in dr-27?",
+    "hint": "Compare the two providers' identifiers: OpenAI pairs tool_call_id with an id; Anthropic pairs tool_use_id with the tool_use block's own id. Also notice Anthropic wraps EVERYTHING as typed blocks inside one content array - there is no separate 'role' field on the message body."
+  },
+  {
+    "id": "dr-29",
+    "topic": "hooks",
+    "title": "Find the hook lifecycle events",
+    "prompt": "Open crates/goose/src/hooks/mod.rs. Read the module docs at the top and the enum of lifecycle events a hook can subscribe to. Answer: where in a plugin's directory tree do hook definitions live, what does a hook script receive on stdin, and name four distinct lifecycle events a hook can target. Then find the default hook timeout constant and explain what goose does when a hook script exceeds it.",
+    "hint": "The doc comment shows the exact JSON file path and shape. The timeout constant is named DEFAULT_HOOK_TIMEOUT_SECS. Look for the reason constants (SERIALIZATION_FAILED_REASON, COMMAND_FAILED_REASON) to see how failures are reported back to the user."
+  },
+  {
+    "id": "dr-30",
+    "topic": "permission-rules",
+    "title": "Rules vs judge vs confirmation",
+    "prompt": "Goose has three mechanisms that can decide a tool call: the permission judge (crates/goose/src/permission/permission_judge.rs), user-defined permission rules stored via crates/goose/src/permission/permission_store.rs (ToolPermissionRecord), and interactive tool confirmation. Explain: what each mechanism answers, in which order they would be consulted for a single tool call, what happens when a stored rule conflicts with the judge's read-only auto-approval, and why caching 'allowed' per tool across sessions is dangerous for commands that take arguments.",
+    "hint": "Read what ToolPermissionRecord keeps - does it key on tool name alone or on name + site (like a path/args)? A rule keyed only on name approves EVERY future invocation of that tool. Which mechanism has final say over the other two?"
+  }
+]

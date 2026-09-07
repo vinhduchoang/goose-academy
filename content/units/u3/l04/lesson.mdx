@@ -1,0 +1,104 @@
+---
+unit: 3
+unitSlug: extensions
+order: 4
+id: u3-l04
+slug: 04-provider-formats
+title: "Provider III: OpenAI/Anthropic envelopes and tool-call mapping"
+topics: [formats-openai, formats-anthropic, tool-call-mapping, serde, streaming]
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/formats/openai.rs
+    line: 1663
+    note: 'pub fn create_request - builds the chat.completions request body from goose Messages'
+  - file: crates/goose-provider-types/src/formats/openai.rs
+    line: 666
+    note: 'pub fn format_tools - goose Tools -> OpenAI function schemas (with schema validation)'
+  - file: crates/goose-provider-types/src/formats/openai.rs
+    line: 708
+    note: 'pub fn response_to_message - parses choices[0].message into MessageContentBlock parts'
+  - file: crates/goose-provider-types/src/formats/openai.rs
+    line: 761
+    note: 'tool_calls branch - each OpenAI tool_call (id/function.name/function.arguments) becomes a ToolRequest'
+  - file: crates/goose-provider-types/src/formats/anthropic.rs
+    line: 234
+    note: 'pub fn format_messages - Messages -> Anthropic messages array (tools kept separate)'
+  - file: crates/goose-provider-types/src/formats/anthropic.rs
+    line: 511
+    note: 'pub fn format_tools - Tools -> Anthropic tool definitions with schema conversion'
+  - file: crates/goose-provider-types/src/formats/anthropic.rs
+    line: 557
+    note: 'pub fn response_to_message - parses tool_use content blocks into ToolRequest with ids'
+  - file: crates/goose-provider-types/src/formats/anthropic.rs
+    line: 893
+    note: 'response_to_streaming_message - SSE content_block delta accumulation for streaming'
+  - file: crates/goose-provider-types/src/formats/openai.rs
+    line: 873
+    note: 'pub fn get_usage - prompt/completion token extraction from the OpenAI usage object'
+---
+
+# Provider III: OpenAI/Anthropic envelopes and tool-call mapping
+
+A provider's real job is translation: goose's internal `Message` in, the
+vendor's wire format out, and back again — including tool calls. Goose does not
+do this once per provider; it ships shared *format* modules you should steal
+from, not reimplement.
+
+## The envelope layer
+
+`crates/goose-provider-types/src/formats/` holds one module per wire dialect.
+The OpenAI side (`openai.rs`) is the reference:
+
+- `create_request` (line 1663) — assembles the `chat.completions` body: model,
+  messages, tools, thinking knobs.
+- `format_messages` (line 201) — goose Messages → OpenAI message dicts;
+  `merge_split_tool_call_messages` (line 566) reunites a split assistant tool
+  call with its own reply so ReST models accept the history.
+- `format_tools` (line 666) — goose `Tool`s → `{type:"function", function:{...}}`
+  schemas, with `validate_tool_schemas` policing what the API will reject.
+- `response_to_message` (line 708) — response → `MessageContentBlock`s.
+- `get_usage` (line 873) + `get_cost` (line 931) — prompt/completion counts and
+  USD from the response.
+
+## Tool-call mapping: the round-trip
+
+OpenAI encodes a call as
+`choices[0].message.tool_calls[] = {id, function:{name, arguments-as-JSON-STRING}}`.
+`response_to_message`'s `tool_calls` branch (line 761) maps each entry to a
+`ToolRequest` — note three deliberate moves: the JSON-string `arguments` is
+parsed (`serde_json::from_str`), unknown entry fields are preserved as
+metadata, and an empty string defaults to `"{}"`. Truncated calls
+(`finish_reason: length`) become `ToolRequest`-as-`Err` so the agent retries
+instead of hanging.
+
+Anthropic uses *content blocks* instead: a `{type:"tool_use", id, name, input}` 
+block appears inline in `content`. `response_to_message` (anthropic.rs:557)
+maps it to the same `ToolRequest`. Tool *responses* go back as
+`{type:"tool_result", tool_use_id, content}` — and the mapping enforces pairing
+(placeholder blocks keep history valid, anthropic.rs line 276).
+
+Streaming maps differently again: OpenAI streams function-call fragments inside
+deltas; Anthropic streams `content_block_{start,delta,stop}` events.
+`response_to_streaming_message` (anthropic.rs:893) maintains per-index
+`StreamingToolCall` accumulators and flushes a complete `ToolRequest` only when
+the block closes.
+
+<FounderLens>
+
+The deep design decision: **all providers converge on `MessageContentBlock`**,
+and each format module is a pure function pair (`format_*` ⇄ `response_to_*`).
+That purity is what made `goose-provider-types` publishable — no HTTP, no state,
+no tokio in the format layer. The cost of the shared-envelope design is
+normalization pressure: if vendor X invents a block kind with no canonical
+equivalent it either squeezes into `additional_data` or waits for a new enum
+variant. Where it breaks most often in practice: string-vs-object `arguments`.
+OpenAI sends a JSON *string*, Anthropic sends an object — get the parse wrong
+on either side and every tool call silently degenerates.
+
+</FounderLens>
+
+## The lab
+
+Teach your echo crate to speak real envelopes: serialize a request containing a
+`ToolRequest` to OpenAI JSON, parse it back, repeat for Anthropic `tool_use`,
+and prove the round-trip with tests.

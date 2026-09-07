@@ -1,0 +1,125 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 4
+id: u0-l04
+slug: 04-functions
+title: "Functions: params, returns, expressions vs statements"
+topics:
+  - functions
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/base.rs
+    line: 457
+    note: 'stream_from_single_message builds a once-stream and returns it as the final expression of the body'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 103
+    note: 'ModelConfig::new takes impl AsRef<str> so callers can pass &str or String'
+  - file: crates/goose/src/token_counter.rs
+    line: 53
+    note: 'count_tokens(&self, text: &str) -> usize — method with parameters and explicit return type'
+---
+
+# Functions: params, returns, expressions vs statements
+
+In TS, `return` is how you exit a function. In Rust, the *last expression is the
+return value* — and goose is full of functions with no `return` keyword at all.
+
+## The expression-everything rule
+
+Rust has two kinds of code blocks. Statements (`let x = 5;`) end in `;` and
+produce nothing. Expressions produce a value. A **block** is an expression with
+the value of its last line. So:
+
+```rust
+fn make_status() -> String {
+    let base = "goose ";          // statement
+    let v = "v1.49";              // statement
+    base.to_owned() + v           // expression — returned, no 'return'
+}
+```
+
+Goose uses this pattern everywhere. At
+`crates/goose-provider-types/src/base.rs:457`:
+
+```rust
+pub fn stream_from_single_message(message: Message, usage: ProviderUsage) -> MessageStream {
+    let stream = futures::stream::once(async move { Ok((Some(message), Some(usage))) });
+    Box::pin(stream)
+}
+```
+
+`Box::pin(stream)` is the last expression — that IS the return value. No `return`
+keyword, and the `-> MessageStream` signature says what the block must become.
+
+<Diff
+  oldCode="// TS: early return is the primary tool
+function truncate(s: string, n: number): string {
+  if (s.length <= n) return s;
+  return s.slice(0, n - 1) + '…';
+}"
+  newCode="// Rust: last expression returns; early return only for the short path
+fn char_truncate(s: &str, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars {
+        return s.to_string();          // early return IS idiomatic here
+    }
+    let tail: String = s.chars().take(max_chars - 1).collect();
+    tail + "…"                          // expression as return value
+}" />
+
+## Parameters and return types are mandatory
+
+Every parameter has a type; every return is declared up front — no optional
+args, no overloading. Goose shows two parameter kinds:
+
+- `&self` — a method reading its receiver (`token_counter.rs:53`):
+  `pub fn count_tokens(&self, text: &str) -> usize`
+- Generic params — a taste of l12 (`model.rs:103`):
+  `pub fn new(model_name: impl AsRef<str>) -> Self` — accepts `&str` *or*
+  `String` without copying.
+
+## Blocks as values
+
+```rust
+let verdict = {
+    let est = tokens + 42;   // estimate overhead
+    if est > context_limit { "over" } else { "fits" }
+};
+// verdict: &str, computed inside the block
+```
+
+The block is scoped computation that hands out exactly one value — a mini IIFE in
+JS terms, but zero-overhead and idiomatic.
+
+## Early return
+
+`return` exists and is idiomatic for guard clauses (see `char_truncate` above).
+Goose does the same — e.g. `token_counter.rs:53-62` returns the cached count
+early *before* doing the expensive tokenizer work:
+
+```rust
+if let Some(count) = self.token_cache.lock().expect("...").get(&cache_key).copied() {
+    return count;
+}
+```
+
+<FounderLens>
+
+Why `impl AsRef<str>` on `ModelConfig::new`? Because configs are built from
+heterogeneous call sites — literal names, profile values, registry keys. The
+generic parameter makes one constructor serve all of them without forcing
+callers to allocate a String just to throw it away. Tradeoff: slightly harder
+to read at first. Where it breaks: passing something that isn't string-like (a
+custom struct) gives a confusing error deep in the signature — the cost the
+goose team accepts for allocation-free ergonomics.
+
+</FounderLens>
+
+<MindShift>
+
+JS functions scatter control with `return`, `throw`, and `undefined` fallthrough.
+A Rust function body is a *single expression with a declared shape* — you can
+prove at a glance what can come out. When porting TS helpers (your lab today),
+resisting `return` at the end of a function is the fastest way to sound native.
+
+</MindShift>

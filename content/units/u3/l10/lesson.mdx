@@ -1,0 +1,88 @@
+---
+unit: 3
+unitSlug: extensions
+order: 10
+id: u3-l10
+slug: 10-capstone
+title: "Capstone: a production-grade extension for your own workflow"
+topics: [release-docs, extension-system, testing-doctrine, validation, plugins]
+durationMin: 20
+cites:
+  - file: documentation/docs/tutorials/custom-extensions.md
+    line: 1
+    note: 'the canonical external-extension tutorial (MCP server, uv, inspector testing flow)'
+  - file: crates/goose-mcp/src/memory/mod.rs
+    line: 390
+    note: '#[tool(name, description)] - the production tool declaration shape every server copies'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 464
+    note: 'pub trait Provider - the alternative capstone surface if your workflow wants a provider'
+  - file: crates/goose/src/hooks/mod.rs
+    line: 1
+    note: 'hooks spec reference - plugins/hooks/hooks.json schema the capstone hook chain follows'
+  - file: documentation/docs/guides/context-engineering/plugins.md
+    line: 1
+    note: 'the plugin guide - what the capstone manifest + components must satisfy'
+  - file: RELEASE.md
+    line: 1
+    note: 'release discipline reference - what shipping something to real users entails'
+---
+
+# Capstone: a production-grade extension for your own workflow
+
+Everything so far built parts. The capstone builds *a product you will
+actually use* — and the bar is the same goose applies to its own release
+discipline (`RELEASE.md:1` is worth a skim for the flavor). Production-grade
+does not mean big. It means **provable**: discoverable, validated, documented,
+tested, and lint-clean.
+
+## The production checklist (this is the exam rubric)
+
+1. **A real workflow, stated plainly.** One paragraph: the friction you feel
+   (e.g. "I re-type the same issue template", "my notes pile up untagged").
+   The extension exists to remove exactly that friction, not to be an MCP demo.
+2. **The right surface, chosen on purpose.** MCP server (tools your agent
+   calls), plugin (commands/skills/hooks — pure files), or provider (models
+   for a niche backend). Justify the choice in one paragraph; the exam's
+   miniLab accepts MCP-server and plugin surfaces (provider route needs the
+   `Provider` trait from `crates/goose-provider-types/src/base.rs:464`).
+3. **Concrete layout.** `Cargo.toml` (or the plugin equivalent),
+   `src/` (implementation), `tests/` (integration), `README.md` (install /
+   configure / usage), `docs/` (design + security model), manifest
+   (`plugin.json` or config.yaml entry), and a QA report of your own runs.
+4. **Tests that prove behavior, not presence.** Pure-validation unit tests,
+   one integration test exercising a tool handler end-to-end (in-process,
+   no network), and at least one failure-branch test (l07's discipline).
+   "It compiled" is not a test.
+5. **A security posture.** Which tool can touch what; what is read-only; what
+   secret, if any, and where it lives (l05's `provider_secrets` / env_keys
+   discipline); what the plugin *cannot* do — written down.
+6. **Quality gates actually run.** `cargo fmt --check`, `cargo clippy
+   --all-targets -- -D warnings` (the goose workspace standard you met in
+   Unit 0), and the recorded output — the exam verifier reads your QA file.
+
+Follow `documentation/docs/tutorials/custom-extensions.md:1` and
+`documentation/docs/guides/context-engineering/plugins.md:1` as your install
+authorities, `crates/goose-mcp/src/memory/mod.rs:390` for the tool macro
+shape, and `crates/goose/src/hooks/mod.rs:1` for the hooks schema if you
+ship hooks.
+
+<FounderLens>
+
+Why does the capstone gate on docs *and* tests rather than on lines of Rust?
+Because the unit's real deliverable is trust. An extension is a second brain
+operating on a user's machine; docs are the "what could this do to my files"
+contract, tests are the "it actually does what the contract says" evidence,
+and the QA file is the honest record of what you ran. Release-clean
+extensions fail cheaply and visibly: bad manifest? blocked at validation.
+Bad input? `INVALID_PARAMS` with a helpful message. Bad auth? fail fast.
+Every gate in Unit 3 maps to a way a *user*, not just a developer, gets hurt —
+and the capstone makes you sit in that chair.
+
+</FounderLens>
+
+## The lab
+
+This lab is the capstone build itself: design, implement, test, document,
+and gate your real extension. The artifact set here is exactly what the final
+exam's miniLab verifier checks, so make it count.

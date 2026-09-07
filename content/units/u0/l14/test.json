@@ -1,0 +1,130 @@
+[
+  {
+    "q": "`#[derive(Serialize)]` on ModelConfig (model.rs:40) means:",
+    "options": [
+      "Serde generates to-JSON code for every field, using Rust field names as keys",
+      "The struct gets methods like .json() built in",
+      "Only pub fields are included",
+      "The struct is automatically Deserialize too"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "The derive writes trait impls; it doesn't add inherent methods.",
+      "Visibility doesn't gate serde; serde attributes do. (Private fields included unless skipped.)",
+      "Deserialize is a separate derive — ModelConfig deliberately omits it."
+    ]
+  },
+  {
+    "q": "`#[serde(rename_all = \"camelCase\")]` on Message (message.rs:961) does what on the wire?",
+    "options": [
+      "Translates snake_case field names to camelCase when serializing (and back when deserializing)",
+      "Renames the struct to Message",
+      "Converts string values to camelCase",
+      "Hides non-camel fields"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "rename_all operates on field names/serialized keys, not the type's own name.",
+      "String CONTENT is untouched; only key naming changes.",
+      "It renames, never hides."
+    ]
+  },
+  {
+    "q": "Why does adding `#[serde(default)]` to a new Option field keep OLD json parsing?",
+    "options": [
+      "A missing key takes the type's Default (None for Option) instead of erroring",
+      "The field is skipped on both directions",
+      "Old JSON gets upgraded to include the field",
+      "It silently patches all parse errors"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "skip does the hiding; default does the filling-in.",
+      "Serde never rewrites the input document.",
+      "Other malformed input still errors — default only covers that field."
+    ]
+  },
+  {
+    "q": "`#[serde(skip)]` on request_headers (model.rs:58) means the field:",
+    "options": [
+      "Is omitted when serializing and not read when deserializing — it never touches JSON",
+      "Is sent with a null value",
+      "Is only skipped during deserialization",
+      "Is encrypted before serialization"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "skip omits the key entirely — no nulls are written.",
+      "skip covers BOTH directions.",
+      "Serde performs no encryption."
+    ]
+  },
+  {
+    "q": "`#[serde(tag = \"type\")]` on an enum serializes SuccessCheck::Shell as:",
+    "options": [
+      "`{\"type\": \"Shell\", \"command\": \"...\"}` — the variant name as a discriminator key",
+      "`{\"Shell\": {\"command\": \"...\"}}`",
+      "`\"Shell\"` alone",
+      "An array `[ \"Shell\", \"...\" ]`"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "That's the externally-tagged default shape, not tag-style (which flattens one level).",
+      "Payloads are dropped in the string form.",
+      "Tuple/array styles require #[serde(untagged)] or tuple variants."
+    ]
+  },
+  {
+    "q": "Why does ModelConfig hand-write `Deserialize` (model.rs:62) instead of deriving it?",
+    "options": [
+      "Policy: context_limit must not be read from input, and reasoning-effort suffixes need normalization",
+      "Serde cannot derive Deserialize for structs with Option fields",
+      "Derived Deserialize is slower",
+      "The crate forbids derives"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "Option fields are perfectly derivable — the choice is behavioral, not a capability limit.",
+      "Performance isn't the reason; the manual impl exists for validation policy.",
+      "Derives are used all over goose-provider-types."
+    ]
+  },
+  {
+    "q": "`skip_serializing_if = \"Option::is_none\"` makes the wire payload:",
+    "options": [
+      "Omit the key entirely when the field is None",
+      "Write null when the field is None",
+      "Fail serialization when the field is None",
+      "Serialize only the Some branch and panic on None"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "The predicate prevents writing — no null appears (that's what skip_serializing_if means).",
+      "Failure is never triggered by None; the key just vanishes.",
+      "No panics: the function returns whether to skip, and None -> skip."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0599]: no function or associated item named 'from_str' found for struct 'ModelConfig'`. You wrote `ModelConfig::from_str(j)` intending to parse JSON. The fix:",
+    "options": [
+      "Use serde_json: `serde_json::from_str::<ModelConfig>(j)` — from_str is a serde_json function, not inherent",
+      "Derive PartialEq on ModelConfig",
+      "Import std::str::FromStr",
+      "Call ModelConfig::parse(json)"
+    ],
+    "answer": 0,
+    "topic": "serde",
+    "explanation": [
+      "PartialEq is unrelated to parsing entry points.",
+      "std FromStr is a different protocol (and goose's struct doesn't implement it).",
+      "No inherent parse method exists; parsing goes through serde_json."
+    ]
+  }
+]

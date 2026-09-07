@@ -1,0 +1,114 @@
+[
+  {
+    "q": "`pub fn count_tokens(&self, text: &str) -> usize` borrows `text`. What may the caller do while the call runs?",
+    "options": [
+      "Keep their String alive, and use it again afterwards — the borrow is read-only and temporary",
+      "Nothing; the String is moved into the function",
+      "Mutate the String concurrently if they keep a &mut",
+      "Drop the String immediately"
+    ],
+    "answer": 0,
+    "topic": "borrowing",
+    "explanation": [
+      "&str is a borrow — ownership never changes hands.",
+      "Sharing & and &mut to the same data simultaneously is forbidden.",
+      "Dropping while borrowed is rejected: the borrow must end first."
+    ]
+  },
+  {
+    "q": "`fn hash_input(messages: &[Message]) -> String` — why not `Vec<Message>`?",
+    "options": [
+      "The provider layer wants zero-copy access: borrowing avoids copying the whole conversation per call",
+      "Vec<Message> cannot be hashed",
+      "Rust forbids Vec parameters",
+      "&[Message] is faster to allocate than Vec"
+    ],
+    "answer": 0,
+    "topic": "borrowing",
+    "explanation": [
+      "Vecs hash fine; the choice is ownership, not capability.",
+      "Vec parameters are perfectly legal and used elsewhere.",
+      "&[Message] allocates nothing at all — that's the point."
+    ]
+  },
+  {
+    "q": "`fn trim_prompt(prompt: &str) -> &str { prompt.trim() }` compiles without lifetimes because:",
+    "options": [
+      "Lifetime elision: with one input reference the output borrow is assumed to come from it",
+      "Rust pretends the returned slice is 'static",
+      "trim() copies the string",
+      "It actually requires an explicit lifetime and only compiles with NLL on"
+    ],
+    "answer": 0,
+    "topic": "borrowing",
+    "explanation": [
+      "No 'static claim is made; the compiler derives the input-output link.",
+      "trim returns a view, not a copy.",
+      "Elision is exactly designed for one-input-reference functions."
+    ]
+  },
+  {
+    "q": "`let view = &prompt[..10]; prompt.clear();` produces:",
+    "options": [
+      "E0502: cannot borrow prompt as mutable because it is also borrowed as immutable",
+      "E0382: borrow of moved value",
+      "Nothing — clear() is safe here",
+      "A runtime panic only"
+    ],
+    "answer": 0,
+    "topic": "borrowing",
+    "explanation": [
+      "Nothing moved; this is a shared-vs-mutable borrow conflict.",
+      "Mutating while a read borrow is live is exactly what the checker rejects.",
+      "If it somehow ran, clearing could leave view dangling — that's why it's compile-time."
+    ]
+  },
+  {
+    "q": "`fn broken() -> &str { let s = String::from(\"x\"); s.trim() }` fails because:",
+    "options": [
+      "s is dropped at scope end, so the returned reference would dangle — E0515",
+      "trim() requires &mut access",
+      "String cannot be trimmed",
+      "The function must return String by law"
+    ],
+    "answer": 0,
+    "topic": "borrowing",
+    "explanation": [
+      "trim takes &self and is fine on immutable borrows.",
+      "Strings trim happily.",
+      "Returning references is legal when the borrow outlives the function."
+    ]
+  },
+  {
+    "q": "Why is a `&mut T` borrow called exclusive?",
+    "options": [
+      "While it exists, no other borrow of the same data may coexist — one writer or many readers",
+      "It must be the last borrow ever taken on the value",
+      "It can only be held in a single thread forever",
+      "The compiler takes exclusive access for the borrow's scope, then requires it to end before other access"
+    ],
+    "answer": 0,
+    "topic": "borrowing",
+    "explanation": [
+      "Later borrows are allowed once the &mut ends.",
+      "&mut is about that moment's access; threading is a separate question.",
+      "Exclusivity is enforced at compile time, not negotiated at runtime."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0502]: cannot borrow `*map` as immutable` inside `fn main()` where map is String-to-usize and you hold a mutable reference. Which change unblocks?",
+    "options": [
+      "End the mutable borrow before the read — restructure so the &mut is no longer live at the read point",
+      "Add another &mut to see the value",
+      "Change the map type to an array",
+      "Annotate the function with #[allow(moved)]"
+    ],
+    "answer": 0,
+    "topic": "borrowing",
+    "explanation": [
+      "Adding a second &mut violates the one-writer rule even harder.",
+      "The container type doesn't change borrow semantics.",
+      "No such lint; and silencing wouldn't fix the dangling-risk the rule exists for."
+    ]
+  }
+]

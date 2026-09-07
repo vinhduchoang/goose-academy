@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In goose, `build_env_filter` at logging.rs:30 applies RUST_LOG how?",
+    "options": [
+      "Uses RUST_LOG as-is when set; otherwise applies goose's own defaults",
+      "Always ignores RUST_LOG in favor of goose=info",
+      "Treats RUST_LOG as an appendix to the default directives",
+      "Samples RUST_LOG values statistically like a tracing Layer"
+    ],
+    "answer": 0,
+    "topic": "rust-log-tracing",
+    "explanation": [
+      "Ignoring RUST_LOG would make local debugging impossible; it is honored as documented.",
+      "It is either/or: your directives replace, don't append to, the defaults.",
+      "Sampling is a different tracing concept (rate limiting), unrelated to EnvFilter parsing."
+    ]
+  },
+  {
+    "q": "With no RUST_LOG set, which events does the default goose filter let through?",
+    "options": [
+      "goose=info and mcp_client=info, plus WARN and above for everything else",
+      "Only error-level events from every target",
+      "trace from every crate in the workspace",
+      "Nothing at all — logging defaults to off"
+    ],
+    "answer": 0,
+    "topic": "rust-log-tracing",
+    "explanation": [
+      "WARN is the floor for other targets, but goose/mcp_client get INFO too.",
+      "trace-for-everything would flood every run; defaults are deliberately conservative.",
+      "Off-by-default would make diagnosis impossible; INFO/WARN is the baseline."
+    ]
+  },
+  {
+    "q": "You run `cargo test` and your `tracing::debug!` line never appears. First hypothesis:",
+    "options": [
+      "The directive filter does not enable debug for that module path",
+      "tracing is fundamentally broken in tests",
+      "The test binary strips all logging under Windows",
+      "Debug events require the --nocapture flag to exist at all"
+    ],
+    "answer": 0,
+    "topic": "rust-log-tracing",
+    "explanation": [
+      "tracing works in tests; visibility is a filter question.",
+      "Platform does not change event filtering.",
+      "--nocapture controls println/stdout, not whether tracing events are emitted or captured."
+    ]
+  },
+  {
+    "q": "What does adding `#[instrument]` to a function actually give you?",
+    "options": [
+      "A named span wrapping the call, with args and return value captured automatically",
+      "A timing-based unit test runner alternative",
+      "Sound sampling instrumentation for audio callbacks",
+      "Automatic panic hooks that email the log file"
+    ],
+    "answer": 0,
+    "topic": "tracing",
+    "explanation": [
+      "Instrumentation does not produce tests; the test harness is unaffected.",
+      "This is Rust logging, not audio DSP.",
+      "No email behavior exists; panic hooks are a std configuration, unrelated."
+    ]
+  },
+  {
+    "q": "prompt_manager.rs:479 asserts the entire system prompt with `assert_snapshot!`. The point of a snapshot here is:",
+    "options": [
+      "To lock a large expected output to a checked-in file and diff changes once when behavior changes",
+      "To replace all unit tests with golden-file comparisons",
+      "To prevent the prompt from ever changing again",
+      "To capture runtime performance of prompt construction"
+    ],
+    "answer": 0,
+    "topic": "observability",
+    "explanation": [
+      "Snapshots complement, not replace, behavior tests.",
+      ".snap files are meant to be updated deliberately when intended changes happen.",
+      "Snapshots store content, not timing."
+    ]
+  },
+  {
+    "q": "A test passes locally and fails only in CI run 2, at random. Given ci.yml:74-75 runs scenario tests separately with --jobs 1, the most likely code smell is:",
+    "options": [
+      "Shared mutable global state between tests that races under parallel scheduling",
+      "Windows line endings in the test file",
+      "The lockfile differing between machines",
+      "A too-low timeout in the test harness"
+    ],
+    "answer": 0,
+    "topic": "tracing",
+    "explanation": [
+      "Line endings affect parsing, not pass/fail randomness.",
+      "A differing lockfile would fail deterministically, not randomly per run.",
+      "Harness timeouts are not part of libtest; flaky-by-schedule points to shared state."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0432]: unresolved import 'tracing::instrument'` right after adding `#[instrument]` to a function. You need to:",
+    "options": [
+      "Add `tracing` to Cargo.toml dependencies and bring the macro into scope, since the attribute is a re-exported macro",
+      "Rename the file to instrument.rs",
+      "Wrap the function in `#[cfg(feature = \"telemetry\")]` and skip the error",
+      "Move the attribute inside the function body"
+    ],
+    "answer": 0,
+    "topic": "rust-log-tracing",
+    "explanation": [
+      "File names never resolve imports.",
+      "cfg-gating hides the failure instead of providing the dependency.",
+      "Attributes apply to items; an attribute inside the body is a syntax error."
+    ]
+  }
+]

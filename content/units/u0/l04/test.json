@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In `fn make_status() -> String { let v = \"goose \"; v.to_owned() + \"v1\" }` — how is the return value produced?",
+    "options": [
+      "As the block's final expression; no `return` keyword is needed",
+      "The `let` statement is the return value",
+      "Rust implicitly appends a `return;`",
+      "It does not compile without a `return` keyword"
+    ],
+    "answer": 0,
+    "topic": "functions",
+    "explanation": [
+      "Statements produce no value; only the last expression of the block counts.",
+      "Explicit `return` at the end is legal but unidiomatic; the block works without it.",
+      "The trailing expression is the return value by design."
+    ]
+  },
+  {
+    "q": "Why does goose's `stream_from_single_message` return `Box::pin(stream)`?",
+    "options": [
+      "The stream must be heap-allocated and pinned to be returned as a trait object inside MessageStream",
+      "Box::pin is required for all return values",
+      "It converts the stream into a String",
+      "It is a signal to the garbage collector to free the stream"
+    ],
+    "answer": 0,
+    "topic": "functions",
+    "explanation": [
+      "Ordinary values need no boxing; only trait-object streams like MessageStream do.",
+      "Boxes have nothing to do with string conversion.",
+      "Rust has no GC; pinning concerns memory stability for async state machines."
+    ]
+  },
+  {
+    "q": "`pub fn new(model_name: impl AsRef<str>) -> Self` on ModelConfig accepts:",
+    "options": [
+      "Both &str and String (and anything string-like), chosen at compile time per call",
+      "Only String",
+      "Only &str",
+      "Any type at all, checked at runtime"
+    ],
+    "answer": 0,
+    "topic": "functions",
+    "explanation": [
+      "The generic bounds it in the other direction — it accepts types implementing AsRef<str>, not only String.",
+      "Same: &str is just one accepted category.",
+      "Bounds are compile-time; there is no runtime type checking here."
+    ]
+  },
+  {
+    "q": "What does this print? `let v = { let x = 2; x * 21 }; println!(\"{}\", v);`",
+    "options": [
+      "42",
+      "2",
+      "It does not compile: blocks cannot be assigned to bindings",
+      "21"
+    ],
+    "answer": 0,
+    "topic": "functions",
+    "explanation": [
+      "The block evaluates to x * 21 = 42, not the value of the inner binding alone.",
+      "Blocks are expressions and are assigned to bindings all the time.",
+      "21 is the multiplier, not the product."
+    ]
+  },
+  {
+    "q": "Which statement about Rust function signatures is false?",
+    "options": [
+      "Parameters may have default values",
+      "Every parameter must have a type annotation",
+      "The return type may be omitted when the function returns ()",
+      "A function returning a value ends in an expression or an explicit return"
+    ],
+    "answer": 0,
+    "topic": "functions",
+    "explanation": [
+      "Rust has no default parameter values; alternatives are Options or builder patterns.",
+      "Omitting the return type means () — `fn f(x: u8)` is valid and returns unit.",
+      "The expression-vs-return description is the core rule from token_counter.rs:53."
+    ]
+  },
+  {
+    "q": "In `count_tokens` (token_counter.rs:53), the early `return count;` runs when:",
+    "options": [
+      "The token count was already cached for this exact text",
+      "The tokenizer failed to initialize",
+      "The text is empty",
+      "The mutex lock is poisoned"
+    ],
+    "answer": 0,
+    "topic": "functions",
+    "explanation": [
+      "Tokenizer failures surface via Result at construction, not inside count_tokens.",
+      "Empty text still goes through the tokenizer; nothing special-cases it.",
+      "A poisoned lock panics via .expect(); it isn't the early-return condition."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0308]: mismatched types — expected (), found String`. `fn report() { let s = String::from(\"done\"); s }`",
+    "options": [
+      "Change the signature to `-> String` so the trailing expression matches the declared return type",
+      "Delete the final expression line entirely",
+      "Add `return;` before the final expression",
+      "Annotate s as &str"
+    ],
+    "answer": 0,
+    "topic": "functions",
+    "explanation": [
+      "Deleting it makes the block return () — that also matches, but it doesn't return the value the function obviously means to produce; the item asks for a fix that keeps behavior.",
+      "A bare return; would make the trailing expression unreachable code.",
+      "The type mismatch is block-vs-signature, not String-vs-str."
+    ]
+  }
+]

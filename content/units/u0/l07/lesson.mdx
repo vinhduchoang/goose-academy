@@ -1,0 +1,105 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 7
+id: u0-l07
+slug: 07-ownership
+title: "Ownership: move, copy, clone — and why there's no GC"
+topics:
+  - ownership
+durationMin: 20
+cites:
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 111
+    note: '(msg.role.clone(), cleaned_content) — the role is cloned because it is reused elsewhere'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 194
+    note: 'message: message.clone() — a recorded Memory is cloned into its output record'
+  - file: crates/goose-provider-types/src/conversation/message.rs
+    line: 994
+    note: '..self.clone() — struct update syntax reuses a copy of self'
+---
+
+# Ownership: move, copy, clone — and why there's no GC
+
+JS has a garbage collector; you never think about who frees an object. Rust has
+**ownership**: one binding owns each value; ownership moves on assignment;
+`clone()` is the explicit, visible copy. Goose is *full* of `.clone()` — and
+every single site is a decision you can read.
+
+## The three rules
+
+```rust
+let s1 = String::from("goose");
+let s2 = s1;            // MOVE: s1 gives up ownership; s1 is now unusable
+// println!("{}", s1); // compile error E0382: borrow of moved value
+
+let n1 = 42usize;
+let n2 = n1;            // COPY: cheap types copy silently
+println!("{} {}", n1, n2);   // fine
+```
+
+Heap values (`String`, `Vec`, `Message`) move; `Copy` types (`usize`, `bool`,
+`f32`, small tuples of them) copy. The distinction is "does leaving two
+bindings alive mean two heap buffers, or just two register-sized numbers?"
+
+## Reads / writes vs ownership
+
+```rust
+fn render(p: String) {}   // takes ownership — render now owns the prompt
+fn peek(p: &str) {}       // borrows — caller keeps ownership
+```
+
+Passing a `String` by value silences "why is my variable dead" surprises in the
+caller. Passing `&str` keeps the caller in control. Most goose signatures you've
+met (`count_tokens(&self, text: &str)`) borrow for exactly this reason.
+
+## `.clone()` sites in goose — reading their intent
+
+Clone always means "I need an independent copy because ownership can't be
+shared right now." Three real goose examples:
+
+- `testprovider.rs:111` — `(msg.role.clone(), cleaned_content)`: the hash input
+  needs a stable key, so the role is cloned while content is rebuilt.
+- `testprovider.rs:194` — `message: message.clone()`: a recording keeps its own
+  copy of the message that keeps living.
+- `conversation/message.rs:994` — `..self.clone()`: struct-update syntax, "make
+  a modified copy of yourself, reuse the rest."
+
+<Diff
+  oldCode="// JS: assignment shares — both names point at the same object
+const a = { text: 'hi' };
+const b = a;            // same object, mutate b and a changes"
+  newCode="// Rust: assignment moves — one owner, dead binding is a compile error
+let a = TextualMessage { text: \"hi\".into() };
+let b = a.clone();      // explicit copy: a stays alive, both mutate freely" />
+
+## Stack vs heap (the "why no GC" question)
+
+Stack: function-local `Copy` scalars — dropped when the scope ends, zero
+runtime cost. Heap: `String`/`Vec` buffers — freed *exactly once* when the owner
+goes out of scope. No ref-counting machinery, no stop-the-world pauses: the
+compiler inserted the `free` calls at knowable points. GC removes thinking at
+the cost of timing; ownership removes timing at the cost of thinking.
+
+<FounderLens>
+
+Count the clones in `testprovider.rs`. Why is a *test-infrastructure* provider
+happy to clone? Because its call sites are infrequent and correctness
+(record/replay of snapshots) trumps nanoseconds. The rule of thumb in goose:
+clone freely when the copies are small and rare, restructure to borrows when
+the clone appears in a hot loop — like the token counter, which avoids cloning
+entire conversations by hashing text into a cache key instead
+(`token_counter.rs:34`).
+
+</FounderLens>
+
+<MindShift>
+
+TS's "everything is a reference" means you *must* reason about mutation
+elsewhere. Rust's "everything is owned" means the compiler reasons for you, and
+you only think at the boundaries: moves, borrows, clones. When you see
+`.clone()` in goose, don't skim it — ask what would double-own or dangle if it
+weren't there. That question is 90% of reading Rust like a maintainer.
+
+</MindShift>

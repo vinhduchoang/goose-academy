@@ -1,0 +1,134 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 5
+id: u0-l05
+slug: 05-control-flow
+title: "Control flow: if, loops, ranges, and iter()"
+topics:
+  - control-flow
+durationMin: 20
+cites:
+  - file: crates/goose/src/token_counter.rs
+    line: 78
+    note: 'for tool in tools — the per-tool accounting loop in count_tokens_for_tools'
+  - file: crates/goose/src/providers/usage_estimator.rs
+    line: 30
+    note: 'building response_text from a message''s content blocks with an iterator chain'
+  - file: crates/goose-provider-types/src/conversation/message.rs
+    line: 989
+    note: 'filter_map over a message''s content blocks, converting plus rejecting'
+---
+
+# Control flow: if, loops, ranges, and iter()
+
+You already know `for...of`, `while`, `if`. Rust's versions are a strict subset
+of your muscle memory — with one big swap: **iteration beats indexing**.
+
+## The JS `for...of` mental model maps to `for x in iter`
+
+`crates/goose/src/token_counter.rs:78` counts the token cost of every tool in a
+request:
+
+```rust
+for tool in tools {
+    func_token_count += FUNC_INIT;
+    let line = format!("{}:{}", name, description);
+    func_token_count += self.count_tokens(&line);
+    // ... nested loops for properties and enum values
+}
+```
+
+`for tool in tools` — no `i++`, no `tools.length`, no off-by-one worry. In JS you'd
+write `for (const tool of tools)`. Same shape, but Rust *owns* every step.
+
+<Diff
+  oldCode="// JS/TS: index-based loop is a habit, for...of is the better habit
+for (let i = 0; i < msgs.length; i++) {
+  const m = msgs[i];
+  total += m.text.length;
+}"
+  newCode="// Rust: the iterator IS the loop
+let mut total = 0;
+for m in &msgs {            // iterate by reference — nothing moves
+    total += m.text.chars().count();
+}" />
+
+## `loop`, `while`, ranges, break/continue
+
+```rust
+loop {                          // infinite — until break
+    if budget_left() { break; }
+    window -= 512;
+}
+while window > 1024 { window /= 2; }
+for i in 0..len { }             // 0..len excludes len
+for i in 0..=len { }            // inclusive
+for (i, step) in steps.iter().enumerate() { if i == 3 { continue; } }
+```
+
+`continue` skips an iteration; `break` can even carry a value:
+
+```rust
+let found = loop {
+    if done { break "done"; }   // break returns the string
+};
+```
+
+## `iter()` — the FE `map/filter/reduce` you already know
+
+Goose leans on chains instead of loops. `usage_estimator.rs:30` turns a
+message's content blocks into one string before counting:
+
+```rust
+let response_text = response
+    .content
+    .iter()
+    .map(|c| format!("{}", c))
+    .collect::<Vec<_>>()
+    .join(" ");
+```
+
+And `conversation/message.rs:989` filters and converts in one pass:
+
+```rust
+let filtered_content = self
+    .content
+    .iter()
+    .filter_map(|c| c.filter_for_audience(Role::Assistant))
+    .collect();
+```
+
+`filter_map` = `filter` + `map` fused: skip `None`s, unwrap the `Some`s. Exactly
+like `.flatMap(x => x ? [f(x)] : [])` in TS.
+
+## `if` is an expression
+
+```rust
+let budget_note = if tokens > context_limit { "over" } else { "fits" };
+```
+
+Both branches must agree on a type — the compiler enforces what linting can only
+suggest in TS.
+
+<FounderLens>
+
+Why does goose estimate usage with iterator chains instead of hand-rolled loops?
+Because usage estimation runs on *every provider call* — the chain style makes
+each transformation auditable and cheap. Tradeoff: a `.map().collect().join()`
+builds a full intermediate Vec; sleeping allocations an older codebase uses for
+convenience. Where it breaks: if content blocks ever number in millions, the
+intermediate Vec shows up in profiles — the extension point would be
+`itertools`-style lazy joins. Iterator chains keep that refactor contained.
+
+</FounderLens>
+
+<MindShift>
+
+In JS you reach for `for...of`; in Rust, ask "can this be `iter().map().collect()`
+first?" Loops are for when control flow (break/continue) matters — iteration
+pipelines are for transforming data. Goose code frequently has no visible loop
+where TS code would have three. Reading goose at full speed means reading
+chains as sentences.
+
+</MindShift>

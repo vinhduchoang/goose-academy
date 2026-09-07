@@ -1,0 +1,89 @@
+---
+unit: 1
+unitSlug: architecture
+order: 3
+id: u1-l03
+slug: 03-config-system
+title: "Config system: layered files, params, and profiles"
+topics:
+  - config-system
+durationMin: 20
+cites:
+  - file: crates/goose/src/config/mod.rs
+    line: 4
+    note: 'pub mod extensions; — one of the config modules: base, extensions, permission, providers, paths, tls'
+  - file: crates/goose/src/config/base.rs
+    line: 131
+    note: 'pub struct Config { config_paths: Vec<PathBuf>, secrets: SecretStorage, guard: Mutex<()>, ... }'
+  - file: crates/goose/src/config/base.rs
+    line: 157
+    note: 'fn system_config_path() — resolves the system config location (Windows: %PROGRAMDATA%\goose\config.yaml)'
+  - file: crates/goose/src/config/base.rs
+    line: 424
+    note: 'pub fn global() -> &''static Config — initializes the OnceCell with default paths'
+  - file: crates/goose/src/config/base.rs
+    line: 1370
+    note: 'fn legacy_thinking_effort() — reads CLAUDE_THINKING_TYPE for backward compatibility'
+  - file: crates/goose/src/agents/agent.rs
+    line: 2515
+    note: 'legacy reply loop reads Config::global().get_param::<u32>("GOOSE_MAX_TURNS").unwrap_or(DEFAULT_MAX_TURNS)'
+---
+
+# Config system: layered files, params, profiles
+
+Goose's config is not one file — it's a *merge pipeline with a global singleton*. The heart is `Config` at `crates/goose/src/config/base.rs:131`:
+
+```rust
+pub struct Config {
+    /// Ordered list of config files to load and merge.
+    /// Later entries take precedence over earlier ones.
+    /// The last entry is where changes will be written.
+    config_paths: Vec<PathBuf>,
+    secrets: SecretStorage,
+    guard: Mutex<()>,
+    secrets_cache: Arc<Mutex<Option<HashMap<String, Value>>>>,
+}
+```
+
+The comment on `config_paths` is the whole design: config is a *list of files*, later wins, and writes go to the last file. There is no "the config file" — there is a resolved, merged view.
+
+## The layers
+
+`crates/goose/src/config/mod.rs:4` shows the module family: `base` (storage + merge), `extensions`, `permission`, `providers`, `paths`, `tls`, plus non-pub `experiments` and `migrations`. On startup the CLI assembles the path list: system-wide config (owned by admins), per-user config (yours), plus additional files via the `GOOSE_ADDITIONAL_CONFIG_FILES` env var. The system path resolver is `base.rs:157`: on Windows it's `%PROGRAMDATA%\goose\config.yaml`.
+
+The singleton accessor is `Config::global()` at `base.rs:424` — it memoizes a `OnceCell<Config>` bootstrapped from the default paths. Code anywhere in the process asks `Config::global().get_param::<T>("KEY")` and gets back the *merged* value. That's the "follow one key into runtime" axis: a key's value is decided once at process start, then read via typed accessors.
+
+## Keys are normalized, values are typed
+
+The API docs on `base.rs:126` state keys are written snake_case and converted to UPPERCASE internally. `get_param::<u32>` / `get_param::<f64>` / `get_param::<String>` make type mismatches a runtime `ConfigError`, not a silent coercion. Grep the repo for `get_param::` to catalogue the full key surface: `GOOSE_MAX_TURNS`, `GOOSE_THINKING_EFFORT`, `GOOSE_AUTO_COMPACT_THRESHOLD`, `GOOSE_TOOL_CALL_CUTOFF`, `GOOSE_STOP_HOOK_BLOCK_CAP` and more — each one lives where its consumer lives.
+
+## Follow one key: GOOSE_MAX_TURNS
+
+Run this trace yourself:
+
+1. **Read:** `crates/goose/src/agents/agent.rs:2515` — the legacy reply loop:
+   ```rust
+   let max_turns = session_config.max_turns.unwrap_or_else(|| {
+       Config::global().get_param::<u32>("GOOSE_MAX_TURNS").unwrap_or(DEFAULT_MAX_TURNS)
+   });
+   ```
+2. **Cross the parity line:** the state-machine path reads the *same* key at `agent.rs:1630` before constructing `MaxTurnsOperation` — but through a different fallback chain (`DEFAULT_MAX_TURNS` at `agent.rs:90`).
+3. **The lesson:** one key, two consumers, different code paths. If you change how MAX_TURNS is enforced in one path, the parity test in Unit 2 will catch the other path — that's why the key lives in `Config`, not in either loop.
+
+## Migrations: the honest upgrade path
+
+The non-pub `migrations` module (`config/mod.rs:5`) is where configuration *schema* changes happen: old keys are rewritten into new ones at load time. The legacy dance is visible live at `base.rs:1370`: `legacy_thinking_effort()` still maps the ancient `CLAUDE_THINKING_TYPE` values (`adaptive`/`enabled`/`disabled`) into the modern `ThinkingEffort` enum. When you add config keys, add a migration *and* keep the legacy reader for one release — that's the convention.
+
+<FounderLens>
+
+**Problem solved:** goose's config comes from many places (system admins, users, env vars, extension entries) and gets read from everywhere (CLI startup, agent loops, providers, UI). The layered-merge + global-singleton design gives one vocabulary (`get_param::<T>`) over N sources, with a stability promise: config values don't change mid-process (except secrets).
+
+**Tradeoff:** a process-global singleton means tests must swap config via dedicated hooks (`Config::new` with custom paths, `GOOSE_TEST_SYSTEM_CONFIG_PATH` in `base.rs:155`). Cross-thread mutation is guarded by `guard: Mutex<()>`. You pay YAML parsing at startup and accept that *some* consumers (the two agent paths) read the same key through different fallbacks — parity bugs live here.
+
+**Where it's heading:** extension config (`extensions.rs`) keeps growing its own surface (env vars, bundled vs stdio, enable flags); expect the config file to grow a typed schema (like declarative providers already have) rather than free-form YAML maps.
+
+**Where it breaks:** two consumers, one key, diverging defaults (compare agent.rs:2515 vs :1630 chains). Also env-var key collisions between goose and extension-provided env. The migration module is the pressure gauge: every new key without a migration entry breaks older goose versions silently.
+
+**Where you'd extend it:** a `GOOSE_CONFIG_DUMP` debugging command that prints the *merged* view plus the file each key came from (provenance) — right now you cannot tell from `Config::global()` which layer won. A perfect first core PR.
+
+</FounderLens>

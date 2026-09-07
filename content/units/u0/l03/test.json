@@ -1,0 +1,114 @@
+[
+  {
+    "q": "`static TEMPLATE_REGISTRY: &[(&str, &str)] = &[...]` in goose's prompt_template.rs. Which statement is true?",
+    "options": [
+      "It's a borrowed slice of tuples of borrowed string slices, pointing into the binary — zero startup allocation",
+      "It's a heap Vec that grows as templates are registered",
+      "It's a String-to-String map used as a cache",
+      "It returns owned Strings on every access"
+    ],
+    "answer": 0,
+    "topic": "strings",
+    "explanation": [
+      "Vec is growable and heap-owned; this is a static &[T] slice.",
+      "It's not a map; each tuple is (filename, description).",
+      "A &str never produces an owned String by itself; you'd have to call to_string()."
+    ]
+  },
+  {
+    "q": "When goose renders `system.md`, the template name is passed as `&str` but the result is a `String`. Why?",
+    "options": [
+      "The name is only a lookup key read briefly; the result is a new value built at runtime that the caller must own",
+      "The result must be freed immediately, so it can't be a String",
+      "Rust requires all return types to be String",
+      "The template name is stored inside the result"
+    ],
+    "answer": 0,
+    "topic": "strings",
+    "explanation": [
+      "Owned Strings are exactly how fopen/keep values are returned; &str return would force borrowing someone else's buffer permanently.",
+      "Return types can be &str, String, or anything else — no such rule.",
+      "The name is a lookup key that goes out of scope after rendering; it is not stored in the result."
+    ]
+  },
+  {
+    "q": "What does this print? `let s = String::from(\"goose agent\"); println!(\"{}\", &s[..5]);`",
+    "options": [
+      "\"goose\"",
+      "\"goos\"",
+      "The full string \"goose agent\"",
+      "It does not compile: cannot index a String without &[..] on byte boundaries"
+    ],
+    "answer": 0,
+    "topic": "strings",
+    "explanation": [
+      "&s[..5] takes the first 5 bytes, which are the five letters \"goose\".",
+      "Slicing &s[..n] yields n bytes, and s itself isn't what's referenced here.",
+      "Indexing into a String is disallowed, but a correct byte-bounded slice compiles fine."
+    ]
+  },
+  {
+    "q": "`let pieces: Vec<&str> = prompt.split(\". \").collect();` — what does Rust guarantee here?",
+    "options": [
+      "pieces borrows prompt: no string data is copied, and prompt must outlive pieces",
+      "Each piece is duplicated into fresh heap Strings",
+      "pieces owns prompt afterwards",
+      "split returns one element including the separator"
+    ],
+    "answer": 0,
+    "topic": "strings",
+    "explanation": [
+      "Vec<&str> holds borrowed slices into prompt; nothing is duplicated.",
+      "Borrowing never transfers ownership; prompt remains owned by the original binding.",
+      "split's items are the pieces between separators — separators are omitted."
+    ]
+  },
+  {
+    "q": "Which signature is correct for a function that only reads the text and returns a count?",
+    "options": [
+      "fn word_count(text: &str) -> usize",
+      "fn word_count(text: String) -> usize",
+      "fn word_count(text: String) -> &str",
+      "fn word_count(text: &mut String) -> usize"
+    ],
+    "answer": 0,
+    "topic": "strings",
+    "explanation": [
+      "Taking String would move/consume the caller's buffer for a read-only operation.",
+      "Returning &str would borrow from a parameter the function can't return in this shape.",
+      "&mut is unnecessary mutation authority for a read-only count."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0308]: mismatched types — expected String, found &str`. `fn greeting() -> String { \"hello goose\" }`",
+    "options": [
+      "Change the return type to &str, since a string literal is borrowed data",
+      "Wrap the body in String::new(...)",
+      "Add `let mut` before the string literal",
+      "Change the literal to a heap type by writing String::\"hello goose\""
+    ],
+    "answer": 0,
+    "topic": "strings",
+    "explanation": [
+      "String::new is an empty constructor and cannot embed a literal.",
+      "mut concerns binding mutability, not the literal's type.",
+      "There is no String literal syntax; conversion is done via String::from or .to_string()."
+    ]
+  },
+  {
+    "q": "Which of these correctly appends to a string owned by the caller?",
+    "options": [
+      "fn add_marker(s: &mut String) { s.push_str(\" END\"); }",
+      "fn add_marker(s: String) { s.push_str(\" END\"); }",
+      "fn add_marker(s: &str) { s = format!(\"{s} END\"); }",
+      "fn add_marker(s: &mut String) -> String { s.push_str(\" END\"); s }"
+    ],
+    "answer": 0,
+    "topic": "strings",
+    "explanation": [
+      "Taking String by value mutates a local copy; the caller sees nothing.",
+      "&str cannot grow and reassigning the binding locally has no caller effect.",
+      "The &mut version already mutates in place; returning s is redundant (though legal-looking, it borrows oddly)."
+    ]
+  }
+]

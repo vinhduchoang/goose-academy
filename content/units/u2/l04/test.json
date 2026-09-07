@@ -1,0 +1,114 @@
+[
+  {
+    "q": "AGENTS.md's test placement rule in goose is:",
+    "options": [
+      "Prefer the tests/ folder (e.g. crates/goose/tests/) for integration tests over in-src test modules",
+      "Keep all tests inside src/ modules to reduce compile time",
+      "Write every test at the workspace root in a single tests.rs",
+      "Prefer doctests over compiled tests"
+    ],
+    "answer": 0,
+    "topic": "testing-doctrine",
+    "explanation": [
+      "The rule is the opposite — prefer tests/ over src-internal modules where possible.",
+      "Root-level single-file tests don't exist in this workspace layout.",
+      "Doctests have a role but the rule says prefer tests/ folder."
+    ]
+  },
+  {
+    "q": "The MockProvider in mcp_integration_test.rs is built by:",
+    "options": [
+      "Implementing the real Provider trait (plus descriptor traits) inline in the test file",
+      "Subclassing a special TestProvider base class",
+      "Generating code from the provider's OpenAPI spec",
+      "Recording a real provider binary to disk"
+    ],
+    "answer": 0,
+    "topic": "mock-provider",
+    "explanation": [
+      "Rust has no class inheritance; the mock implements the trait directly.",
+      "Provider specs are not used to generate mocks in this repo.",
+      "Recording real providers is not how the mock is defined."
+    ]
+  },
+  {
+    "q": "`just record-mcp-tests` (Justfile:456) in order:",
+    "options": [
+      "Builds goose-test, runs the MCP integration test with GOOSE_RECORD_MCP=1, then stages crates/goose/tests/mcp_replays/",
+      "Deletes old replays, runs cargo test once, then force-pushes the replay branch",
+      "Runs the MCP server under valgrind and saves its heap profile",
+      "Fetches upstream replays from a remote object store and cherry-picks them"
+    ],
+    "answer": 0,
+    "topic": "mcp-test-recording",
+    "explanation": [
+      "Recording re-runs the live seam and stages the new artifacts; it does not delete or push.",
+      "No profiler is involved in the record path.",
+      "Replays are generated locally from the real server, not downloaded."
+    ]
+  },
+  {
+    "q": "In mcp_integration_test.rs:199, replay mode (GOOSE_RECORD_MCP unset) means:",
+    "options": [
+      "The test serves responses from previously recorded artifacts instead of hitting a live server",
+      "The test skips all assertions",
+      "The test runs against a randomly chosen public MCP server",
+      "The test re-records automatically every run"
+    ],
+    "answer": 0,
+    "topic": "mcp-test-recording",
+    "explanation": [
+      "Replays still assert outcomes; only the server seam is swapped for stored data.",
+      "Nondeterministic external servers are exactly what replays avoid.",
+      "Automatic re-recording would silently mutate committed evidence — recording is explicit."
+    ]
+  },
+  {
+    "q": "Why are recorded MCP replays committed to git?",
+    "options": [
+      "They are reviewed evidence of real wire behavior, and tests must not silently drift from them",
+      "They compress better than source code",
+      "CI cannot run tests without a network connection otherwise",
+      "GitHub requires all test data be stored in LFS"
+    ],
+    "answer": 0,
+    "topic": "mcp-test-recording",
+    "explanation": [
+      "Storage size is not the criterion for committing fixture data.",
+      "Network independence is a benefit, not the review reason — drift control is.",
+      "No GitHub rule mandates replay fixtures be committed."
+    ]
+  },
+  {
+    "q": "Which is a valid in-process MCP test fixture shipped by goose-test-support?",
+    "options": [
+      "McpFixtureServer exposing get_code/get_image/get_audience_content tools over rmcp",
+      "A docker-compose stack of five real MCP servers",
+      "A mock that always returns HTTP 500",
+      "A Wireshark packet-capture harness"
+    ],
+    "answer": 0,
+    "topic": "mock-provider",
+    "explanation": [
+      "goose-test-support is a Rust fixture crate, no containers involved.",
+      "A fixture simulating only failures would be useless for happy-path tests.",
+      "Packet capture is not part of the Rust test fixture surface."
+    ]
+  },
+  {
+    "q": "Fix this compile error in a test: `error[E0277]: the trait bound 'MockProvider: Provider' is not satisfied`. The cleanest fix per goose doctrine:",
+    "options": [
+      "Implement the missing Provider trait methods (stream, get_name, ...) on MockProvider rather than changing the tested code",
+      "Delete the trait bound from the function signature",
+      "Add `#![allow(incomplete_features)]` to the test file",
+      "Rewrite the test to call the provider's private fields directly"
+    ],
+    "answer": 0,
+    "topic": "testing-doctrine",
+    "explanation": [
+      "Removing the bound weakens the API the test claims to exercise — the seam disappears.",
+      "Feature gates do not implement traits.",
+      "Reaching into private fields breaks the public-API discipline the tests/ layer exists for."
+    ]
+  }
+]

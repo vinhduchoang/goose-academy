@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Which field of `Config` encodes the whole layering design?",
+    "options": [
+      "`config_paths: Vec<PathBuf>` — later entries take precedence, writes go to the last",
+      "`guard: Mutex<()>` — one lock per config tier",
+      "`secrets: SecretStorage` — secrets decide merge order",
+      "`secrets_cache` — cached values override files"
+    ],
+    "answer": 0,
+    "topic": "config-system",
+    "explanation": [
+      "The mutex serializes mutation, it encodes no tiering.",
+      "Secrets are stored separately, they don't drive precedence.",
+      "The cache holds decrypted secrets, not merged view override rules."
+    ]
+  },
+  {
+    "q": "Where does system-level config live on Windows, per `system_config_path()` in base.rs?",
+    "options": [
+      "`%PROGRAMDATA%\\goose\\config.yaml`",
+      "`C:\\Windows\\goose.yaml`",
+      "`%APPDATA%\\goose\\config.toml`",
+      "`C:\\goose\\config.json`"
+    ],
+    "answer": 0,
+    "topic": "config-system",
+    "explanation": [
+      "The resolver never writes under C:\\Windows.",
+      "The format is YAML in v1.49.0, and APPDATA is not used for the system tier.",
+      "Wrong path and wrong format — no JSON system config exists."
+    ]
+  },
+  {
+    "q": "`Config::global()` returns `&'static Config`. What does that promise?",
+    "options": [
+      "One process-wide singleton, initialized once from the default path set",
+      "A new Config instance on every call",
+      "Config values can change freely mid-process without synchronization",
+      "The config is immutable forever"
+    ],
+    "answer": 0,
+    "topic": "config-system",
+    "explanation": [
+      "It memoizes via OnceCell — repeated calls return the same instance.",
+      "Mutation is allowed but goes through the Mutex guard; the reference stays stable.",
+      "Set-param calls exist (e.g. set_goose_thinking_effort), so not immutable."
+    ]
+  },
+  {
+    "q": "What does the code print? `Config::global().get_param::<u32>(\"GOOSE_MAX_TURNS\").unwrap_or(DEFAULT_MAX_TURNS)` when the config value is the string `\"four\"`:",
+    "options": [
+      "It returns DEFAULT_MAX_TURNS only if the read became an Err; a type mismatch produces an Err, so the fallback wins",
+      "It panics on every call",
+      "It returns 1000 always, ignoring config",
+      "It coerces \"four\" into 4"
+    ],
+    "answer": 0,
+    "topic": "config-system",
+    "explanation": [
+      "get_param converts to Result; unwrap_or absorbs the Err instead of panicking.",
+      "The fallback is DEFAULT_MAX_TURNS (1000) as defined in agent.rs:90 — but only when the read errors or the key is absent.",
+      "Typed reads never silently parse strings into numbers."
+    ]
+  },
+  {
+    "q": "Why does `legacy_thinking_effort()` still exist at base.rs:1370?",
+    "options": [
+      "It maps the old CLAUDE_THINKING_TYPE values into modern ThinkingEffort so pre-migration configs keep working",
+      "It is a leftover debug helper nobody uses",
+      "It writes new config files in the old format",
+      "It detects Claude-specific models for the UI"
+    ],
+    "answer": 0,
+    "topic": "config-system",
+    "explanation": [
+      "It is called by get_goose_thinking_effort as a fallback — actively used.",
+      "It reads legacy keys, it does not write any file.",
+      "Model detection is provider-layer logic, not config migration."
+    ]
+  },
+  {
+    "q": "Both agent paths read GOOSE_MAX_TURNS. The parity risk is:",
+    "options": [
+      "Each path has its own fallback chain; changing enforcement in one path leaves behavior divergent under GOOSE_STATE_MACHINE=1",
+      "The reads deadlock because both call Config::global()",
+      "The key can only be read once per process",
+      "The state machine path cannot see u32 values"
+    ],
+    "answer": 0,
+    "topic": "config-system",
+    "explanation": [
+      "Config::global() is a cheap OnceCell read, no deadlock involved.",
+      "Keys are read repeatedly all over the codebase.",
+      "The state machine value goes into MaxTurnsOperation::new(max_turns) as a u32."
+    ]
+  },
+  {
+    "q": "Which change unblocks this runtime error? — `ConfigError: invalid type: string \"4\"` while a legacy test sets GOOSE_MAX_TURNS via env var, but a new code path reads it with `get_param::<u32>`:",
+    "options": [
+      "A migration that normalizes the env value to a number (or the consumer switching to a type-agnostic read with explicit parsing)",
+      "Delete the legacy test",
+      "Change every read site to `.unwrap_or(4)`",
+      "Set `resolver = \"2\"` in Cargo.toml"
+    ],
+    "answer": 0,
+    "topic": "config-system",
+    "explanation": [
+      "Deleting coverage is never the fix for a runtime contract change.",
+      "Hardcoding 4 makes the key meaningless — the fallback must stay DEFAULT_MAX_TURNS.",
+      "The resolver controls feature unification, not config parsing."
+    ]
+  }
+]

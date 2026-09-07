@@ -1,0 +1,657 @@
+{
+  "unitSlug": "extensions",
+  "unitIndex": 3,
+  "title": "Final Exam — Goose Contributor Academy (Units 0-3)",
+  "questions": [
+    {
+      "q": "Goose pins its feature resolver in the workspace manifest. What does `resolver = \"2\"` do in the root Cargo.toml?",
+      "options": [
+        "Allows two versions of every dependency in one graph",
+        "Enables edition-2021 feature unification: dev-dependency features do not leak into the normal build",
+        "Compiles the workspace twice in parallel",
+        "Forces every crate onto one edition"
+      ],
+      "answer": 1,
+      "topic": "workspace",
+      "explanation": [
+        "The resolver never splits a semver range into two versions in one build.",
+        "Nothing compiles twice; the field only selects the feature resolver algorithm.",
+        "Editions are per-crate settings, unrelated to the resolver field."
+      ]
+    },
+    {
+      "q": "A fn takes `prompt: String`, then the caller uses `prompt` again. The compiler error is caused by:",
+      "options": [
+        "The borrow checker hoarding memory",
+        "Ownership moved into the fn; the caller no longer owns the value",
+        "String being unsized",
+        "Missing `mut` on the parameter"
+      ],
+      "answer": 1,
+      "topic": "ownership",
+      "explanation": [
+        "Borrow checking rejects moves, it never hoards.",
+        "String is sized; the error is about ownership transfer.",
+        "The parameter need not be `mut`; the value would still be moved."
+      ]
+    },
+    {
+      "q": "Which signature is both valid and allocation-free for trimming a prompt slice?",
+      "options": [
+        "fn trim_prompt(prompt: String) -> String",
+        "fn trim_prompt(prompt: &str) -> &str",
+        "fn trim_prompt(prompt: &mut str) -> String",
+        "fn trim_prompt(prompt: &String) -> &'static str"
+      ],
+      "answer": 1,
+      "topic": "borrowing",
+      "explanation": [
+        "Taking String by value forces a move and a new allocation.",
+        "&mut str is needlessly mutable and still allocates a String.",
+        "'static lifetimes do not fit borrowed input slices."
+      ]
+    },
+    {
+      "q": "`fn longest(a: &str, b: &str) -> &str` fails to compile because:",
+      "options": [
+        "Two string args are forbidden",
+        "The compiler cannot choose the returned lifetime - you must tie it to the inputs with explicit lifetimes like <'a>",
+        "&str is not Copy",
+        "The function must return String"
+      ],
+      "answer": 1,
+      "topic": "lifetimes",
+      "explanation": [
+        "Multiple refs are fine; elision just cannot cover two inputs.",
+        "Copy-ness is unrelated to lifetime elision rules.",
+        "Returning a borrowed slice is fine when lifetimes are annotated."
+      ]
+    },
+    {
+      "q": "You add a field to a serde struct that old config files never set. Which attribute keeps deserialization working?",
+      "options": [
+        "#[serde(skip)]",
+        "#[serde(default)] on the new field",
+        "#[serde(rename_all = \"camelCase\")]",
+        "#[serde(flatten)]"
+      ],
+      "answer": 1,
+      "topic": "serde",
+      "explanation": [
+        "skip would drop the field entirely, not default it.",
+        "rename_all only changes naming style.",
+        "flatten inlines a nested map; it does not default missing fields."
+      ]
+    },
+    {
+      "q": "Inside `fn load() -> anyhow::Result<Config>`, the statement `let cfg = parse()?;` does:",
+      "options": [
+        "Panics on error",
+        "Returns Err early from load(), converting the error into the outer type",
+        "Retries parse three times",
+        "Logs and continues with a default"
+      ],
+      "answer": 1,
+      "topic": "anyhow",
+      "explanation": [
+        "`?` never panics; panics use unwrap/expect.",
+        "There is no built-in retry behavior in the operator.",
+        "The operator unwraps to the value or returns - it never skips."
+      ]
+    },
+    {
+      "q": "The Provider MessageStream is `Pin<Box<dyn Stream<...>>>`. Why must the future/stream be Pinned?",
+      "options": [
+        "Boxes are opaque without Pin",
+        "Async state machines may be self-referential and must not move in memory",
+        "Pin encrypts the stream items",
+        "Tokio requires Pin for logging"
+      ],
+      "answer": 1,
+      "topic": "async",
+      "explanation": [
+        "Pin is about movement semantics, not box transparency.",
+        "Items pass plainly through the stream; no encryption involved.",
+        "Logging is unrelated to pinning."
+      ]
+    },
+    {
+      "q": "Shared mutable state across tokio tasks is typically `Arc<Mutex<T>>` because:",
+      "options": [
+        "Arc makes owners, Mutex makes exclusive access - together: shared ownership + safe mutation",
+        "Arc alone serializes access",
+        "Mutex alone keeps data alive",
+        "It is faster than plain T"
+      ],
+      "answer": 0,
+      "topic": "arc-mutex",
+      "explanation": [
+        "Arc only shares ownership; mutation needs synchronization.",
+        "Mutex only synchronizes; something must own the value across tasks.",
+        "The pair costs more than unsynchronized access - safety, not speed."
+      ]
+    },
+    {
+      "q": "The AGENTS.md convention for goose library fallible functions is:",
+      "options": [
+        "Panic on every error",
+        "Return anyhow::Result with `?` propagation",
+        "Return i32 status codes",
+        "Only unwrap() after logging"
+      ],
+      "answer": 1,
+      "topic": "error-handling",
+      "explanation": [
+        "Panics are for unrecoverable states, not routine errors.",
+        "Numeric codes hide error context.",
+        "unwrap chains are precisely what the convention replaces."
+      ]
+    },
+    {
+      "q": "`String::from(\"prompt\")` differs from `&*\"prompt\"`-style usage because:",
+      "options": [
+        "String is on the heap and owned; &str is a view, often static",
+        "&str is always heap-allocated",
+        "String is immutable",
+        "They are identical types"
+      ],
+      "answer": 0,
+      "topic": "strings",
+      "explanation": [
+        "&str is a borrowed view, frequently into static memory.",
+        "String is growable/mutable by design.",
+        "They are different types that reference each other."
+      ]
+    },
+    {
+      "q": "Why do `goose-sdk-types` / `goose-provider-types` exist as separate type-only crates?",
+      "options": [
+        "To make the workspace compile faster by hiding code",
+        "Extension authors can compile against contract types without depending on the whole agent engine",
+        "They hold binaries for each OS",
+        "They duplicate the engine types for CI"
+      ],
+      "answer": 1,
+      "topic": "crate-graph",
+      "explanation": [
+        "They do not hide code; they hold shared contract types.",
+        "There are no binaries inside the type crates.",
+        "They are the canonical types, not duplicates."
+      ]
+    },
+    {
+      "q": "In the message data model, `MessageContentBlock` exists so:",
+      "options": [
+        "Content mixes text, tool calls, thinking, and errors in one typed sequence the loop can dispatch on",
+        "Messages can be compressed as one string",
+        "Providers never see tool calls",
+        "Only text is representable"
+      ],
+      "answer": 0,
+      "topic": "data-model",
+      "explanation": [
+        "The enum replaces string-bashing; blocks remain typed.",
+        "Providers consume these same blocks.",
+        "Text is only one variant among many."
+      ]
+    },
+    {
+      "q": "Changing a key inside `config.yaml` (e.g. an extension entry) takes effect in goose because:",
+      "options": [
+        "A daemon watches the file",
+        "Config::global() reads the file and typed getters feed runtime construction - new sessions re-read it",
+        "The binary recompiles itself",
+        "Changes only apply after reinstall"
+      ],
+      "answer": 1,
+      "topic": "config-system",
+      "explanation": [
+        "No watcher exists; reading happens at config access.",
+        "Compilation is not involved.",
+        "Reinstall is not needed; new sessions pick up the file."
+      ]
+    },
+    {
+      "q": "The AGENTS.md parity rule for the agent loop requires:",
+      "options": [
+        "Deleting the legacy agent.rs immediately",
+        "Every change must preserve behavior across both legacy and state-machine paths with tests",
+        "Choosing one path per release",
+        "Fuzzing both paths nightly"
+      ],
+      "answer": 1,
+      "topic": "parity",
+      "explanation": [
+        "Legacy stays until parity is complete.",
+        "Both paths ship and must agree.",
+        "Formal fuzzing is not the rule; behavior tests are."
+      ]
+    },
+    {
+      "q": "In the state machine (ops_*/effects), operations and effects are separated so:",
+      "options": [
+        "Ops are pure descriptions; effects apply them - making transitions testable and traceable",
+        "Each runs on its own thread",
+        "Effects never happen",
+        "Ops can be skipped in dev"
+      ],
+      "answer": 0,
+      "topic": "ops-effects",
+      "explanation": [
+        "Threading is an implementation detail, not the split's purpose.",
+        "Effects are the actual side effects of running ops.",
+        "Ops always run; the split keeps them observable."
+      ]
+    },
+    {
+      "q": "Per the Provider trait, the one method every provider MUST implement is:",
+      "options": [
+        "complete()",
+        "stream()",
+        "fetch_supported_models()",
+        "retry_config()"
+      ],
+      "answer": 1,
+      "topic": "providers",
+      "explanation": [
+        "complete() derives from stream().",
+        "fetch_supported_models defaults to an empty list.",
+        "retry_config defaults to RetryConfig::default()."
+      ]
+    },
+    {
+      "q": "When a user denies a tool call in the confirmation flow, the agent receives:",
+      "options": [
+        "The tool result with is_error and a denial message so it can course-correct",
+        "Nothing - the turn ends silently",
+        "A retry of the same call",
+        "The raw permission record"
+      ],
+      "answer": 0,
+      "topic": "tool-pipeline",
+      "explanation": [
+        "Silent ends would hide policy from the model.",
+        "Denied calls are not auto-retried.",
+        "Records are internal; the agent gets a proper result."
+      ]
+    },
+    {
+      "q": "`ToolPermissionRecord` hashes the call context instead of only the tool name to:",
+      "options": [
+        "Hide tool names from logs",
+        "Scope remembered approvals to the same arguments/context, not the whole tool",
+        "Reduce record size",
+        "Sort records faster"
+      ],
+      "answer": 1,
+      "topic": "permissions",
+      "explanation": [
+        "Names remain readable in records.",
+        "Size is not the goal.",
+        "Hashing aids scoped matching, not sorting."
+      ]
+    },
+    {
+      "q": "Schema normalization on the MCP boundary solves the problem of:",
+      "options": [
+        "Slow tool startup",
+        "Two servers exposing colliding tool names - they get namespaced before dispatch",
+        "Token overflow",
+        "OAuth redirects"
+      ],
+      "answer": 1,
+      "topic": "mcp",
+      "explanation": [
+        "Normalization is about naming/schemas, not process speed.",
+        "Token limits are a separate subsystem.",
+        "OAuth is orthogonal to schema handling."
+      ]
+    },
+    {
+      "q": "Which pair is the observability stack goose uses per provider turn?",
+      "options": [
+        "println! macros",
+        "OpenTelemetry gen_ai spans (usage/error attributes) plus RUST_LOG-scoped tracing",
+        "A global log file only",
+        "Perf counters"
+      ],
+      "answer": 1,
+      "topic": "observability",
+      "explanation": [
+        "println is explicitly not production observability.",
+        "Spans export via otel; RUST_LOG controls noise.",
+        "Perf counters are not the tracing story."
+      ]
+    },
+    {
+      "q": "An issue labeled Ready in goose means:",
+      "options": [
+        "Any contributor may claim and implement it - it is triaged, scoped, and unblocked",
+        "It is closed",
+        "It needs design first",
+        "It is a meta issue"
+      ],
+      "answer": 0,
+      "topic": "issue-triage",
+      "explanation": [
+        "Closed issues are done, not Ready.",
+        "Needs-design items are not Ready.",
+        "Meta issues are a separate bucket."
+      ]
+    },
+    {
+      "q": "The first step of reproducing a reported bug is:",
+      "options": [
+        "Fix the suspected line immediately",
+        "Read the issue fully, then script the minimal repro steps against the pinned checkout",
+        "Rebase main",
+        "Ask for a design doc"
+      ],
+      "answer": 1,
+      "topic": "reproduction",
+      "explanation": [
+        "Fixing before reproducing gambles.",
+        "Rebase is unrelated to repro.",
+        "Design docs apply to features, not repros."
+      ]
+    },
+    {
+      "q": "`git bisect run <script>` works because:",
+      "options": [
+        "The script prints a score",
+        "The script returns the first bad commit",
+        "The script's exit code (0/125/other) tells git whether the commit is good, unbuildable, or bad",
+        "Git reads the script's stdout commit hash"
+      ],
+      "answer": 2,
+      "topic": "bisect",
+      "explanation": [
+        "No scoreboard exists.",
+        "Bisect computes the first bad commit from exit codes.",
+        "The exit code is the signal, not stdout."
+      ]
+    },
+    {
+      "q": "After intentionally changing behavior, a snapshot test file is updated by:",
+      "options": [
+        "Auto-generating blindly in CI",
+        "Running the snapshot update command, then reviewing the diff before committing",
+        "Deleting the snapshot",
+        "Commenting out the assertion"
+      ],
+      "answer": 1,
+      "topic": "testing-doctrine",
+      "explanation": [
+        "Blind updates hide regressions.",
+        "Deleting the snapshot removes the guard entirely.",
+        "Commented assertions are disabled guards."
+      ]
+    },
+    {
+      "q": "Goose's test provider records calls into a JSON file whose keys are:",
+      "options": [
+        "Random UUIDs per run",
+        "SHA-256 hashes of the stabilized input messages",
+        "Line numbers of the test",
+        "Provider names"
+      ],
+      "answer": 1,
+      "topic": "mock-provider",
+      "explanation": [
+        "Indeterminate keys would break replay.",
+        "Line numbers are irrelevant at runtime.",
+        "Provider names do not distinguish inputs."
+      ]
+    },
+    {
+      "q": "`just record-mcp-tests` captures:",
+      "options": [
+        "Synthetic mock responses",
+        "Real MCP server traffic as recorded fixtures for deterministic tests",
+        "Only error logs",
+        "A video of the session"
+      ],
+      "answer": 1,
+      "topic": "mcp-test-recording",
+      "explanation": [
+        "Recording is the point - mocks are the replay half.",
+        "It records full interactions, not just errors.",
+        "There is no video capture."
+      ]
+    },
+    {
+      "q": "Clippy runs in the workspace with `-D warnings`, which means:",
+      "options": [
+        "Warnings print louder",
+        "Any clippy warning fails the build",
+        "Warnings are disabled",
+        "Only errors are linted"
+      ],
+      "answer": 1,
+      "topic": "clippy-cleanup",
+      "explanation": [
+        "Volume is unchanged; the lint level changes.",
+        "Lints are promoted to errors, never silenced.",
+        "Clippy runs on the whole crate, warning-free required."
+      ]
+    },
+    {
+      "q": "To fix the same bug in both legacy and state-machine agent paths, you must:",
+      "options": [
+        "Fix whichever path a reviewer prefers",
+        "Apply the fix to both paths and add a regression test proving identical behavior",
+        "Fix state machine only, legacy is deprecated",
+        "Add a feature flag per path"
+      ],
+      "answer": 1,
+      "topic": "parity",
+      "explanation": [
+        "Parity is a hard rule, not reviewer preference.",
+        "Both paths ship until parity completes.",
+        "Flags do not create behavioral agreement."
+      ]
+    },
+    {
+      "q": "The correct order for a bugfix PR is:",
+      "options": [
+        "Fix -> test -> report bug",
+        "Write a failing regression test that captures the bug -> make it pass -> keep the test",
+        "Test after merge only",
+        "Only manual QE"
+      ],
+      "answer": 1,
+      "topic": "regression-tests",
+      "explanation": [
+        "Without the test the bug can silently return.",
+        "Post-merge tests never guard the PR itself.",
+        "Automated regression tests are the convention here."
+      ]
+    },
+    {
+      "q": "`deny.toml` guards the workspace by:",
+      "options": [
+        "Banning `unsafe`",
+        "Enforcing allowed licenses and banned dependency versions/duplicates",
+        "Deleting failing crates at build time",
+        "Rate-limiting crates.io"
+      ],
+      "answer": 1,
+      "topic": "deny-toml",
+      "explanation": [
+        "unsafe is not enforced by cargo-deny",
+        "It flags crates rather than deleting them.",
+        "It audits the graph, not the network."
+      ]
+    },
+    {
+      "q": "`ExtensionConfig` is modeled as:",
+      "options": [
+        "A loose map of untyped YAML",
+        "A serde-tagged enum (stdio / builtin / platform / streamable_http) dispatched on the `type` field",
+        "A single struct with optional everything",
+        "A CLI-only concept"
+      ],
+      "answer": 1,
+      "topic": "extension-manifest",
+      "explanation": [
+        "The variants give each surface its own validated shape.",
+        "One struct with all-optional fields would fail validation silently.",
+        "It is the config.yaml extension surface."
+      ]
+    },
+    {
+      "q": "Which plugin name passes the enforce rule of `validate_plugin_name`?",
+      "options": [
+        "My-Extension",
+        "team-notes",
+        "-leading-dash",
+        "double..dot"
+      ],
+      "answer": 1,
+      "topic": "validation",
+      "explanation": [
+        "Uppercase fails the lowercase-only rule.",
+        "Names must start with a letter or digit.",
+        "Consecutive dots are banned."
+      ]
+    },
+    {
+      "q": "`discover_enabled_plugins` looks at which roots?",
+      "options": [
+        "Only the current directory",
+        "The user plugins dir plus the project .agents/plugins dir, filtered by settings files",
+        "Only a remote registry",
+        "The Windows registry"
+      ],
+      "answer": 1,
+      "topic": "discovery",
+      "explanation": [
+        "CWD alone would miss user-scoped plugins.",
+        "There is no remote registry in v1.49.0 discovery.",
+        "The OS registry is irrelevant."
+      ]
+    },
+    {
+      "q": "The OSV malware check blocks a package only when:",
+      "options": [
+        "The package is written in Rust",
+        "OSV returns a MAL-* advisory; network failures fail open",
+        "The package is older than a year",
+        "A scanner flags the binary"
+      ],
+      "answer": 1,
+      "topic": "security",
+      "explanation": [
+        "Language is irrelevant to advisory checks.",
+        "Age is not a signal.",
+        "There is no binary scanning; only advisory lookup."
+      ]
+    },
+    {
+      "q": "What does the default `complete()` in the Provider trait do?",
+      "options": [
+        "Opens a direct HTTP connection",
+        "Calls stream() then collect_stream() into one (Message, ProviderUsage)",
+        "Retries three times",
+        "Returns the system prompt as the answer"
+      ],
+      "answer": 1,
+      "topic": "echo-provider",
+      "explanation": [
+        "HTTP is a provider-specific concern below the trait.",
+        "Retry is a separate trait/config concern.",
+        "complete delegates to the stream contract."
+      ]
+    },
+    {
+      "q": "In `collect_stream`, consecutive text deltas are:",
+      "options": [
+        "Rejected as duplicates",
+        "Coalesced into one growing text block, and usage kept from the last chunk",
+        "Each wrapped in a new message sent to the user",
+        "Compressed with zlib"
+      ],
+      "answer": 1,
+      "topic": "streaming",
+      "explanation": [
+        "Partial text is expected, not an error.",
+        "One message with one text block is the aggregation contract.",
+        "Compression is not part of the API."
+      ]
+    },
+    {
+      "q": "`ensure_usage_tokens` estimates counts only when:",
+      "options": [
+        "The provider is paid",
+        "Input or output counts are missing, and prefers vendor numbers whenever present",
+        "The model is local",
+        "The session exceeds an hour"
+      ],
+      "answer": 1,
+      "topic": "usage-tracking",
+      "explanation": [
+        "Billing status is irrelevant to estimation policy.",
+        "Estimation is the universal fallback, not local-only.",
+        "Duration is not a trigger."
+      ]
+    },
+    {
+      "q": "OpenAI tool-call arguments arrive as a JSON string, and the mapper:",
+      "options": [
+        "Stores them verbatim as text content",
+        "Parses that string and builds a `ToolRequest` with structured arguments",
+        "Rejects all string arguments",
+        "Base64-decodes them"
+      ],
+      "answer": 1,
+      "topic": "tool-call-mapping",
+      "explanation": [
+        "Text content would break tool dispatch.",
+        "Strings are the required wire form.",
+        "Arguments are plain JSON strings, not base64."
+      ]
+    },
+    {
+      "q": "The OAuth endpoint transport policy in goose is:",
+      "options": [
+        "Any HTTPS or HTTP endpoint is fine",
+        "HTTPS always, HTTP only for loopback addresses",
+        "HTTP only",
+        "Only ws:// endpoints"
+      ],
+      "answer": 1,
+      "topic": "provider-auth",
+      "explanation": [
+        "Plain HTTP for remote endpoints would expose codes.",
+        "HTTP-only would forbid secure vendors.",
+        "OAuth uses HTTPS endpoints, not websockets."
+      ]
+    },
+    {
+      "q": "Your MCP tool rejects an empty note with `INTERNAL_ERROR`. The maintainer-correct code is:",
+      "options": [
+        "Keep it - all rejections are internal",
+        "Use `INVALID_PARAMS` because the caller sent an unacceptable value; reserve `INTERNAL_ERROR` for your own faults",
+        "Use no error code",
+        "Convert it to a timeout"
+      ],
+      "answer": 1,
+      "topic": "mcp-schemas",
+      "explanation": [
+        "Conflating caller faults with server faults misleads the agent.",
+        "Error codes are required metadata.",
+        "A bad value is not a timeout."
+      ]
+    }
+  ],
+  "miniLab": {
+    "title": "Capstone green: ship your production-grade extension",
+    "instructions": "Final capstone. Deliver a complete, documented, tested extension that solves a real workflow you have.\n\n1. Create the extension directory (Cargo.toml for a server/provider, or plugin.json for a plugin) with src/ (or commands/ + skills/), tests/, README.md, and docs/design.md that states the problem and the security model.\n2. Run the quality gates and record them: `cargo fmt` output, `cargo test` (capture the `test result:` line), and `cargo clippy --all-targets -- -D warnings`, appending everything to qa-report.txt with a final marker line CLIPPY-RUN-DONE (plugin route: record your validation outputs and a final GATES-RUN-DONE line instead).\n3. Fix every clippy warning - do not use #[allow(...)] to hide them.\n4. Use the extension for one real live session and save the transcript to demo.md (what you asked, what tool/command fired, the result).\n5. Run the provided verify script below and paste its full output. The auto-grading verdict passes only when the output contains every string in passMarkers.",
+    "verifyScript": "param(\n    [string]$CapstoneDir = $env:CAPSTONE_DIR\n)\n$ErrorActionPreference = \"Stop\"\n$fails = 0\n$passes = 0\nif (-not $CapstoneDir) { $CapstoneDir = (Get-Location).Path }\nif (-not (Test-Path (Join-Path $CapstoneDir \"src\")) -and (Test-Path (Join-Path $CapstoneDir \"capstone-ext\"))) {\n    $CapstoneDir = Join-Path $CapstoneDir \"capstone-ext\"\n}\nfunction Check {\n    param([string]$Name, [bool]$Ok, [string]$Detail)\n    if ($Ok) { Write-Host \"[PASS]  $Name\"; $script:passes++ }\n    else { Write-Host \"[FAIL]  $Name - $Detail\"; $script:fails++ }\n}\n$hasManifest = (Test-Path (Join-Path $CapstoneDir \"plugin.json\")) -or (Test-Path (Join-Path $CapstoneDir \"Cargo.toml\")) -or (Test-Path (Join-Path $CapstoneDir \"config.example.yaml\"))\nCheck \"manifest present (plugin.json / Cargo.toml / config.example.yaml)\" $hasManifest \"capstone root: $CapstoneDir\"\n$hasSrc = (Test-Path (Join-Path $CapstoneDir \"src\")) -or (Test-Path (Join-Path $CapstoneDir \"commands\")) -or (Test-Path (Join-Path $CapstoneDir \"skills\"))\nCheck \"implementation dir present (src/ or commands/ or skills/)\" $hasSrc \"create the implementation\"\n$testFiles = @()\nif (Test-Path (Join-Path $CapstoneDir \"tests\")) { $testFiles = Get-ChildItem (Join-Path $CapstoneDir \"tests\") -Filter *.rs }\nCheck \"tests/ has at least one test file\" ($testFiles.Count -ge 1) \"add tests/*.rs\"\nCheck \"README.md exists\" (Test-Path (Join-Path $CapstoneDir \"README.md\")) \"write install + usage docs\"\nCheck \"docs/design.md exists\" (Test-Path (Join-Path $CapstoneDir \"docs\\design.md\")) \"write the design + security doc\"\n$qa = Join-Path $CapstoneDir \"qa-report.txt\"\n$qaOk = $false\nif (Test-Path $qa) {\n    $qaText = Get-Content $qa -Raw\n    $qaOk = ($qaText -match \"test result:\") -and ($qaText -match \"CLIPPY-RUN-DONE|GATES-RUN-DONE\")\n}\nCheck \"qa-report.txt shows cargo test result + clippy/gates markers\" $qaOk \"run fmt/test/clippy and record the output\"\nCheck \"demo.md live-session transcript exists\" (Test-Path (Join-Path $CapstoneDir \"demo.md\")) \"record one live session using your extension\"\nWrite-Host \"\"\nWrite-Host \"CAPSTONE scan complete: $passes/$($passes + $fails) structure checks\"\nif ($fails -eq 0) {\n    Write-Host \"STRUCTURE OK - every capstone artifact present\"\n    Write-Host \"VERIFY PASSED $passes/$($passes + $fails)\"\n    exit 0\n} else {\n    Write-Host \"VERIFY FAILED - $fails of $($passes + $fails) checks failed\"\n    exit 1\n}",
+    "passMarkers": [
+      "VERIFY PASSED",
+      "CAPSTONE scan complete",
+      "STRUCTURE OK"
+    ]
+  }
+}

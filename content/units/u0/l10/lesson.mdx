@@ -1,0 +1,142 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 10
+id: u0-l10
+slug: 10-structs-impl
+title: "Structs and impl: methods, associated functions, visibility"
+topics:
+  - structs
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/model.rs
+    line: 41
+    note: 'pub struct ModelConfig — the model-level config carried through every provider call'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 47
+    note: 'pub toolshim: bool — a plain public field with no default annotation'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 103
+    note: 'ModelConfig::new(model_name: impl AsRef<str>) -> Self — associated fn as the constructor'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 120
+    note: 'with_canonical_limits(mut self, ...) -> Self — builder-style method consuming self'
+---
+
+# Structs and impl: methods, associated functions, visibility
+
+Structs are your TS interfaces with teeth — they own their data, and `impl`
+blocks attach behavior. Goose's `ModelConfig` is the struct you will meet on
+every provider call; today you clone its shape.
+
+## Read the real one
+
+`crates/goose-provider-types/src/model.rs:41`:
+
+```rust
+#[derive(Debug, Clone, Serialize)]
+pub struct ModelConfig {
+    pub model_name: String,
+    #[serde(skip)]
+    pub context_limit: Option<usize>,
+    pub temperature: Option<f32>,
+    pub max_tokens: Option<i32>,
+    pub toolshim: bool,
+    pub toolshim_model: Option<String>,
+```
+
+Structure worth copying from:
+- `model_name` — a required, owned `String`
+- optionals as `Option<...>` for "maybe set" config
+- a `bool` for a toggle
+- a political mix of `f32`/`i32` chosen to match provider APIs
+
+## `impl ModelConfig { ... }` — methods vs associated fns
+
+`model.rs:103` — the constructor (an **associated function** — called on the
+type, no self):
+
+```rust
+pub fn new(model_name: impl AsRef<str>) -> Self {
+```
+
+`model.rs:120` — a builder-style method (**takes `mut self`, returns Self**):
+
+```rust
+pub fn with_canonical_limits(mut self, provider_name: &str) -> Self {
+```
+
+The `mut self` pattern is how goose chains configs:
+
+```rust
+let config = ModelConfig::new("gpt-4o")
+    .with_canonical_limits("openai");
+```
+
+Each builder step *consumes* self and returns the (modified) whole — no mutation
+shared, no object identity worries. In TS you'd write a fluent class; in Rust it
+falls out of plain methods.
+
+<Diff
+  oldCode="// TS: class with constructor + fluent setters
+class ModelConfig {
+  modelName: string;
+  temperature?: number;
+  withTemperature(t: number): this { this.temperature = t; return this; }
+}"
+  newCode="// Rust: struct + impl; builder consumes self
+#[derive(Debug, Clone)]
+pub struct ModelConfig {
+    pub model_name: String,
+    pub temperature: Option<f32>,
+}
+
+impl ModelConfig {
+    // associated fn: called as ModelConfig::new(...)
+    pub fn new(model_name: impl AsRef<str>) -> Self {
+        Self { model_name: model_name.as_ref().to_string(), temperature: None }
+    }
+    // method: consumes self, returns the (new) whole
+    pub fn with_temperature(mut self, t: f32) -> Self {
+        self.temperature = Some(t);
+        self
+    }
+}" />
+
+## Visibility: `pub`, `pub(crate)`, private
+
+- `pub` — everyone; `model_name` is public because providers *everywhere* read it.
+- private (nothing) — only the defining module; the TokenCounter's `tokenizer`
+  field (`token_counter.rs:23`) stays private to keep the cache invariant safe.
+- `pub(crate)` — the crate. Middle-ground the goose codebase uses where the
+  whole engine needs it but extensions shouldn't touch it.
+
+## Adding a method vs an associated function
+
+Rule of thumb from reading goose: needs the instance's fields → method
+(`&self`/`&mut self`/`self`); just a constructor or helper → associated
+function (`fn new(...) -> Self`, no self). Goose names constructors `new`,
+parsers `from_*`/`try_from`, and builders `with_*`.
+
+<FounderLens>
+
+Why does `ModelConfig` exist as a struct with *both* serde attributes and
+hand-written builders instead of just serializing provider payloads? Because
+config crosses trust boundaries: it's deserialized from user profiles, mutated
+by CLI flags, cloned per call, and consumed by every provider impl. A plain
+data struct with grown-up construction semantics makes each of those stages
+auditable. Tradeoff: hand-written `Deserialize` (`model.rs:62`) exists because
+`context_limit` is deliberately *not* read from config — a decision you can
+only make explicitly in code.
+
+</FounderLens>
+
+<MindShift>
+
+TS classes mix storage, construction, and inheritance into one keyword. Rust
+splits them: `struct` = storage, `impl` = behavior, and there's no class
+inheritance — behavior composes via traits (next lesson). When you port a TS
+class to goose style, delete the class mindset and ask "what fields, what
+impls, what traits." ModelConfig is the canonical answer to the first two.
+
+</MindShift>

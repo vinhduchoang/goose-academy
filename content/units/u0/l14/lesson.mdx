@@ -1,0 +1,145 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 14
+id: u0-l14
+slug: 14-serde
+title: "Serde: derives, rename_all, default, skip"
+topics:
+  - serde
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/model.rs
+    line: 40
+    note: '#[derive(Debug, Clone, Serialize)] — ModelConfig serializes; deserialization is hand-written below'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 50
+    note: '#[serde(default, skip_serializing_if = "Option::is_none")] — backward-compat defaulting'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 58
+    note: '#[serde(skip)] — request_headers never touches JSON'
+  - file: crates/goose-provider-types/src/conversation/message.rs
+    line: 961
+    note: '#[serde(rename_all = "camelCase")] on Message — wire format uses camelCase keys'
+  - file: crates/goose/src/agents/types.rs
+    line: 60
+    note: '#[serde(tag = "type")] on SuccessCheck — enum serialized as {"type": "Shell", ...}'
+---
+
+# Serde: derives, rename_all, default, skip
+
+Serde is Rust's JSON wardrobe — `#[derive(Serialize, Deserialize)]` writes the
+serialization for you, and attributes tune the shape. Goose's wire format and
+its config files both flow through it; the attributes tell the whole story.
+
+## The basic derive
+
+`crates/goose-provider-types/src/model.rs:40-41`:
+
+```rust
+#[derive(Debug, Clone, Serialize)]
+pub struct ModelConfig {
+    pub model_name: String,
+```
+
+Serialization is a one-word opt-in. Every field becomes a JSON member, with the
+Rust field name as the key. Deserialize is *not* derived here — `model.rs:62`
+implements `Deserialize` by hand because `context_limit` must be ignored on
+input (prevents callers from smugging in a value goose computes itself). When a
+derive can't express the policy, a manual impl is the policy.
+
+## `rename_all` — wire format is not Rust style
+
+`conversation/message.rs:961`:
+
+```rust
+#[serde(rename_all = "camelCase")]
+pub struct Message {
+```
+
+JSON consumers (OpenAI/Anthropic envelopes, frontends) demand `camelCase`; Rust
+fields use `snake_case`. `rename_all` translates automatically —
+`model_name` stays `model_name` in Rust but becomes `modelName` on the wire
+(relevant where snake and camel actually differ).
+
+## `default` — backward compatibility's best friend
+
+`model.rs:50`:
+
+```rust
+#[serde(default, skip_serializing_if = "Option::is_none")]
+pub request_params: Option<HashMap<String, Value>>,
+```
+
+Two different ideas in one line:
+- `default` on *deserialization*: missing key → `Option::None`, old configs
+  still parse after you add a field.
+- `skip_serializing_if` on *serialization*: `None` → key omitted entirely,
+  keeping payloads clean.
+
+That's the whole l14 lab plot: add a field, keep old JSON valid.
+
+## `skip` — never on the wire
+
+`model.rs:58`:
+
+```rust
+#[serde(skip)]
+pub request_headers: Option<HashMap<String, String>>,
+```
+
+HTTP headers ride beside JSON, never inside it (secrets!). `skip` covers both
+directions: never serialized, never deserialized. `#[serde(skip)]` on
+`context_limit` (`model.rs:43`) is the same idea for a *computed* field.
+
+## Enums: `tag`
+
+`crates/goose/src/agents/types.rs:59-60`:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum SuccessCheck {
+```
+
+Adjacent tagging: `{"type": "Shell", "command": "..."}` — the variant name
+almost (with `alias = "shell"` exactly) drives the discriminator key. Reminds
+you: serde isn't only structs, it's the enum shapes you learned in l06.
+
+<Diff
+  oldCode="// TS — hand-written mapping everywhere
+type Wire = { modelName: string, temperature?: number };
+const toWire = (m: ModelConfig): Wire => ({ modelName: m.model_name, ... });"
+  newCode="// Rust — derive + attributes
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = \"camelCase\")]
+pub struct ModelConfig {
+    pub model_name: String,
+    pub temperature: Option<f32>,
+}" />
+
+<FounderLens>
+
+Why `Serialize` derived but `Deserialize` hand-written on ModelConfig
+(`model.rs:40` vs `:62`)? Because the two directions carry different
+authority: serialization just *reports* the current config; deserialization
+*accepts* external input — and acceptance policy (reject misspelled effort
+suffixes via `normalize_effort_suffix`, ignore `context_limit`) deserves
+reviewable code. Tradeoff: a manual impl is a place where the field list can
+drift from the struct — the RawModelConfig mirror struct inside (`model.rs:68`)
+is the discipline that keeps them lockstep. Where it breaks: someone adds a
+field to the struct but forgets the Raw mirror, and the new field silently
+never deserializes.
+
+</FounderLens>
+
+<MindShift>
+
+In TS, `JSON.parse` returns `any`, and you validate later (or never). Serde
+inverts it: the *type* is the validation — wrong types and unknown shapes
+become errors at the parse boundary, not mysteries three functions deep. Goose
+relies on this: a malformed profile fails at load, with a typed error message,
+before the agent ever runs. You stop writing `if (typeof x === 'string')`
+guards almost entirely.
+
+</MindShift>

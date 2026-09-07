@@ -1,0 +1,87 @@
+---
+unit: 1
+unitSlug: architecture
+order: 5
+id: u1-l05
+slug: 05-state-machine
+title: "Agent lifecycle II: the state machine as ops + effects"
+topics:
+  - state-machine
+  - ops-effects
+  - parity
+durationMin: 20
+cites:
+  - file: crates/goose-agent/src/machine.rs
+    line: 34
+    note: 'pub enum Step — Step::Operation(Operation) plus Step::Inference(Inference), the building blocks of a machine'
+  - file: crates/goose-agent/src/machine.rs
+    line: 48
+    note: 'pub struct StateMachine<''a, S, E> with new() + step() + run() — the executor loop'
+  - file: crates/goose-agent/src/operation.rs
+    line: 74
+    note: 'pub trait Operation<S, E>: Send + Sync — apply/effect_usage/ends_turn/turn_count contracts'
+  - file: crates/goose-agent/src/operation.rs
+    line: 200
+    note: 'pub enum ConversationEffect — the typed effects operations emit (AppendMessage, ReplaceConversation, ...)'
+  - file: crates/goose/src/agents/state_machine/mod.rs
+    line: 38
+    note: 'pub use goose_agent::machine::{EffectHandler, ..., StateMachine, Step} — goose re-exports the crate that owns the machine'
+  - file: crates/goose/src/agents/state_machine/effects.rs
+    line: 8
+    note: 'pub enum GooseEffect — goose''s effect extension: Conversation, ReplaceConversation, SetRecipe, SetExtensionData, RecordUsage'
+  - file: crates/goose/src/agents/agent.rs
+    line: 1619
+    note: 'pub(super) fn create_state_machine — assembles the full ordered step list: EntryHook -> SlashCommand -> Steer -> ... -> Inference'
+  - file: crates/goose/src/agents/state_machine/ops_llm.rs
+    line: 113
+    note: 'async fn stream — GooseInferenceProvider''s per-turn inference inside the machine'
+---
+
+# Agent lifecycle II: the state machine as ops + effects
+
+`GOOSE_STATE_MACHINE=1` flips goose onto a different brain. The legacy loop (l04) is one opaque coroutine; the state machine is a *declared list of operations* plus a generic executor. The plan named `ops_llm`, `ops_toolcalling`, `effects.rs` — all real, but the executor now lives in its own crate `goose-agent`, and goose's `state_machine/` module builds on it.
+
+## The three crate-level pieces
+
+1. **`goose-agent`** (no external deps beyond tokio/tracing): owns the executor and the abstractions. `crates/goose-agent/src/machine.rs:48` defines `StateMachine<'a, S, E>`; `machine.rs:34` defines `Step` — a machine is `Vec<Step>`, where each `Step::Operation(op)` runs an `Operation` or `Step::Inference(inf)` runs the model. `run()` (`machine.rs:158`) loops over steps until one reports the turn ended.
+2. **`goose`'s `agents/state_machine/`**: defines the *concrete* operations (the `ops_*` files from `mod.rs:8`) and the effect vocabulary (`effects.rs:8` — `GooseEffect` wraps `ConversationEffect` with goose-level additions like `SetRecipe` and `RecordUsage`).
+3. **The re-export layer** (`state_machine/mod.rs:38`): goose re-publishes `goose_agent::machine::*` and `goose_agent::operation::*` so the rest of the codebase sees one import surface compatible with the legacy `super::SupervisorAgent`-era naming.
+
+## Operations: the unit of behavior
+
+`crates/goose-agent/src/operation.rs:74` — the `Operation` trait. An operation inspects the session + conversation, decides whether it *applies*, and if so emits effects. `operation.rs:200` — `ConversationEffect` (append/replace messages, raw messages). Effects are *data*, not side effects: the machine collects them per step and hands them to an `EffectHandler` — in goose, that's `SessionManager` (see `state_machine/session.rs:40`) whose `apply_effects` does the actual persistence. This is the heart of the architecture: **operations decide, effects describe, the handler performs**. The legacy loop did all three inline.
+
+## The concrete machine, in order
+
+`crates/goose/src/agents/agent.rs:1619` (`create_state_machine`) builds the step list you must memorize:
+
+```
+EntryHookOperation -> SlashCommandOperation -> SteerOperation -> MaxTurnsOperation
+-> BangShellOperation -> CompactionOperation -> ToolPairCompactionOperation
+-> ToolApprovalOperation -> DoctorOperation -> ProjectOperation -> SkillOperation
+-> RecipeOperation -> ToolExecutionOperation -> UnknownToolOperation
+-> RetryOperation -> StopHookOperation -> ExitOnErrorOperation -> Step::Inference
+```
+
+Each `ops_*.rs` file is one of these. `ops_toolcalling.rs:734` is `ToolExecutionOperation` — the state-machine twin of `dispatch_tool_call` — and `ops_compaction.rs:47` is compaction. Every run ends with the inference step; the machine loops until a step reports `ended` (e.g. no more tool requests).
+
+## How a turn flows
+
+1. `Agent::reply` checks `state_machine::enabled()` (`mod.rs:73` — the env var gate) and routes to `reply_with_state_machine`, which calls `create_state_machine` and then `machine.run()`.
+2. Each step receives the `Session` and an `Emitter`; steps that apply push effects.
+3. After each step, `apply_effects` persists the approved effects as messages; the conversation is the shared memory between steps.
+4. `Step::Inference` calls the runner — `ops_llm.rs:113`'s `stream` wraps the provider and returns an assistant message; fresh `ToolRequest` blocks then make `ToolExecutionOperation` apply next loop.
+
+<FounderLens>
+
+**Problem solved:** the legacy loop fused policy (what to do), effects (state changes), and execution (streams, tools, persistence) into one function bank. The machine splits them so each `ops_*` file is a small, independently testable decision point — see `crates/goose/src/agents/state_machine/tests/` — and the turn order is *data* (a Vec of steps), reorderable and mockable without a live model.
+
+**Tradeoff:** behavior parity with the legacy loop must be preserved per AGENTS.md — the ops files were carved out of the legacy loop and the two must keep agreeing. That's why `enabled()` still gates by env var and why ops like MaxTurns re-read the same `GOOSE_MAX_TURNS` key (l03). The cost: any legacy fix needs a mirror.
+
+**Where it's heading:** extraction continues — `goose-agent` is being made usable by sibling apps, and `state_machine/session.rs` (Session as MachineSession/EffectHandler) keeps thinning. Eventually the legacy loop ships only for fallback.
+
+**Where it breaks:** order dependencies between steps (compaction must run before inference; approval before execution) — reordering steps silently changes behavior, and effect-application failures mid-step need careful rollback reasoning. Parity gaps appear where an op exists in only one path — your Unit 2 primal task.
+
+**Where you'd extend it:** a new `ops_lint.rs` operation that inspects pending messages and injects a system notification when a file changed over a policy threshold — purely additive, no executor changes needed. That is the pitch of the architecture.
+
+</FounderLens>

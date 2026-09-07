@@ -1,0 +1,124 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 3
+id: u0-l03
+slug: 03-strings-compound
+title: "Compound types: Vec, slices, and String vs &str"
+topics:
+  - strings
+  - data-types
+durationMin: 20
+cites:
+  - file: crates/goose/src/prompt_template.rs
+    line: 7
+    note: 'static CORE_PROMPTS_DIR embeds the whole prompts/ folder into the binary via include_dir!'
+  - file: crates/goose/src/prompt_template.rs
+    line: 9
+    note: 'TEMPLATE_REGISTRY: &[(&str, &str)] — array of tuples of borrowed string slices'
+  - file: crates/goose/src/agents/prompt_manager.rs
+    line: 143
+    note: 'render_template("system.md", &context) — named template, borrowed context, String result'
+---
+
+# Compound types: Vec, slices, and String vs &str
+
+Two string types. This is the single most common Rust confusion for FE engineers —
+but goose shows exactly why the split exists: *who owns the bytes*.
+
+## `String` vs `&str` in one picture
+
+```rust
+let owned: String = String::from("You are goose");   // heap, owned, growable
+let borrowed: &str = "You are goose";                // static, borrowed, read-only
+let view: &str = &owned[..8];                        // "You are " — a window into the String
+```
+
+`String` is the JS string you know — heap-allocated, mutable, owns its buffer.
+`&str` is the FE concept of "just a reference to someone else's string" — like a
+zero-copy string in TS libraries that avoid duplication. Neither is "the right
+one"; each signals who can free the memory.
+
+## Where goose needs each
+
+Open `crates/goose/src/prompt_template.rs:7`:
+
+```rust
+static CORE_PROMPTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/prompts");
+```
+
+Every prompt file in `prompts/` is *embedded into the goose binary at compile
+time* and stays in memory for the whole run — so those are `&str`-style borrowed
+data, not `String`s. Right below (`prompt_template.rs:9`):
+
+```rust
+static TEMPLATE_REGISTRY: &[(&str, &str)] = &[
+    ("system.md", "Main system prompt that defines goose's personality and behavior"),
+```
+
+A slice of tuples of string slices — all pointing into the binary, zero
+allocation at startup. Now the *output* side, when goose actually renders
+`system.md` (`crates/goose/src/agents/prompt_manager.rs:143`):
+
+```rust
+prompt_template::render_template("system.md", &context)
+```
+
+The template name is borrowed (`&str` — it's a lookup key), the context is
+borrowed, but the *result* is a fresh `String` — because the rendered prompt is
+built at runtime and owned by the caller.
+
+<Diff
+  oldCode="// TS: same type everywhere
+const name: string = \"goose\";
+const prompt: string = render(system, ctx);"
+  newCode="// Rust: ownership is part of the type
+let name: &str = \"goose\";            // borrowed from the binary
+let prompt: String = render_template(\"system.md\", &ctx); // owned, built at runtime" />
+
+## Tuples, arrays, Vec, slices
+
+```rust
+let pair: (&str, &str) = ("system.md", "personality");   // tuple — mixed types OK
+let versions: [u32; 3] = [149, 148, 147];                 // array — fixed length
+let mut cache: Vec<String> = Vec::new();                  // Vec — growable, heap
+cache.push(String::from("plan.md"));
+let first: &[String] = &cache[..1];                       // slice — a view
+```
+
+Goose leans on all four: `Vec<Message>` for conversations, fixed arrays for
+per-tool overhead tables, tuples in `TEMPLATE_REGISTRY`, slices for borrowing
+part of a Vec (`&sequence[..]`).
+
+## String methods worth knowing now
+
+```rust
+let p = String::from(" You are goose. ");
+p.trim()          // -> &str "You are goose."
+p.replace('g', 'G')   // -> String
+p.push_str(" v1.49");  // only String can grow — &str cannot
+p.chars().count() // Unicode-aware length
+```
+
+<FounderLens>
+
+Why embed prompts in the binary (`include_dir!`)? Goose must work offline in
+enterprise deployments, and its personality lives in `system.md` — a missing
+file can't be allowed to break the agent. Tradeoff: every prompt byte inflates
+the binary and squats memory for the run. Where it breaks: editing a prompt now
+requires a rebuild — contributors must remember the "prompt" they see at
+runtime is the *compiled* copy, not the file on disk. That's why Unit 2 tests
+prompt edits via rebuild.
+
+</FounderLens>
+
+<MindShift>
+
+In JS/TS you stringly-type everything and allocate constantly; string identity,
+interning, and zero-copy are compiler trivia. In Rust, `String` vs `&str`
+answers the exact question JS GC answers mechanically: *who owns this memory and
+when does it die?* Once you read goose's signature `fn count_tokens(&self,
+text: &str)` and think "it never takes ownership of your text" — you've crossed
+the FE-Rust gap.
+
+</MindShift>

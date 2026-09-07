@@ -1,0 +1,80 @@
+---
+unit: 1
+unitSlug: architecture
+order: 4
+id: u1-l04
+slug: 04-agent-lifecycle
+title: "Agent lifecycle I: entry -> reply loop -> tools (legacy path)"
+topics:
+  - agent-lifecycle
+  - messages
+durationMin: 20
+cites:
+  - file: crates/goose/src/agents/agent.rs
+    line: 287
+    note: 'pub struct Agent — fields include provider, extension_manager, hook_manager, goose_mode, tool_inspection_manager'
+  - file: crates/goose/src/agents/agent.rs
+    line: 855
+    note: 'async fn prepare_reply_context — assembles conversation, tools, system prompt, model config before a turn'
+  - file: crates/goose/src/agents/agent.rs
+    line: 1063
+    note: 'pub async fn dispatch_tool_call — legacy tool dispatch: telemetry, prompt recording, pre-tool hooks, then execution'
+  - file: crates/goose/src/agents/agent.rs
+    line: 2020
+    note: 'pub async fn reply — public entry; wraps reply_impl stream with the event-id boundary'
+  - file: crates/goose/src/agents/agent.rs
+    line: 2388
+    note: 'async fn reply_internal — prepares context, spawns session naming, opens the reply_stream span'
+  - file: crates/goose/src/agents/agent.rs
+    line: 2514
+    note: 'let mut turns_taken = 0u32; — top of the legacy turn loop inside the async_stream'
+---
+
+# Agent lifecycle I: entry → reply loop → tools (the legacy path)
+
+Goose still ships *two* agent loops, and you must be able to read both. This lesson is the legacy one; the next is the state machine. The legacy `Agent` struct lives at `crates/goose/src/agents/agent.rs:287`, and its loop is one giant `async_stream` inside `reply_internal`. Good news: the plan's `agents/agent.rs` path is real — this is the one area where the course plan did not drift.
+
+## The entry chain
+
+A turn enters at `Agent::reply` (`crates/goose/src/agents/agent.rs:2020`). Callers hand in one `user_message` + a `SessionConfig` + an optional `CancellationToken` and get back a `BoxStream<Result<AgentEvent>>`. `reply` delegates to `reply_impl` (`agent.rs:2040`), which:
+
+1. stamps the user message with a generated id (`msg_<uuid>`) if missing;
+2. records telemetry fields (`user_message`, `gen_ai.input.messages`) onto the current span — early, so failures still carry the input;
+3. resolves stale elicitation responses (ActionRequired blocks) into hard errors;
+4. delegates to `reply_internal`.
+
+## reply_internal: the setup phase
+
+`reply_internal` (`agent.rs:2388`) first calls `prepare_reply_context` (`agent.rs:855`) — this is where the *turn fingerprint* is assembled: conversation, tools + toolshim tools, system prompt (plus project-instructions addendum), tool-call cutoff, `GooseMode`, and the `ModelConfig`. Then:
+
+- `self.reset_retry_attempts().await` — recipe retry state is per-turn.
+- `self.provider().await?` resolves the active provider (the `Arc<Mutex<Option<Arc<dyn Provider>>>>` swap-able handle from `types.rs`), then `provider.resume()` if a previous provider session id exists in the conversation.
+- `fetch_model_info` resolves the requested → real model name, and the turn gets `InferenceMetadata`.
+- A background task maybe-updates the session name, and a `reply_stream` tracing span opens with the full `gen_ai.*` field vocabulary pre-filled.
+
+## The loop
+
+The machine is at `agent.rs:2514`: `let mut turns_taken = 0u32;` inside the `async_stream::try_stream!` block. One iteration = one model round trip:
+
+1. `max_turns` comes from `SessionConfig` or `GOOSE_MAX_TURNS` (l03's key) with fallback `DEFAULT_MAX_TURNS` (`agent.rs:90`).
+2. The provider is asked to `complete()` — an *assistant* `Message` comes back with text and/or `ToolRequest` blocks.
+3. Text accumulates into the reply stream; tool requests are partitioned (l02's `categorize_tool_requests`).
+4. `if goose_mode == GooseMode::Chat` at `agent.rs:2817`: tool requests get a polite synthetic skip response. Otherwise `tool_inspection_manager.inspect_tools(...)` runs every inspector over the requests; results feed `process_inspection_results_with_permission_inspector` producing `approved / needs_approval / denied` buckets (l07's pipeline).
+5. Approved requests go to `dispatch_tool_call` (`agent.rs:1063`) — telemetry, prompt-manager recording, PreToolUse hooks, execution, post-tool hooks, `ToolCallResult` back.
+6. The tool response is appended as a user-role `Message` with a `ToolResponse` block, and the loop iterates — until the assistant emits no tool requests, or max turns / error / cancellation.
+
+Why a hand-rolled counter + async_stream instead of a `for` loop? The loop must *yield* stream items mid-iteration (live UI, token-by-token); a plain loop can't emit without buffering everything. The state-machine lesson shows the alternative encoding of the same reality as *steps*.
+
+<FounderLens>
+
+**Problem solved:** one coroutine-shaped function must produce a live event stream, interleave async provider calls with tool execution and hooks, and stay cancellable — the UI shows tokens as they arrive, and ctrl-c must interrupt mid-tool-run. The legacy answer is an async generator with an inline mutable state bag: `turns_taken`, `last_assistant_text`, `compaction_attempts`, `goal_check_pending`, and a dozen more flags all live at `agent.rs:2514+`.
+
+**Tradeoff:** all control flow is invisible — you cannot unit-test "what happens after the second tool call" without running a model. That's exactly what `crates/goose/src/agents/state_machine/tests/` exists for in the new path. The legacy loop is also where the most per-turn state accumulates, which is why new features (steer queues, moim, tool-pair compaction) kept patching it: `reply_internal` is 6378 lines of file, most of it loop.
+
+**Where it's heading:** the state machine (`GOOSE_STATE_MACHINE=1`, next lesson) is growing to full parity; the legacy loop is being drained feature by feature. When you fix a bug, you often fix it *twice* — until parity is declared complete.
+
+**Where it breaks:** dual maintenance — any behavior change in one path (e.g. how Chat mode skips tools at agent.rs:2817) that misses the counterpart produces the parity bugs Unit 2 exists to catch. Cancellation and the empty-turn retry logic are the two most fragile spots historically.
+
+**Where you'd extend it:** a "turn tracer" that runs only on the legacy path and prints `turn -> tool dispatch -> response` as structured events, useful for manual parity diffing against the state machine's trace. Good first instrumentation PR.
+
+</FounderLens>

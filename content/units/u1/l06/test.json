@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In v1.49.0 the Provider trait's primary required method is:",
+    "options": [
+      "`stream()` — complete() is a provided default that collects the stream",
+      "`complete()` — stream() is built on top of it",
+      "`chat()` — both others are deprecated",
+      "`send()`"
+    ],
+    "answer": 0,
+    "topic": "providers",
+    "explanation": [
+      "The trait in base.rs:464 requires stream; complete defaults to collect_stream(stream).",
+      "There is no chat() method on the Provider trait.",
+      "send() is not part of the trait surface."
+    ]
+  },
+  {
+    "q": "What is the role of the `formats/` modules (e.g. formats/openai.rs)?",
+    "options": [
+      "Pure translation: goose Messages -> provider wire format and back, including repair logic like merge_split_tool_call_messages",
+      "Network retry with exponential backoff",
+      "UI rendering of model output",
+      "Rate limiting per provider"
+    ],
+    "answer": 0,
+    "topic": "providers",
+    "explanation": [
+      "Network concerns live in the provider impl + api_client, not formats.",
+      "Rendering happens in the app layer; formats are wire envelopes.",
+      "Rate limiting lives in goose/src/tracing/rate_limiter.rs, not formats."
+    ]
+  },
+  {
+    "q": "Streaming most commonly breaks at which boundary?",
+    "options": [
+      "Chunk reassembly: tool-call arguments or multi-message replies fragment across chunks in provider-specific ways",
+      "The process running out of color-terminal escape codes",
+      "TLS certificate expiry during non-TLS streams",
+      "The cancel token being too fast for the model"
+    ],
+    "answer": 0,
+    "topic": "streaming",
+    "explanation": [
+      "Terminals never parse provider streams.",
+      "TLS only applies to HTTPS transports, not the streaming logic itself.",
+      "Cancellation correctness is a separate concern from chunk fragmentation."
+    ]
+  },
+  {
+    "q": "Where does per-model pricing come from in goose?",
+    "options": [
+      "Canonical registry lookup (estimate_model_cost in canonical_cost.rs), merged with user/declarative pricing",
+      "Hardcoded tokens-per-dollar in the Provider trait",
+      "The provider's usage response, which always includes price",
+      "A daily-updated crates.io crate"
+    ],
+    "answer": 0,
+    "topic": "cost-usages",
+    "explanation": [
+      "Pricing is data (registry + declarative config), not trait constants.",
+      "Providers report token usage, not prices — the split is deliberate.",
+      "Pricing data ships with the repo/deployment, not from crates.io."
+    ]
+  },
+  {
+    "q": "What is the difference between `ProviderUsage` and `Usage`?",
+    "options": [
+      "`ProviderUsage` aggregates a provider call's cost/usage nuances (CostSource); `Usage` is the plain token counts (input/output/total/cache)",
+      "One is for OpenAI, one for Anthropic",
+      "`Usage` is deprecated",
+      "They are identical type aliases"
+    ],
+    "answer": 0,
+    "topic": "cost-usages",
+    "explanation": [
+      "Both types are provider-neutral.",
+      "Neither is deprecated; both are used across the request path.",
+      "They are distinct types in token_usage.rs with different fields."
+    ]
+  },
+  {
+    "q": "`ProviderDef` (goose/src/providers/base.rs) exists because:",
+    "options": [
+      "A live Provider instance and the factory recipe (from_env, descriptor metadata) the CLI iterates are different concerns",
+      "Providers cannot be constructed without a macro",
+      "Rust forbids trait objects in Vec",
+      "ProviderDef replaces Provider everywhere"
+    ],
+    "answer": 0,
+    "topic": "providers",
+    "explanation": [
+      "No macro is required to construct providers.",
+      "Vec<Arc<dyn Provider>> is used freely (see Agent's provider handle).",
+      "Provider remains the runtime trait; ProviderDef is the registration layer."
+    ]
+  },
+  {
+    "q": "Which change unblocks this? — You add a provider, but goose-cli never lists it: its `impl Provider` exists in goose-providers yet the factory registry shows nothing.",
+    "options": [
+      "Add the ProviderDef registration (from_env constructor) in the registration path the CLI's provider factory iterates",
+      "Implement Display for the provider",
+      "Move the file into the goose crate",
+      "Set RUST_LOG=trace"
+    ],
+    "answer": 0,
+    "topic": "providers",
+    "explanation": [
+      "Display is irrelevant to factory registration.",
+      "Provider impls deliberately live in goose-providers; location is not the issue.",
+      "Logging shows the registry but does not add entries."
+    ]
+  }
+]

@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Which files make a repo installable as an Open-Plugins-format plugin even without plugin.json?",
+    "options": [
+      "Only package.json",
+      "Any COMPONENT_MARKERS: hooks/hooks.json, commands, agents, .mcp.json",
+      "Any .rs source files",
+      "A LICENSE file"
+    ],
+    "answer": 1,
+    "topic": "plugins",
+    "explanation": [
+      "package.json is a Node concept, not part of the format.",
+      "Rust source files are not recognized component markers.",
+      "Licensing does not make a repo a plugin."
+    ]
+  },
+  {
+    "q": "After installing a plugin named `acme` with skill `deploy`, what is the skill's surface name in goose?",
+    "options": [
+      "deploy (global)",
+      "acme:deploy",
+      "acme/deploy",
+      "deploy@acme"
+    ],
+    "answer": 1,
+    "topic": "skills",
+    "explanation": [
+      "Suffix-collision would shadow other plugins' skills.",
+      "Colon namespacing is what namespaced_component_name produces.",
+      "There is no @-based naming convention."
+    ]
+  },
+  {
+    "q": "A skill's SKILL.md body is best understood as:",
+    "options": [
+      "Executable code run at load time",
+      "Instructions spliced into the agent's context when the skill is invoked",
+      "A log of past skill runs",
+      "A build manifest"
+    ],
+    "answer": 1,
+    "topic": "skills",
+    "explanation": [
+      "Skills are prompt libraries, not scripts.",
+      "Logs live elsewhere (session history).",
+      "Builds do not read SKILL.md."
+    ]
+  },
+  {
+    "q": "How does goose's slash-command merge resolve name clashes between a builtin and a skill?",
+    "options": [
+      "The skill shadows the builtin",
+      "Builtins hold reserved names; later sources only add non-clashing names",
+      "Both run in sequence",
+      "It renames both with numeric suffixes"
+    ],
+    "answer": 1,
+    "topic": "plugins",
+    "explanation": [
+      "Shadowing a core command is explicitly prevented.",
+      "Commands are names, not runlists - there is no sequencing.",
+      "No auto-renaming exists for clashing entries."
+    ]
+  },
+  {
+    "q": "What does the `.goose-plugin-install.json` file written during installation record?",
+    "options": [
+      "The plugin's API keys",
+      "Install provenance (source, format) + auto-update bookkeeping",
+      "The full skill bodies",
+      "A Cargo.lock snapshot"
+    ],
+    "answer": 1,
+    "topic": "extension-manifest",
+    "explanation": [
+      "Secrets never enter install metadata.",
+      "Skill bodies remain in the plugin directory.",
+      "Plugins are file-based; no Rust build state exists."
+    ]
+  },
+  {
+    "q": "Why does `install_from_manifest` copy into a staging dir and atomically rename into place?",
+    "options": [
+      "To compress the plugin",
+      "So a failed or partial install never leaves a half-written plugin visible",
+      "To strip unicode from the files",
+      "To compute a git SHA"
+    ],
+    "answer": 1,
+    "topic": "validation",
+    "explanation": [
+      "No compression occurs.",
+      "Unicode handling is not part of installation.",
+      "Hashing is unrelated to directory staging."
+    ]
+  },
+  {
+    "q": "This plugin install fails: name `U3-Greeter`. The unblocking change is:",
+    "options": [
+      "Add a LICENSE file",
+      "Rename to lowercase+digits+dashes only (e.g. u3-greeter) and ensure it starts/ends alphanumeric",
+      "Set version to 1.0.0",
+      "Move skills into commands/"
+    ],
+    "answer": 1,
+    "topic": "extension-manifest",
+    "explanation": [
+      "Licensing is irrelevant to name validation.",
+      "Version changes do not satisfy name rules.",
+      "Commands and skills are different component kinds."
+    ]
+  }
+]

@@ -1,0 +1,110 @@
+---
+unit: 3
+unitSlug: extensions
+order: 1
+id: u3-l01
+slug: 01-extension-anatomy
+title: "Extension anatomy: manifest, discovery, validation, malware check"
+topics: [extension-manifest, discovery, validation, security, extension-system]
+durationMin: 20
+cites:
+  - file: crates/goose/src/agents/extension.rs
+    line: 161
+    note: 'pub enum ExtensionConfig - the four MCP extension surfaces (stdio, builtin, platform, streamable_http)'
+  - file: crates/goose/src/plugins/formats/open_plugins.rs
+    line: 14
+    note: 'MANIFESTS const - the three manifest paths goose probes (.goose-plugin/plugin.json, .plugin/plugin.json, plugin.json)'
+  - file: crates/goose/src/plugins/formats/open_plugins.rs
+    line: 24
+    note: 'pub struct OpenPluginsManifest - name/version/skills/mcpServers are the whole schema'
+  - file: crates/goose/src/plugins/formats/open_plugins.rs
+    line: 206
+    note: 'validate_plugin_name - rules every plugin name must pass (1-64 chars, lowercase+dash+dot, no -- or ..)'
+  - file: crates/goose/src/agents/validate_extensions.rs
+    line: 17
+    note: 'validate_bundled_extensions - the bundled-extension JSON gate with human-readable fix hints'
+  - file: crates/goose/src/agents/extension_malware_check.rs
+    line: 44
+    note: 'deny_if_malicious_cmd_args - intercepts npx/uvx package spawns and queries OSV before allowing'
+  - file: crates/goose/src/agents/extension_malware_check.rs
+    line: 365
+    note: 'DEFAULT_OSV_ENDPOINT - https://api.osv.dev/v1/query, the advisory backend for the MAL-* blocklist'
+  - file: crates/goose/src/config/extensions.rs
+    line: 16
+    note: 'ExtensionEntry - config.yaml `extensions` map values are enabled-flag plus ExtensionConfig'
+---
+
+# Extension anatomy: manifest, discovery, validation, malware check
+
+An extension in goose is an executable surface the agent can call. In v1.49.0 there
+are **two** first-class surfaces, and you must learn both because production
+extensions ship through both pipes.
+
+## Surface 1: MCP extension config (`ExtensionConfig`)
+
+`crates/goose/src/agents/extension.rs:161` defines `ExtensionConfig`, a
+serde-tagged enum with four variants — `stdio` (spawn a process, talk JSON-RPC over
+stdin/stdout), `builtin` (bundled goose-mcp server), `platform` (in-process
+extension with API access), and `streamable_http` (remote MCP endpoint with `uri`).
+Entries live in the `extensions` map of `config.yaml`, wrapped by
+`ExtensionEntry` (`crates/goose/src/config/extensions.rs:16`) which adds an
+`enabled` flag.
+
+## Surface 2: Plugin manifest (Open Plugins format)
+
+The installable-plugin system reads a tiny JSON manifest at one of
+`MANIFESTS` paths — `.goose-plugin/plugin.json`, `.plugin/plugin.json`,
+`plugin.json` (`crates/goose/src/plugins/formats/open_plugins.rs:14`). The whole
+schema is `OpenPluginsManifest` (line 24): `name`, `version`, `skills`,
+`mcpServices` — plus *component markers* `hooks/hooks.json`, `commands`, `agents`,
+`.mcp.json` that make a repo installable even without a manifest.
+
+## Discovery
+
+`discover_enabled_plugins` (`crates/goose/src/plugins/discovery.rs:52`) walks two
+roots — the user plugins dir (`plugin_install_dir()`, i.e. `~/.config/goose/plugins`)
+and a project-scoped `<project>/.agents/plugins` — filters by `enabledPlugins` /
+`disabledPlugins` settings files and config.yaml, and de-duplicates by name.
+
+## Validation pipeline
+
+Every artifact crosses a validation gate before it runs:
+
+1. **Manifest parse + name validation** — `validate_plugin_name`
+   (`crates/goose/src/plugins/formats/open_plugins.rs:206`): 1–64 chars, lowercase
+   letters/digits/dashes/dots, must start and end alphanumeric, no `--` or `..`
+   (those rules block path tricks and namespacing collisions).
+2. **MCP server document validation** — `validate_mcp_servers_manifest_value`
+   (`crates/goose/src/plugins/mcp_servers.rs:171`) rejects malformed `.mcp.json`
+   entries (bad `cmd`, escapes outside the plugin dir).
+3. **Bundled-extension gate** — `validate_bundled_extensions`
+   (`crates/goose/src/agents/validate_extensions.rs:17`) walks
+   `crates/goose/src/agents/snapshots/`-style bundled JSON and emits
+   *actionable* errors: a `streamable_http` entry with `url` instead of `uri`
+   gets `did you mean "uri"?`; a `stdio` entry without `cmd` is rejected outright.
+4. **Malware check** — before goose spawns anything via `npx`/`uvx`,
+   `deny_if_malicious_cmd_args` (`crates/goose/src/agents/extension_malware_check.rs:44`)
+   parses the package token, queries OSV (`DEFAULT_OSV_ENDPOINT` at line 365), and
+   **blocks** any package carrying a `MAL-*` advisory. If OSV is unreachable it
+   **fails open** and logs.
+
+<FounderLens>
+
+Why two systems? The MCP `ExtensionConfig` predates the Open Plugins standard and
+must stay alive for config-file compatibility. The plugin system exists because the
+ecosystem converged on git-repo plugins with hooks/skills/components — and the team
+chose *format adapters* (`formats/open_plugins.rs`, `formats/gemini.rs`) rather than
+one more config schema. The cost: two discovery paths, two name-validation rules.
+Where it breaks: an extension that looks valid to the plugin validator can still
+fail the bundled-extension gate, and vice versa — so a real extension exercises
+both. The malware check is deliberately conservative: it only fires on `npx`/`uvx`
+package tokens, unknown commands pass silently (fail open), because blocking
+legitimate local tooling would be worse than missing an attack.
+
+</FounderLens>
+
+## What you'll build in the lab
+
+A hand-written plugin manifest + `.mcp.json` + a config.yaml extension entry, run
+through every validation stage above — including reproducing one real validation
+error message verbatim, and tracing where the malware check hooks in.

@@ -1,0 +1,114 @@
+[
+  {
+    "q": "token_counter.rs loads the CoreBPE tokenizer into a `static TOKENIZER: OnceCell<Arc<CoreBPE>>` because:",
+    "options": [
+      "Tokenizer loading is expensive startup work paid once per process, shared by all counters",
+      "The tokenizer is not thread-safe and must be hidden behind OnceCell",
+      "OnceCell guarantees the tokenizer updates when models change",
+      "static storage makes tokenization faster per message by 10x automatically"
+    ],
+    "answer": 0,
+    "topic": "token-counter",
+    "explanation": [
+      "Arc<CoreBPE> is chosen precisely for shared, thread-safe access.",
+      "OnceCell is write-once; it never updates data.",
+      "Static storage alone does not change per-message cost; avoiding re-loading does."
+    ]
+  },
+  {
+    "q": "The token cache key is `(len, blake3 hash)` rather than the raw text. Why?",
+    "options": [
+      "Identical content matches without storing giant strings in the key — bounded memory for the cache itself",
+      "Hashes are faster to tokenize than strings",
+      "Rust cannot compare strings in HashMap keys",
+      "The tokenizer only accepts hashed input"
+    ],
+    "answer": 0,
+    "topic": "token-counter",
+    "explanation": [
+      "Hashing is the identity check, not a faster tokenization path.",
+      "String keys in HashMaps are idiomatic and fine.",
+      "The tokenizer consumes real text; hashing is for the cache layer only."
+    ]
+  },
+  {
+    "q": "Why is `MAX_TOKEN_CACHE_SIZE` bounded at 1,024 entries?",
+    "options": [
+      "Cache memory is finite — unbounded caches swap compute savings for memory amnesia",
+      "The tokenizer cannot exceed 1,024 distinct outputs",
+      "Hashing more than 1,024 strings per session is a security violation",
+      "LRU structures in Rust are capped by the language"
+    ],
+    "answer": 0,
+    "topic": "token-counter",
+    "explanation": [
+      "Tokenizer output variety is unbounded in principle; the cache is the bounded part.",
+      "No security rule keys on hash counts.",
+      "LRU caps come from design (NonZeroUsize), not language limits."
+    ]
+  },
+  {
+    "q": "A tool returns 500,000 chars of text. Per large_response_handler's contract, the agent receives:",
+    "options": [
+      "A pointer message naming a temp file where the bulk was spilled",
+      "The full text, since 500k chars fits in most contexts",
+      "The first 200,000 chars only",
+      "An error refusing the tool result"
+    ],
+    "answer": 0,
+    "topic": "context-window",
+    "explanation": [
+      "The threshold is 200,000 chars — 500k exceeds it and gets spilled.",
+      "Truncation would lose data; the handler keeps everything on disk instead.",
+      "The result is not refused; it is relocated and summarized."
+    ]
+  },
+  {
+    "q": "`GOOSE_CONTEXT_LIMIT = 0` in config is an error state because:",
+    "options": [
+      "Zero would silently amputate sessions; the value must be a usize greater than 0",
+      "Zero is not a valid type for a usize",
+      "The config file rejects all numeric strings",
+      "Zero conflicts with the default 200,000 threshold naming"
+    ],
+    "answer": 0,
+    "topic": "context-window",
+    "explanation": [
+      "0 is a perfectly valid usize — it's rejected by validation, not by typing.",
+      "Numeric config strings parse fine; the check is value-based.",
+      "The 200k threshold belongs to tool responses, unrelated to context limit."
+    ]
+  },
+  {
+    "q": "The performance lesson from `e7c33077c fix: secure large response spill files` plus the handler's design together say:",
+    "options": [
+      "Bounding resources (spill threshold, temp file) is BOTH a perf and a security concern — one mechanism serves both",
+      "Perf work and security work must never touch the same file",
+      "Large responses should be rejected to avoid all risk",
+      "Spill files make context tracking unnecessary"
+    ],
+    "answer": 0,
+    "topic": "performance",
+    "explanation": [
+      "The same handler serves both: the fix history proves they are coupled, not separable.",
+      "Rejecting large responses breaks real tool workflows; relocation preserves them.",
+      "Context tracking still applies to the pointer message; spilling is not an exemption."
+    ]
+  },
+  {
+    "q": "Fix this memory mistake: a contributor 'optimizes' the token cache by unbounded `HashMap::new()` growth keyed on every distinct prompt. The problem a reviewer must flag:",
+    "options": [
+      "Unbounded cache = unbounded memory; retain the LRU bound (1,024) so hot entries churn but RAM stays flat",
+      "HashMaps are slower than LruCache for any size",
+      "Distinct prompts must never be cached at all",
+      "The tokenizer requires a cache to be present to load"
+    ],
+    "answer": 0,
+    "topic": "performance",
+    "explanation": [
+      "Map performance is fine; the issue is unbounded residency.",
+      "Caching distinct prompts is the whole point of the identity-key design.",
+      "The tokenizer loads independently; the cache is an optimization layer."
+    ]
+  }
+]

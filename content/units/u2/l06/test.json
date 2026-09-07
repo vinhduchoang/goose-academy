@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Per AGENTS.md, how is the state-machine agent loop enabled?",
+    "options": [
+      "GOOSE_STATE_MACHINE=1 (state_machine::enabled() also accepts true, TRUE, yes)",
+      "A feature flag --state-machine passed to cargo build",
+      "A config key `state_machine: on` in config.json",
+      "It replaces the legacy loop automatically on every release date"
+    ],
+    "answer": 0,
+    "topic": "state-machine",
+    "explanation": [
+      "There is no cargo feature controlling the loop; it's an env switch at runtime.",
+      "Config files don't select the loop; state_machine/mod.rs reads the env var directly.",
+      "Releases do not auto-migrate paths — the env var decides per process."
+    ]
+  },
+  {
+    "q": "What does legacy `agent.rs:1815` do when the state machine IS enabled?",
+    "options": [
+      "Returns None and lets the state-machine universe handle the turn",
+      "Runs both loops concurrently and merges their outputs",
+      "Panics to force the caller to choose",
+      "Silently runs legacy anyway for backward compatibility"
+    ],
+    "answer": 0,
+    "topic": "state-machine",
+    "explanation": [
+      "Parallel execution doesn't happen — the universes are mutually exclusive.",
+      "Panicking would crash sessions; graceful handoff is the design.",
+      "Running legacy anyway would defeat the migration entirely."
+    ]
+  },
+  {
+    "q": "The parity rule (AGENTS.md:32) for an agent-loop change means:",
+    "options": [
+      "Implement it in both agent.rs and the state_machine path, and test it in both",
+      "Implement it in whichever path is currently default and file an issue for the other",
+      "Implement it in the state machine first; legacy gets it after cutover",
+      "Choose the path with fewer lines to keep the diff small"
+    ],
+    "answer": 0,
+    "topic": "parity",
+    "explanation": [
+      "Deferring one path breaks users on that path — parity is not optional.",
+      "Legacy isn't retired yet at this version; both run in production.",
+      "Diff-size is never the criterion for behavior parity."
+    ]
+  },
+  {
+    "q": "The repo's own tests pin the env (agent.rs:5333, agent_reply.rs:133). Given that, which is the likely review complaint about `std::env::set_var(\"GOOSE_STATE_MACHINE\", \"1\")` in a test?",
+    "options": [
+      "It leaks state to sibling tests in the same process; a scoped guard like env_lock restores the old value",
+      "set_var cannot set values with uppercase names",
+      "Env vars must be set at compile time to affect behavior",
+      "set_var is unsafe and prohibited in all Rust"
+    ],
+    "answer": 0,
+    "topic": "parity",
+    "explanation": [
+      "set_var handles uppercase names fine.",
+      "The switch reads the env at runtime precisely so tests can pin it.",
+      "set_var is deprecated as unsafe-historical API (edition 2024), but usable — the objection is leakage, not existence."
+    ]
+  },
+  {
+    "q": "Your PR description says the fix works in both paths. The strongest way to prove it:",
+    "options": [
+      "A regression test pinned once to GOOSE_STATE_MACHINE=0 and once to =1, both asserting the same behavior, both green",
+      "A screenshot of you running the CLI while the env var is unset",
+      "A comment in the code saying # also works in state machine",
+      "The test passing with GOOSE_STATE_MACHINE=xyzzy"
+    ],
+    "answer": 0,
+    "topic": "regression-tests",
+    "explanation": [
+      "Unset env proves nothing about the second path.",
+      "Comments are claims; reviewers want evidence.",
+      "xyzzy is not an accepted value — it silently selects legacy."
+    ]
+  },
+  {
+    "q": "What does a regression test's name/doc prove about a parity bug fix?",
+    "options": [
+      "That the exact buggy input is now asserted green in both paths, so the bug cannot silently return in either",
+      "That the code compiles faster",
+      "That the bug was reported to the issue tracker",
+      "That legacy code is scheduled for deletion"
+    ],
+    "answer": 0,
+    "topic": "regression-tests",
+    "explanation": [
+      "Compile speed is unrelated to regression coverage.",
+      "Filing the issue is process; the test is the proof.",
+      "Deletion scheduling is a migration concern, not a test's job."
+    ]
+  },
+  {
+    "q": "Fix this compile error in your parity test: `error[E0425]: cannot find function 'env_lock' in this scope`. The correct move per repo convention is to:",
+    "options": [
+      "Use the repo's own env-lock helper (as the state-machine tests do) rather than define an ad-hoc one",
+      "Define your own env_lock with unsafe set_var inside the test file",
+      "Delete the guard and rely on test ordering luck",
+      "Move the env pinning into build.rs"
+    ],
+    "answer": 0,
+    "topic": "parity",
+    "explanation": [
+      "Ad-hoc unsafe helpers duplicate existing fixture code and risk the same leaks.",
+      "Ordering luck is flakiness by design — CI will punish it eventually.",
+      "build.rs runs at compile time; the env must be pinned at test runtime."
+    ]
+  }
+]

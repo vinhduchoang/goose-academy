@@ -1,0 +1,94 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 10
+id: u2-l10
+slug: 10-review-mastery
+title: "Review mastery: AGENTS.md rules, deny.toml, planted-bad-diff hunting"
+topics: [review-doctrine, deny-toml, parity]
+durationMin: 20
+cites:
+  - file: AGENTS.md
+    line: 91
+    note: 'the Rules section — the review contract: tests/, self-test updates, anyhow, Provider trait, goose-mcp'
+  - file: AGENTS.md
+    line: 111
+    note: 'the Never section — absolute review blockers: skip fmt, merge without clippy, cargo add bypass'
+  - file: AGENTS.md
+    line: 93
+    note: 'the tests/ folder rule, one of the first things a reviewer checks on a diff'
+  - file: deny.toml
+    line: 1
+    note: '[advisories] — the dependency policy lives at the repo root deny.toml, not under rust-toolchain/'
+  - file: deny.toml
+    line: 4
+    note: 'yanked = "deny" — yanked crates fail CI; supply-chain hygiene is enforced, not suggested'
+  - file: deny.toml
+    line: 9
+    note: 'ignore = [RUSTSEC-...] — documented exceptions, which is why every ignore needs a reason comment'
+  - file: .github/workflows/cargo-deny.yml
+    line: 1
+    note: 'the Cargo Deny workflow that runs this policy in CI'
+  - file: .github/recipes/code-review.yaml
+    line: 1
+    note: 'the repo even ships a code-review recipe — review is itself a goose-runnable ritual'
+---
+
+# Review mastery: AGENTS.md rules, deny.toml, planted-bad-diff hunting
+
+Getting PRs merged is half writing code and half reviewing it. Goose's
+review doctrine is written down in exactly the places reviewers grep: the
+`Rules` section of AGENTS.md (`AGENTS.md:91`) and the `Never` section
+(`AGENTS.md:111`). Learn to review against those two lists and you will also
+stop *writing* violations.
+
+## The review checklist, from the files that define it
+
+**Behavior rules (`AGENTS.md:91-99`)** — every PR must respect: tests in
+`tests/` (`:93`), self-test recipe updated (`:94`), errors as
+`anyhow::Result`, providers via the `Provider` trait, MCP glue in
+`goose-mcp`, plus the parity rule you internalized in l06.
+
+**Never rules (`AGENTS.md:111-119`)** — instant review comments: skipping
+`cargo fmt`; merging without clippy; comments that restate code; hand-editing
+`Cargo.toml` dependency entries instead of `cargo add` (with `Cargo.lock`
+kept consistent); overwriting live binaries in place.
+
+## Dependency policy = security posture
+
+`deny.toml` sits at the repo **root** (legacy plan documents said
+`rust-toolchain/deny.toml` — the file moved; root is the truth now). The
+policy (`deny.toml:1-9`): `yanked = "deny"` — any yanked crate bricks CI,
+emulating cargo-audit's supply-chain check, with `unmaintained`/`unsound`
+deliberately at `none`. Exceptions exist only in the `ignore` list, and each
+carries a *why* comment (`:9` — a justified RUSTSEC ignore). The policy runs
+in `.github/workflows/cargo-deny.yml`. Reviewing a dependency PR therefore
+means: was it added via `cargo add`? is the lockfile consistent? does any new
+crate trip `yanked`?
+
+<FounderLens>
+
+Why deny yanked crates so hard? A yanked version is the crate author shouting
+"this is broken, don't use it" — publishing a security incident in metadata.
+Tradeoff: strictness costs the occasional forced dependency bump mid-release.
+The design answer is the `ignore` list with mandatory reasons: exceptions are
+allowed, documented, and reviewable — not silent. Where it breaks: reviewers
+who copy an existing `ignore =` entry without verifying its reason stays
+valid (the RUSTSEC comment says *no safe upgrade available yet* — that ages).
+
+</FounderLens>
+
+## Hunting planted violations — the reviewer's instinct
+
+When a diff looks clean, interrogate it anyway:
+
+1. Does every changed behavior appear in *both* agent-loop universes?
+2. Is every lint silence (`#[allow]`, `#![allow]`) explained?
+3. Does every new error path use `anyhow`/`?` — no fresh `unwrap()`?
+4. Do new deps arrive via `cargo add` with a consistent lock?
+5. Are tests in the preferred folder, and do they prove the claim?
+
+The repo ships its own recipe for this (`code-review.yaml`) — review is a
+ritual goose itself can run. Your PR gets read *against* this checklist
+word-by-word; the fastest path to merge is leaving nothing for the checklist
+to catch.

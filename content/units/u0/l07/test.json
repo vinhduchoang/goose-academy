@@ -1,0 +1,109 @@
+[
+  {
+    "q": "`let a = String::from(\"goose\"); let b = a; println!(\"{}\", a);` produces:",
+    "options": [
+      "E0382: borrow of moved value — assignment moved a's ownership to b",
+      "It prints \"goose\" because strings are Copy",
+      "It prints nothing but compiles",
+      "E0507: cannot move out of borrowed content"
+    ],
+    "answer": 0,
+    "topic": "ownership",
+    "explanation": [
+      "String is heap-owned, not Copy; only cheap scalars copy silently.",
+      "Bare moves compile; the error is at the later use of a.",
+      "E0507 concerns borrowed content, not a simple by-value move."
+    ]
+  },
+  {
+    "q": "Which of these IS a Copy type?",
+    "options": ["usize", "String", "Vec<usize>", "Draft (struct with String fields)"],
+    "answer": 0,
+    "topic": "ownership",
+    "explanation": [
+      "String owns a heap buffer — copying would mean two owners.",
+      "Vec is heap-based; never Copy.",
+      "A struct is Copy only if all its fields are Copy — String fields disqualify it."
+    ]
+  },
+  {
+    "q": "In testprovider.rs:111, `(msg.role.clone(), cleaned_content)` — why clone the role?",
+    "options": [
+      "The role is needed both in the hash key and in the original message, so an independent copy is required",
+      "Role is Copy and clone is mandatory for Copy types",
+      "Cloning makes the code faster",
+      "Ownership would otherwise never allow reading msg.role"
+    ],
+    "answer": 0,
+    "topic": "ownership",
+    "explanation": [
+      "Copy types copy without clone; using clone on them is legal but pointless.",
+      "Clone costs memory and time; speed is not the motive.",
+      "msg.role is readable without clone — the clone exists so the key owns a separate value."
+    ]
+  },
+  {
+    "q": "`fn publish(d: Draft) -> String` takes Draft by value. What does this tell the caller?",
+    "options": [
+      "The caller's Draft is moved into publish and cannot be used afterwards (unless cloned)",
+      "Draft is borrowed and still usable after the call",
+      "publish returns a clone of the Draft",
+      "The parameter is optional"
+    ],
+    "answer": 0,
+    "topic": "ownership",
+    "explanation": [
+      "Borrowing requires &Draft; by-value is a move.",
+      "The function returns a String, not a Draft copy.",
+      "Rust has no implicit optional parameters."
+    ]
+  },
+  {
+    "q": "Why does goose's token counter avoid cloning whole conversations (token_counter.rs:34)?",
+    "options": [
+      "Cloning in a hot path costs heap allocations; hashing text into a compact cache key avoids that",
+      "goose disallows clone by lint",
+      "Conversations cannot be cloned",
+      "Cloning would break the tokenizer's internal cache"
+    ],
+    "answer": 0,
+    "topic": "ownership",
+    "explanation": [
+      "No such lint exists; clone is allowed and used elsewhere in goose.",
+      "Message derives Clone; it can be cloned.",
+      "The cache is keyed by the compact key — cloning would be wasteful, not breaking."
+    ]
+  },
+  {
+    "q": "Struct update syntax `Message { content: filtered, ..self.clone() }` means:",
+    "options": [
+      "Build a new Message with the given field, copying every remaining field from a clone of self",
+      "Mutate self's content field in place",
+      "Move only self.content to a new struct",
+      "Make filtered a reference to self"
+    ],
+    "answer": 0,
+    "topic": "ownership",
+    "explanation": [
+      "It produces a NEW value; self is untouched.",
+      "Struct update copies all unspecified fields, not only content.",
+      "No references are introduced by this syntax."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0382]: borrow of moved value: `labels`` — in `for l in labels { }` followed by a use of `labels`. The best fix:",
+    "options": [
+      "Iterate by reference: `for l in &labels`",
+      "Prepend `let mut labels`",
+      "Add `labels.clone();` after the loop",
+      "Change Vec to an array"
+    ],
+    "answer": 0,
+    "topic": "ownership",
+    "explanation": [
+      "mut affects mutation ability, not the move semantics of the loop.",
+      "Cloning afterwards doesn't restore the moved original.",
+      "Arrays move the same way; the container type is irrelevant."
+    ]
+  }
+]

@@ -1,0 +1,134 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 12
+id: u0-l12
+slug: 12-generics-traits
+title: "Generics and traits: a preview of how Provider works"
+topics:
+  - generics-traits
+  - providers
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/base.rs
+    line: 464
+    note: 'pub trait Provider: Send + Sync — the core abstraction every LLM backend implements'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 477
+    note: 'async fn stream(...) -> Result<MessageStream, ProviderError> — the one required method'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 327
+    note: 'pub type MessageStream = Pin<Box<dyn Stream<...>>> — a trait object in a Pin/Box'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 168
+    note: 'impl Provider for TestProvider — a test fake implementing the real trait'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 103
+    note: 'ModelConfig::new(model_name: impl AsRef<str>) — impl Trait as an argument type'
+---
+
+# Generics and traits: a preview of how Provider works
+
+Traits are TS interfaces that *implementations must sign up for*; generics are
+where you'd write `T extends Base` in TS. Goose is trait-obsessed — and the one
+trait that runs the whole product is `Provider`.
+
+## Read the real abstraction
+
+`crates/goose-provider-types/src/base.rs:464`:
+
+```rust
+#[async_trait]
+pub trait Provider: Send + Sync {
+    async fn stream(
+        &self,
+        model_config: &ModelConfig,
+        system: &str,
+        messages: &[Message],
+        tools: &[Tool],
+    ) -> Result<MessageStream, ProviderError>;
+    // ... complete(), get_context_limit(), etc. with defaults
+}
+```
+
+`Provider: Send + Sync` is a *supertrait bound*: implementors must be safe to
+send across threads — non-negotiable for an agent that hugs HTTP pools. The
+`#[async_trait]` macro exists because async fn in traits had compiler gaps;
+goose leans on it everywhere (`testprovider.rs:167`).
+
+## Trait objects: `Box<dyn Provider>`
+
+`MessageStream` at `base.rs:327`:
+
+```rust
+pub type MessageStream = Pin<
+    Box<dyn Stream<Item = Result<(Option<Message>, Option<ProviderUsage>), ProviderError>> + Send>,
+>;
+```
+
+`Box<dyn Stream>` = "some heap-allocated value implementing `Stream`" — exactly
+your TS `Promise<Iterator<T>>` mental model, except the item type is checked.
+And you already met `Arc<dyn Provider>` — the same dyn idea, shared
+(`crates/goose/src/agents/types.rs:7`).
+
+<Diff
+  oldCode="// TS: interface + generic constraint
+interface Provider { stream(config: ModelConfig): AsyncIterable<Message> }
+class OpenAIProvider implements Provider { ... }
+function run<P extends Provider>(p: P) { ... }"
+  newCode="// Rust: trait + generics, checked at compile time
+#[async_trait]
+pub trait Provider: Send + Sync {
+    async fn stream(&self, config: &ModelConfig, ...) -> Result<MessageStream, ProviderError>;
+}
+impl Provider for OpenAIProvider { ... }
+fn run<P: Provider>(p: P) { ... }" />
+
+## Generics in your own code
+
+```rust
+fn summarize<T: Display>(items: &[T], max: usize) -> String {
+    items.iter().take(max).map(|i| i.to_string()).collect::<Vec<_>>().join(", ")
+}
+```
+
+`T: Display` — "any type with a Display impl". Goose's equivalent from
+`model.rs:103`:
+
+```rust
+pub fn new(model_name: impl AsRef<str>) -> Self {
+```
+
+`impl AsRef<str>` is sugar for a generic param — reads "anything string-like".
+
+## Where Provider generics appear in practice
+
+Look how goose *consumes* providers without knowing which one it holds:
+`ProviderDef` (a descriptor for registry discovery) wraps
+`type Provider = Self;` associated type at `testprovider.rs:156` — the generics
+machinery you'll fully dissect in Unit 1 (provider registries) and Unit 3
+(building your own provider).
+
+<FounderLens>
+
+Why `Complete` with a default implementation instead of two required methods
+(`base.rs:485+`)? Most providers implement `stream`; `complete` = "collect the
+stream" (`collect_stream`) is boilerplate — a default impl means a new provider
+ships by writing ONE function. Tradeoff: default methods can hide cost
+(collecting a stream buffers everything) — providers that care override. Where
+it breaks: `MessageStream` being boxed hides which concrete stream it is —
+debugging cross-provider stream behaviors takes type-erasure skills. That's
+exactly the "where would streaming break" question Unit 1 asks.
+
+</FounderLens>
+
+<MindShift>
+
+TS interfaces are structural: anything with matching shape fits, silently.
+Rust traits are nominal: a type is a Provider only if it *declares*
+`impl Provider`. Structural typing is why TS can't tell "accidental interface
+match" from "real contract." In goose, `impl Provider for X` is a recorded,
+searchable commitment — grep `impl Provider for` and you have the full list of
+every LLM backend goose has ever shipped.
+
+</MindShift>

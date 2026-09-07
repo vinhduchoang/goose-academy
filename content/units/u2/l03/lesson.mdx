@@ -1,0 +1,105 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 3
+id: u2-l03
+slug: 03-debug-kit
+title: "Debug kit: RUST_LOG, tracing spans, snapshots, --test-threads"
+topics: [rust-log-tracing, tracing, observability]
+durationMin: 20
+cites:
+  - file: crates/goose/src/logging.rs
+    line: 30
+    note: 'build_env_filter — if RUST_LOG is set it is used as-is; otherwise defaults apply'
+  - file: crates/goose/src/logging.rs
+    line: 36
+    note: 'default directives: mcp_client=info, goose=info, then WARN for everything else'
+  - file: crates/goose/src/otel/otlp.rs
+    line: 565
+    note: 'valid RUST_LOG directives take precedence over OTEL_LOG_LEVEL and default INFO'
+  - file: crates/goose/src/agents/prompt_manager.rs
+    line: 479
+    note: 'assert_snapshot!(system_prompt) — insta snapshot asserting a real prompt construction'
+  - file: .github/workflows/ci.yml
+    line: 75
+    note: 'CI re-runs scenario tests serially with --jobs 1 after skipping them in the parallel run'
+  - file: crates/goose-cli/src/logging.rs
+    line: 14
+    note: 'CLI setup calls init_goose_request_log before building its logging subscriber'
+---
+
+# Debug kit: RUST_LOG, tracing spans, snapshots, --test-threads
+
+You will spend more time debugging goose tests than writing them. This lesson
+is your kit: four tools that turn "the test fails" into "here is the exact
+line and why".
+
+## RUST_LOG — filter before you print
+
+Goose logs through `tracing` with an `EnvFilter`. The rule lives in
+`crates/goose/src/logging.rs`: `build_env_filter` (line 30) uses
+`RUST_LOG` as-is when set; otherwise it applies defaults — `mcp_client=info`,
+`goose=info`, and `WARN` for everything else (line 36). That asymmetry is the
+first debugging lesson: **your debug level never shows until you opt in**.
+
+```powershell
+$env:RUST_LOG = "goose=debug,mcp_client=trace"
+```
+
+Directives are `target=level` pairs; the special bare `trace` sets everything.
+In the OTel path the precedence is explicit too (`otel/otlp.rs:565`): valid
+`RUST_LOG` beats `OTEL_LOG_LEVEL`.
+
+<MindShift>
+
+In JS you add `console.log` and it always prints. In goose, a logged event is
+filtered by default — so "my log never appeared" is a filter problem, not a
+code problem. Check your directive targets the right module path first.
+
+</MindShift>
+
+## Spans — the timeline you didn't have to write
+
+`tracing` spans wrap a function call with a named region; `#[instrument]` adds
+the args/returns automatically. Goose's request lifecycle is documented by its
+spans. When a test fails in the middle of `agent.reply()`, a span trace shows
+which stage (provider call, tool dispatch, serialization) died — often before
+any error type is converted.
+
+The CLI wires it once in `crates/goose-cli/src/logging.rs:10-26`:
+`init_goose_request_log()` plus a `LoggingConfig` with `console: false,
+json: true` — goose land logs to files, so know where yours land on Windows.
+
+## Snapshots — assert on big outputs safely
+
+`prompt_manager.rs:479` runs `assert_snapshot!(system_prompt)` — the whole
+constructed system prompt is compared to a checked-in `.snap` file under
+`crates/goose/src/agents/snapshots/`. Insta snapshots are the right tool when
+the correct output is large and you would rather eyeball a diff once than
+maintain 40 assertion lines. Loop discipline:
+
+1. Change behavior intentionally -> snapshot diff appears.
+2. Review the diff; if intended, accept the new snapshot.
+3. If unintended, the diff IS your bug report.
+
+(Update mechanics are the lab's job — do not hand-edit `.snap` files.)
+
+## --test-threads — determinism for shared state
+
+Rust's test harness runs tests on N threads. Tests that touch shared global
+state can pass or fail depending on scheduling. The repo's CI confesses this
+in `.github/workflows/ci.yml:74-75`: scenario tests are *skipped* in the
+parallel run, then re-run with `--jobs 1` — serialized. Local equivalents:
+`cargo test -- --test-threads=1` or running one test with an exact filter.
+If a test only fails in CI, thread scheduling is suspect #1.
+
+<FounderLens>
+
+Why logs-to-file-json instead of stderr? Goose is embedded in desktop/CLI
+where stderr is either invisible or user-facing. Tradeoff: a json file layer
+is great for post-mortem but costs you interactive debugging — hence RUST_LOG
+opt-in exists precisely for the moments the defaults hide everything. Where
+it breaks: two components (CLI + library, ACP server + provider) each setting
+up filters can fight; singleton subs within `OnceLock` mitigate it.
+
+</FounderLens>

@@ -1,0 +1,101 @@
+---
+unit: 3
+unitSlug: extensions
+order: 5
+id: u3-l05
+slug: 05-registration-auth
+title: "Registration & auth: registry, provider_secrets, OAuth"
+topics: [provider-auth, registry, security, config-system]
+durationMin: 20
+cites:
+  - file: crates/goose/src/providers/provider_registry.rs
+    line: 12
+    note: 'pub type ProviderConstructor - Arc''d fn that builds Arc<dyn Provider> from extension config'
+  - file: crates/goose/src/providers/provider_registry.rs
+    line: 26
+    note: 'pub struct ProviderEntry - metadata + constructor + inventory resolvers for one registered provider'
+  - file: crates/goose/src/providers/provider_secrets.rs
+    line: 13
+    note: 'SECRET_STORE_ID_PREFIX ("secret_store:") - ids of secrets held by the OS keychain-style store'
+  - file: crates/goose/src/providers/provider_secrets.rs
+    line: 32
+    note: 'pub struct ProviderSecret - id/provider/name/storage/status/configured/has_secret/can_configure'
+  - file: crates/goose/src/providers/oauth.rs
+    line: 17
+    note: 'static OAUTH_MUTEX - all provider OAuth flows serialize behind one lock'
+  - file: crates/goose/src/providers/oauth.rs
+    line: 25
+    note: 'fn endpoint_transport - OAuth endpoints must be HTTPS unless loopback (the redirect policy)'
+  - file: crates/goose/src/providers/base.rs
+    line: 31
+    note: 'pub trait ProviderDef - metadata() config_keys + from_env() are how the registry constructs a provider'
+  - file: crates/goose/src/agents/extension_manager.rs
+    line: 1105
+    note: 'create_streamable_http_client - MCP-side OAuth (AuthRequired responses) for streamable_http extensions'
+---
+
+# Registration & auth: registry, provider_secrets, OAuth
+
+A `Provider` impl is inert until something can *construct* it, and worthless
+to a user until its credentials are *stored safely*. This lesson closes the
+loop: registry, secrets, OAuth.
+
+## The registry
+
+`crates/goose/src/providers/provider_registry.rs` is the single map from
+provider name to `ProviderEntry` (line 26) — metadata, a lazy constructor
+(`ProviderConstructor`, line 12), and inventory resolvers. Registration happens
+at startup; the registry holds **no instances**, only "how to build one."
+The constructor receives `Vec<ExtensionConfig>` (the config.yaml extensions)
+plus TLS config, and returns `Arc<dyn Provider>`.
+
+The constructible contract is `ProviderDef`
+(`crates/goose/src/providers/base.rs:31`): `ProviderDescriptor::metadata()`
+declares `config_keys` — named settings each flagged `secret` or not — and
+`from_env(...)` actually builds the instance, reading secrets from the
+environment. Providers that hold long-lived sessions add cleanup hooks and
+inventory resolvers ("which models does this account have?").
+
+## provider_secrets: the credential ledger
+
+`crates/goose/src/providers/provider_secrets.rs` models every credential goose
+manages as a `ProviderSecret` (line 32): `storage` distinguishes the OS
+secret store (`secret_store:`-prefixed ids, line 13) from a simpler cache;
+`status` is Valid/Expired/Unknown (derived from `expires_at`); `configured` and
+`has_secret` separate "user configured it" from "secret value actually stored".
+Providers whose tokens expire (OAuth refresh tokens) mark `can_configure` with
+the flow that renews them.
+
+## OAuth flows
+
+`crates/goose/src/providers/oauth.rs` implements provider OAuth the hard way:
+it spins an **axum loopback server** for the redirect, enforces
+`endpoint_transport` (line 25) — HTTPS mandatory for remote auth endpoints,
+plain HTTP allowed **only on loopback** — and serializes all flows behind one
+`OAUTH_MUTEX` (line 17) so two simultaneous logins cannot step on each other.
+Device-flow variants live alongside (`oauth_device_flow.rs`). On the *extension*
+side, `streamable_http` MCP servers that return `AuthRequired` are handled by
+`create_streamable_http_client`
+(`crates/goose/src/agents/extension_manager.rs:1105`) completing the OAuth
+handshake before the first tool call.
+
+<FounderLens>
+
+Why a registry *and* a trait? Providers must be constructible before config
+exists (for the `goose provider configure` surface), lazily (the user may never
+load nine of ten providers), and rebuildable (config edits must not restart the
+process). That rules out a static `Vec<Arc<dyn Provider>>`. The registry's
+sharpest edge is the constructor signature: `Vec<ExtensionConfig>` means every
+provider construction is *runtime-config dependent* — an unrecognized field
+anywhere can poison construction for an unrelated provider, subtly. The secrets
+design splits storage from metadata for the same reason the registry splits
+construction from instance: the UI needs to display "configured but not secret"
+without ever touching secret material.
+
+</FounderLens>
+
+## The lab
+
+Register `EchoProvider` for real: a second crate depending on the goose core,
+implementing `ProviderDef` with a secret config key, plus an OAuth-threat-model
+note set proving you can wire a provider into goose's concierge.

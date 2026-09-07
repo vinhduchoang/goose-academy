@@ -1,0 +1,106 @@
+---
+unit: 3
+unitSlug: extensions
+order: 9
+id: u3-l09
+slug: 09-hooks-permissions-subagents
+title: "Advanced: hooks, permission rules, subagents"
+topics: [hooks, permission-rules, subagents, permissions]
+durationMin: 20
+cites:
+  - file: crates/goose/src/hooks/mod.rs
+    line: 55
+    note: 'pub enum HookEvent - PreToolUse … Stop, the 13 lifecycle events hooks can subscribe to'
+  - file: crates/goose/src/hooks/mod.rs
+    line: 44
+    note: 'DEFAULT_HOOK_TIMEOUT_SECS = 30 - a hung hook cannot hang the session forever'
+  - file: crates/goose/src/hooks/mod.rs
+    line: 246
+    note: 'PreToolUseResult''s decision is \"allow\" or \"deny\" - no third value'
+  - file: crates/goose/src/hooks/mod.rs
+    line: 703
+    note: 'emit_blocking - blocking hooks; stdout JSON {"decision":"block","reason":...} is the protocol'
+  - file: crates/goose/src/permission/mod.rs
+    line: 5
+    note: 'pub use goose_providers::permission::{Permission, PermissionConfirmation} - the shared permission types'
+  - file: crates/goose/src/permission/permission_store.rs
+    line: 12
+    note: 'pub struct ToolPermissionRecord - nonce-hashed context, allowed flag, expiry = remember-able decisions'
+  - file: crates/goose/src/permission/permission_judge.rs
+    line: 41
+    note: 'create_read_only_tool - the judge that classifies tool requests read-only vs write'
+  - file: crates/goose/src/agents/subagent_handler.rs
+    line: 36
+    note: 'pub struct SubagentRunParams - config + recipe + task + cancellation + notification wiring'
+  - file: crates/goose/src/agents/subagent_handler.rs
+    line: 47
+    note: 'pub async fn run_subagent_task - spins an inner agent run for one scoped task'
+---
+
+# Advanced: hooks, permission rules, subagents
+
+Three mechanisms push extensions from "capable" to "production-safe":
+lifecycle hooks (react without being asked), permission rules (ask instead of
+assume), and subagents (delegate whole projects of work).
+
+## Hooks: subscribe to the agent's life
+
+A plugin's `hooks/hooks.json` subscribes to events from a fixed alphabet —
+`HookEvent` (`crates/goose/src/hooks/mod.rs:55`): `PreToolUse`,
+`PostToolUse`, `PostToolUseFailure`, `SessionStart/End`,
+`UserPromptSubmit`, file/shell before-after pairs, `Stop`. Each entry pairs a
+`matcher` (tool-name regex like `developer__shell|developer__text_editor`)
+with actions; goose currently supports `{"type":"command"}` actions. The
+command receives the JSON event payload on **stdin** and answers via stdout —
+and there are two answer grammars:
+
+- **non-blocking** events: exit 0. Optional stdout JSON `{"banner": …}`
+  surfaces text in the UI.
+- **blocking** events (`PreToolUse` and friends, `emit_blocking` at line 703):
+  stdout must be `{"decision":"block","reason":"…"}` or
+  `{"decision":"allow"}`; kind of negative-claim — empty stdout with exit 0
+  means *allow*. Failures fail **open** unless the hook sets
+  `"on_failure": "block"`. A hook that hangs dies alone at
+  `DEFAULT_HOOK_TIMEOUT_SECS` (line 44).
+
+## Permission rules: rememberable decisions
+
+The permission system is typed around shared `Permission` /
+`PermissionConfirmation` (`crates/goose/src/permission/mod.rs:5`).
+`ToolPermissionRecord` (`permission_store.rs:12`) stores each approval:
+tool name, `allowed`, a hash of the call's **context** (`context_hash`, so
+"allow rm on this exact dir" is scoped), plus `expiry`. "Always allow for this
+session" desugars to a record without expiry; the store is what makes goose
+*remember*. Separately, the judge (`permission_judge.rs:41`) classifies
+incoming requests read-only vs write by asking the model itself with a
+structured scoring tool.
+
+## Subagents: delegate, don't broadcast
+
+A subagent is a *nested agent run*: `run_subagent_task`
+(`crates/goose/src/agents/subagent_handler.rs:47`) takes `SubagentRunParams`
+(line 36) — config, recipe, `TaskConfig`, `max_turns`, cancellation token,
+notification channel — and returns a string result to the parent loop.
+Plugins can bundle `agents/` definitions (an Open-Plugins component marker);
+the parent agent only sees the final output, keeping its own context small.
+
+<FounderLens>
+
+The unifying idea: *control surfaces that respect the agent's shape*.
+Hooks get a restricted event alphabet instead of arbitrary code injection;
+blocking hooks must speak two-verb JSON instead of exit-code folklore;
+permissions hash the *context* so the "remember" promise can't be blanketed
+indefinitely by default; subagents parallel the OS notion of a worker
+process — bounded, observable, disposable. The tradeoff everywhere is
+expressiveness: a hook cannot prompt the user, a permission record cannot
+fine-grain `prewrite` the tool's internal state, and a subagent's context is
+invisible to the parent. Extensions live with those walls; that is what keeps
+the agent's context budget, safety, and debuggability intact.
+
+</FounderLens>
+
+## The lab
+
+Put all three to work in your plugin: a real blocking hook chain, a
+permission rule sketch with remember-scoping, and an `agents/` definition
+wired the way `run_subagent_task` expects.

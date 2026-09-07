@@ -1,0 +1,114 @@
+[
+  {
+    "q": "A blocking hook (PreToolUse) exits 0 with EMPTY stdout. Goose's verdict:",
+    "options": [
+      "Deny - no decision means no trust",
+      "Allow - empty stdout with exit 0 is the negative-claim allow",
+      "Ask the user",
+      "Re-run the hook once more"
+    ],
+    "answer": 1,
+    "topic": "hooks",
+    "explanation": [
+      "Denial must be explicit via block JSON.",
+      "Blocking hooks never prompt; that is the user-permission layer.",
+      "There is no retry on empty output."
+    ]
+  },
+  {
+    "q": "How does a hook script actually deny a tool call?",
+    "options": [
+      "Exit code 1",
+      "Print {\"decision\":\"block\",\"reason\":\"...\"} on stdout",
+      "Write to stderr",
+      "Delete the tool schema"
+    ],
+    "answer": 1,
+    "topic": "hooks",
+    "explanation": [
+      "Non-zero exits are failure signals, handled by on_failure policy — not the deny verb.",
+      "stderr is captured for diagnostics, not decisions.",
+      "Hooks cannot mutate tool schemas."
+    ]
+  },
+  {
+    "q": "What does `\"on_failure\": \"block\"` change for a hook that crashes?",
+    "options": [
+      "Nothing - failures always block",
+      "Failures go from fail-open to fail-closed (the call is denied)",
+      "The hook runs twice",
+      "A banner prints"
+    ],
+    "answer": 1,
+    "topic": "hooks",
+    "explanation": [
+      "Default is fail-open; the flag flips it.",
+      "Retries do not exist for failed hooks.",
+      "Banners are success-path output, not failure handling."
+    ]
+  },
+  {
+    "q": "Why does `ToolPermissionRecord` hash the call's context instead of just the tool name?",
+    "options": [
+      "To encrypt the tool name",
+      "So 'always allow' can be scoped to the same arguments/dir, not the whole tool",
+      "Because tool names are too short to store",
+      "To make records searchable"
+    ],
+    "answer": 1,
+    "topic": "permission-rules",
+    "explanation": [
+      "Names stay readable; only the context is hashed.",
+      "Storage length is irrelevant.",
+      "Searchability is not the design goal - scoping is."
+    ]
+  },
+  {
+    "q": "Which struct describes one nested agent run (the subagent)?",
+    "options": [
+      "HookContext",
+      "SubagentRunParams",
+      "ToolPermissionRecord",
+      "ElicitationOutcome"
+    ],
+    "answer": 1,
+    "topic": "subagents",
+    "explanation": [
+      "HookContext frames hook events, not agent runs.",
+      "Permission records model approvals.",
+      "ElicitationOutcome models user answers."
+    ]
+  },
+  {
+    "q": "What does the parent agent receive back from `run_subagent_task`?",
+    "options": [
+      "The subagent's full conversation with tool history",
+      "A single String result (the subagent's final output)",
+      "A stream of every token",
+      "A permission record"
+    ],
+    "answer": 1,
+    "topic": "subagents",
+    "explanation": [
+      "The inner conversation is discarded to protect parent context.",
+      "Token-level streaming is not part of the delegation contract.",
+      "Subagent results are strings, not permission objects."
+    ]
+  },
+  {
+    "q": "This hook never fires: `{\"hooks\": {\"Pretooluse\": [...]}}`. The unblocking change is:",
+    "options": [
+      "Rename the script file",
+      "Use the exact event name casing `PreToolUse` - unknown events are ignored at load time",
+      "Move hooks.json to the repo root",
+      "Add on_failure block"
+    ],
+    "answer": 1,
+    "topic": "hooks",
+    "explanation": [
+      "Script names aren't what triggers hooks.",
+      "Location is fine; the name is the bug.",
+      "on_failure does not affect matching."
+    ]
+  }
+]

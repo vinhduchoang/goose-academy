@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Which crate implements the MCP protocol for goose (client and built-in servers)?",
+    "options": [
+      "rmcp 3.0.0, a workspace dependency",
+      "The goose crate's mcp_utils.rs",
+      "serde_json",
+      "goose-agent"
+    ],
+    "answer": 0,
+    "topic": "mcp",
+    "explanation": [
+      "mcp_utils.rs is goose's small helper layer over rmcp types.",
+      "serde only serializes; it doesn't speak MCP.",
+      "goose-agent owns the state machine, not MCP."
+    ]
+  },
+  {
+    "q": "What does `MCP_PROTOCOL_VERSION = ProtocolVersion::V_2025_11_25` do for the codebase?",
+    "options": [
+      "Pins the protocol revision for every MCP handshake, so a spec bump is a one-line change",
+      "Sets the provider API version",
+      "Enables TLS automatically",
+      "It is a UI label only"
+    ],
+    "answer": 0,
+    "topic": "mcp",
+    "explanation": [
+      "Providers have their own envelopes; this constant is MCP-specific.",
+      "TLS is transport config (goose/src/config/tls.rs).",
+      "The constant flows into client initialization, not just labels."
+    ]
+  },
+  {
+    "q": "Why does goose maintain its own `McpClient` wrapper instead of using rmcp's client directly?",
+    "options": [
+      "To layer goose concerns — capabilities tracking, structured errors, cancellation, tool-call enrichment — behind one McpClientTrait seam",
+      "Because rmcp has no client at all",
+      "To avoid paying rmcp's license",
+      "Because goose is written in Python"
+    ],
+    "answer": 0,
+    "topic": "mcp",
+    "explanation": [
+      "rmcp ships a full client; goose wraps it (see impl ClientHandler for GooseClient).",
+      "rmcp is an open-source dependency; licensing isn't the reason.",
+      "Goose is Rust; the whole repo is a cargo workspace."
+    ]
+  },
+  {
+    "q": "What is a dangling `$ref` in a tool's input schema, and why does `inline_refs` exist?",
+    "options": [
+      "A reference to a definition never included in the schema; some provider models can't resolve refs, so goose inlines definitions before sending",
+      "A Rust lifetime elision error",
+      "A provider auth token that expired",
+      "A JSON field marked read-only"
+    ],
+    "answer": 0,
+    "topic": "mcp-schemas",
+    "explanation": [
+      "Lifetimes are Rust concepts; JSON Schema never sees them.",
+      "Token expiry is auth, not schema.",
+      "readOnly is an annotation; a dangling $ref is a broken pointer."
+    ]
+  },
+  {
+    "q": "`collapse_const_unions` repairs schemas shaped like `{\"anyOf\":[{\"const\":\"a\"},…]}`. What does the provider get instead?",
+    "options": [
+      "A plain `enum` list of the const values — the dialect that older tools emit, normalized",
+      "A tuple type",
+      "The anyOf deleted entirely",
+      "A percent-encoded string"
+    ],
+    "answer": 0,
+    "topic": "mcp-schemas",
+    "explanation": [
+      "Tuples aren't part of this repair output.",
+      "The union isn't dropped — it's converted to enum form.",
+      "Percent-encoding repair applies to $defs keys, not values."
+    ]
+  },
+  {
+    "q": "Built-in goose servers (memory, computercontroller) run:",
+    "options": [
+      "In-process rmcp ServerHandlers served over stdio, registered in goose-mcp's BUILTIN_EXTENSIONS",
+      "Always as separate subprocesses",
+      "Inside the goose-cli TUI only",
+      "On a remote goose-hosted cloud"
+    ],
+    "answer": 0,
+    "topic": "mcp",
+    "explanation": [
+      "Builtin servers are in-proc; stdio servers are separate processes (l08).",
+      "They're callable via any MCP host, not just the TUI.",
+      "Nothing built-in runs remotely by default."
+    ]
+  },
+  {
+    "q": "Fix this integration failure: a third-party stdio server percent-encodes its `$defs` keys (`my%20def`), and tool schemas are garbled downstream. Which module already handles this?",
+    "options": [
+      "tool_schema_normalize.rs — percent_decode decodes the keys before processing (no server-side fix required)",
+      "The server must be rewritten (goose has no decode step)",
+      "goose-mcp's subprocess.rs",
+      "serde's rename_all"
+    ],
+    "answer": 0,
+    "topic": "mcp-schemas",
+    "explanation": [
+      "percent_decode exists precisely to avoid forcing server rewrites.",
+      "subprocess.rs handles spawning, not schema text.",
+      "rename_all is for Rust struct serde, not server schema keys."
+    ]
+  }
+]

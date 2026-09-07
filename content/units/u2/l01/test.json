@@ -1,0 +1,114 @@
+[
+  {
+    "q": "You want to implement an upstream PR in goose. Per AGENTS.md, when may you start coding?",
+    "options": [
+      "When the issue is on the board with Status Ready",
+      "As soon as you have read the issue title",
+      "When the issue is in Inbox, to help speed triage",
+      "Only after a maintainer assigns it to you in a comment"
+    ],
+    "answer": 0,
+    "topic": "issue-triage",
+    "explanation": [
+      "Reading the title gives you the topic, not the agreed scope and verification plan.",
+      "Inbox issues are explicitly NOT to be implemented; help resolve the discussion instead.",
+      "Assignment is not the gate — board Status Ready is."
+    ]
+  },
+  {
+    "q": "Why does the repo set `blank_issues_enabled: false` in .github/ISSUE_TEMPLATE/config.yml?",
+    "options": [
+      "So every issue must come through a structured template the maintainers can triage",
+      "So only organization members can create issues",
+      "So issues are closed automatically after 30 days of inactivity",
+      "So issue titles cannot contain special characters"
+    ],
+    "answer": 0,
+    "topic": "issue-triage",
+    "explanation": [
+      "It does not restrict who can file — it restricts the form of the filing.",
+      "Staleness automation lives in .github/workflows/stale.yml, not the template config.",
+      "Title character policy is not part of the template configuration."
+    ]
+  },
+  {
+    "q": "The feature_request template asks \"What problem would this solve?\" BEFORE implementation details. What is the triage reason behind this order?",
+    "options": [
+      "It forces outcome-first thinking so maintainers can judge the idea without debating a specific implementation",
+      "It saves storage space in the issue database",
+      "GitHub renders only the first section of a template",
+      "Implementation details are forbidden in goose issues entirely"
+    ],
+    "answer": 0,
+    "topic": "issue-triage",
+    "explanation": [
+      "Storage is not a reason for template section ordering.",
+      "All template sections render; ordering is about reading flow, not rendering.",
+      "Approaches are explicitly welcome — but after the problem and outcome, not before."
+    ]
+  },
+  {
+    "q": "Which of these is a real rule from AGENTS.md about `gh issue create`?",
+    "options": [
+      "It does not apply templates automatically; structure the issue on the matching template yourself",
+      "It refuses to post unless the issue links a pending PR",
+      "It auto-assigns the issue to a random maintainer",
+      "It requires a diagnostics zip attachment before running"
+    ],
+    "answer": 0,
+    "topic": "issue-triage",
+    "explanation": [
+      "gh has no requirement to link a PR at creation time.",
+      "gh does not auto-assign issues; assignment is not part of issue creation at all.",
+      "Diagnostics zips are requested inside the bug template, not enforced by gh."
+    ]
+  },
+  {
+    "q": "An issue is marked Needs info. Your best contributor move is:",
+    "options": [
+      "Answer the maintainer's open question to unblock triage",
+      "Open a PR implementing your best guess so the discussion is concrete",
+      "Close the issue and reopen it with a better title",
+      "Ping the maintainer daily until they reply"
+    ],
+    "answer": 0,
+    "topic": "issue-triage",
+    "explanation": [
+      "A PR before the design is agreed implements a guess and wastes review effort.",
+      "Closing/reopening churns the board history and loses context.",
+      "Daily pings are noise, not signal — that violates the communication rules."
+    ]
+  },
+  {
+    "q": "During implementation you find that the agreed design cannot handle a case the issue mentioned. Per AGENTS.md:",
+    "options": [
+      "Return to the issue before continuing, because this is a material design change",
+      "Implement both your design and the agreed design behind a config flag",
+      "Silently choose the approach that costs fewer lines and mention it in the PR title",
+      "File a second duplicate issue and implement from that one"
+    ],
+    "answer": 0,
+    "topic": "issue-triage",
+    "explanation": [
+      "Doubling the design multiplies review and maintenance burden for a mid-PR shift.",
+      "Silent deviation breaks the issue as source of truth — reviewers cannot track it.",
+      "A duplicate fragments the discussion; the original issue already owns the context."
+    ]
+  },
+  {
+    "q": "Fix this process error: a coworker runs `gh issue create` with a one-line body saying they will fill in the template later. The error to flag is:",
+    "options": [
+      "The repo requires template structure at creation time — the issue will land malformed for triage",
+      "gh issue create cannot run without a body at all",
+      "The issue will be auto-closed by ci.yml",
+      "One-line bodies are fine as long as the title has a type prefix"
+    ],
+    "answer": 0,
+    "topic": "issue-triage",
+    "explanation": [
+      "The command ran; the failure is structural, not that gh refused to run.",
+      "No workflow closes issues for short bodies.",
+      "A good title does not supply To Reproduce / Expected behavior."
+    ]
+  }
+]

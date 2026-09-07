@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In the root Cargo.toml, `[workspace.lints.clippy]` with `string_slice = \"warn\"` means:",
+    "options": [
+      "Slicing a String by byte range triggers a workspace-wide warning because boundary errors panic or corrupt text",
+      "All string slicing is forbidden and rejected at compile time by rustc itself",
+      "The lint only applies to test code",
+      "Slicing is fine as long as the project compiles in release mode"
+    ],
+    "answer": 0,
+    "topic": "clippy-cleanup",
+    "explanation": [
+      "clippy lints surface as warnings; rustc does not hard-reject slicing.",
+      "Workspace lints apply to the whole workspace, tests included.",
+      "Release-mode compilation has no influence on this lint."
+    ]
+  },
+  {
+    "q": "`cargo clippy --all-targets -- -D warnings` does:",
+    "options": [
+      "Runs clippy over lib, bins, tests AND examples, treating every warning as a hard error",
+      "Runs clippy only on the default (lib) target and deletes warnings",
+      "Formats code and then lints it",
+      "Runs rustc's built-in deny lints but not clippy's"
+    ],
+    "answer": 0,
+    "topic": "clippy-cleanup",
+    "explanation": [
+      "--all-targets widens coverage to tests/examples/benches; nothing is deleted.",
+      "fmt is a separate command (cf. check-everything running both).",
+      "`-D warnings` applies to clippy output; rustc built-ins are not the subject here."
+    ]
+  },
+  {
+    "q": "Why would a review reject a PR full of `#[allow(clippy::...)]` attributes?",
+    "options": [
+      "Allows hide problems instead of fixing them, and churn diff noise without improving code",
+      "Attributes are slower to compile than fixes",
+      "GitHub blocks files with more than two allow attributes",
+      "clippy strips all attributes when CI runs it"
+    ],
+    "answer": 0,
+    "topic": "clippy-cleanup",
+    "explanation": [
+      "Compile-time cost of attributes is negligible.",
+      "No such GitHub rule exists.",
+      "clippy respects attributes — that's precisely why blanket allows are dangerous."
+    ]
+  },
+  {
+    "q": "Complete this: `let initials = full_name.get(0..2).unwrap_or(\"??\");` — compared to `&full_name[0..2]`, the get() form:",
+    "options": [
+      "Returns None at slices landing mid-character instead of panicking, and the default is an explicit reviewer-visible decision",
+      "Always returns two complete characters regardless of the input byte length",
+      "Is identical but slower at compile time",
+      "Only compiles under the 2021 edition"
+    ],
+    "answer": 0,
+    "topic": "clippy-cleanup",
+    "explanation": [
+      "get(0..2) still counts BYTES; multibyte text can still yield None — that's precisely what the default handles.",
+      "Compile-time behavior is unrelated; the difference is the Option return type.",
+      "get/slicing on ranges is edition-independent."
+    ]
+  },
+  {
+    "q": "`uninlined_format_args = \"allow\"` in goose's workspace lints signals:",
+    "options": [
+      "The team deliberately chose not to chase this stylistic lint — lint policy is a decision, not a default",
+      "The lint is disabled because it is unsound and crashes the compiler",
+      "Format arguments are never inlined in goose because of a runtime bug",
+      "The workspace has no format! macro calls anywhere"
+    ],
+    "answer": 0,
+    "topic": "clippy-cleanup",
+    "explanation": [
+      "It's a style lint; 'allow' is a policy choice, not a soundness workaround.",
+      "Inlining relates to style, not runtime behavior of format!.",
+      "'Allow' does not mean 'absent' — the lint simply accepts the code as-is."
+    ]
+  },
+  {
+    "q": "You found a clippy warning in goose core code. Which fix path would a goose maintainer most likely prefer?",
+    "options": [
+      "A focused hand-fix at the source in a single-purpose PR, with clippy green at -D warnings",
+      "cargo clippy --fix across the entire workspace in one sweep, then commit",
+      "Adding #[allow] to every warning site to silence the pipeline",
+      "Fixing warnings only if the same line also needs a feature change"
+    ],
+    "answer": 0,
+    "topic": "clippy-cleanup",
+    "explanation": [
+      "--fix sweeps produce huge unreviewable diffs where semantics-adjacent rewrites hide bugs (get() defaults!).",
+      "Allows hide problems; reviewers reject unexplained silence.",
+      "Cleanups are valid standalone PRs — coupling them to features violates single-purpose discipline."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error: the non-ASCII text 'José Mouse' was sliced at a non-character boundary [:2]` — emphasis: the program panicked at runtime, not compile time. The intended fix is:",
+    "options": [
+      "Switch the byte slice to .get() with an explicit fallback, deciding what truncated or missing initials mean downstream",
+      "Cast full_name to bytes and slice the resulting array",
+      "Set $env:RUST_LOG=error so the panic is swallowed",
+      "Constrain all names in the codebase to ASCII at input time"
+    ],
+    "answer": 0,
+    "topic": "clippy-cleanup",
+    "explanation": [
+      "Slicing bytes still loses characters the same way — the boundary problem persists.",
+      "RUST_LOG controls logs, not panics.",
+      "Forcing ASCII ignores real users; the text domain stays Unicode."
+    ]
+  }
+]

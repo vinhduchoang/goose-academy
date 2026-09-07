@@ -1,0 +1,419 @@
+{
+  "unitSlug": "rust-core",
+  "unitIndex": 0,
+  "title": "Unit 0 Exam — Rust for Goose",
+  "questions": [
+    {
+      "q": "`cargo build -p goose-cli --bin goose` builds:",
+      "options": [
+        "Only the goose-cli package and only its goose binary target",
+        "Every workspace member in release mode",
+        "Only dependencies of goose-cli, not the crate itself",
+        "The goose library plus all binaries in goose-cli"
+      ],
+      "answer": 0,
+      "topic": "cargo",
+      "explanation": [
+        "-p narrows to one package; nothing implies --release, and other members are untouched.",
+        "cargo builds the requested crate AND its dependencies, never deps alone.",
+        "--bin selects a single binary target; adding a lib would need explicit naming."
+      ]
+    },
+    {
+      "q": "`resolver = \"2\"` in the root Cargo.toml selects:",
+      "options": [
+        "Edition-2021 feature unification (dev-dependency features don't leak into the normal build)",
+        "Two parallel compilations of the workspace",
+        "HTTP/2 for registry downloads",
+        "A second Cargo.lock for CI"
+      ],
+      "answer": 0,
+      "topic": "workspace",
+      "explanation": [
+        "The resolver doesn't compile twice.",
+        "Transport choice is separate from the feature resolver.",
+        "Lockfile count is not a resolver setting."
+      ]
+    },
+    {
+      "q": "Which tool switches the active Rust toolchain version?",
+      "options": [
+        "rustup",
+        "cargo",
+        "rustc",
+        "clippy"
+      ],
+      "answer": 0,
+      "topic": "rustup",
+      "explanation": [
+        "cargo follows whichever toolchain rustup activated.",
+        "rustc is the compiler binary itself.",
+        "clippy lints within the active toolchain; it doesn't manage versions."
+      ]
+    },
+    {
+      "q": "`cargo clippy --all-targets -- -D warnings` makes warnings:",
+      "options": [
+        "Hard errors — the precommit gate fails on any warning",
+        "Silently ignored",
+        "Written into a report file",
+        "Downgraded to allow"
+      ],
+      "answer": 0,
+      "topic": "justfile",
+      "explanation": [
+        "-D promotes lints; it never silences them.",
+        "clippy output goes to the terminal/build, not a designated file.",
+        "allow would need an -A flag and works in the opposite direction."
+      ]
+    },
+    {
+      "q": "`let mut func_token_count = 0;` later used with `+= FUNC_INIT` where `FUNC_INIT: usize = 7;`. The inferred type is:",
+      "options": [
+        "usize, because the += with a usize binds the type",
+        "i32, because literals default that way",
+        "u8, the smallest type that fits",
+        "Undetermined until runtime"
+      ],
+      "answer": 0,
+      "topic": "data-types",
+      "explanation": [
+        "The i32 default only applies without a stronger signal.",
+        "Rust never auto-narrows to the smallest type.",
+        "Inference is fully compile-time."
+      ]
+    },
+    {
+      "q": "`let borrowed: &str = \"goose\"; let owned: String = String::from(\"goose\");` — the key difference:",
+      "options": [
+        "owned allocates and owns its buffer; borrowed points at data owned by something else (here, the binary)",
+        "borrowed is shorter so faster to compare",
+        "owned cannot be passed to functions",
+        "borrowed is mutable, owned is not"
+      ],
+      "answer": 0,
+      "topic": "strings",
+      "explanation": [
+        "The difference is ownership, not speed of comparison.",
+        "String is passed to functions constantly.",
+        "Actually the reverse: String can grow, &str cannot."
+      ]
+    },
+    {
+      "q": "In `fn f() -> usize { let x = 4; x }`, the value 4 is returned because:",
+      "options": [
+        "The block's last expression is the function's return value",
+        "let-statements return their bindings",
+        "Rust implicitly inserts return;",
+        "usize values are auto-wrapped in Result"
+      ],
+      "answer": 0,
+      "topic": "functions",
+      "explanation": [
+        "Statements produce no value.",
+        "No implicit return exists — the expression position is what returns.",
+        "Result wrapping is never automatic."
+      ]
+    },
+    {
+      "q": "`for i in 0..3` prints:",
+      "options": [
+        "0 1 2",
+        "0 1 2 3",
+        "1 2 3",
+        "Nothing — ranges aren't iterable"
+      ],
+      "answer": 0,
+      "topic": "control-flow",
+      "explanation": [
+        ".. is exclusive of the end bound.",
+        "The range starts at its left bound, 0.",
+        "Ranges are the idiomatic for-loop driver."
+      ]
+    },
+    {
+      "q": "A match over an enum with 4 variants handling only 3 produces:",
+      "options": [
+        "E0004 non-exhaustive patterns, naming the variant not covered",
+        "A runtime error when the 4th variant occurs",
+        "A silent default fallback",
+        "A clippy-only warning"
+      ],
+      "answer": 0,
+      "topic": "pattern-matching",
+      "explanation": [
+        "The compiler rejects it before runtime.",
+        "No fallback exists unless you write `_ => ...`.",
+        "It's a hard compile error (E0004), not a lint suggestion."
+      ]
+    },
+    {
+      "q": "`RetryResult::MaxAttemptsReached(msg)` stores a `msg`. Matching it to use the data requires:",
+      "options": [
+        "Binding in the pattern: `RetryResult::MaxAttemptsReached(msg) => use(msg)`",
+        "Calling `msg()` on the variant first",
+        "Converting the variant to a Message via as",
+        "Accessing it as a tuple index .0"
+      ],
+      "answer": 0,
+      "topic": "enums",
+      "explanation": [
+        "No accessor exists unless written; binding is the mechanism.",
+        "as-casts apply to references/primitives, not enum payload extraction.",
+        "Tuple-index access works only for tuple variants if you destructure, not on the enum itself."
+      ]
+    },
+    {
+      "q": "`let s = String::from(\"x\"); let t = s; println!(\"{}\", s);` gives:",
+      "options": [
+        "E0382 use of moved value — assignment moved ownership to t",
+        "It prints x because String is Copy",
+        "E0507 cannot move out of borrowed content",
+        "A runtime panic"
+      ],
+      "answer": 0,
+      "topic": "ownership",
+      "explanation": [
+        "String owns a heap buffer; it's not Copy.",
+        "Nothing is borrowed here; the move is by value.",
+        "Moves of owned values are legal — the error is at the use-after-move."
+      ]
+    },
+    {
+      "q": "A `&mut T` borrow of a value forbids:",
+      "options": [
+        "Any other borrow (& or &mut) of the same value while it lives",
+        "Reading the value through the mutable reference",
+        "Passing the value to functions entirely",
+        "All future borrows forever"
+      ],
+      "answer": 0,
+      "topic": "borrowing",
+      "explanation": [
+        "&mut supports reads too — it's exclusive, not write-only.",
+        "You can pass through the single &mut; concurrent ones are forbidden.",
+        "Later borrows are fine once the &mut ends."
+      ]
+    },
+    {
+      "q": "`fn trim_prompt(prompt: &str) -> &str` needs no lifetime annotations because:",
+      "options": [
+        "Elision: one input reference means the output borrow is assumed to come from it",
+        "The return is 'static",
+        "trim() copies the string",
+        "Lifetimes are only checked for structs"
+      ],
+      "answer": 0,
+      "topic": "lifetimes",
+      "explanation": [
+        "No 'static is involved; the link is input-to-output.",
+        "trim returns a view, not a copy.",
+        "Borrowing functions are checked too — elision just fills in the obvious lifetime."
+      ]
+    },
+    {
+      "q": "`ModelConfig::new(\"gpt-4o\")` calls an associated function because:",
+      "options": [
+        "It has no self parameter — it's called on the type, not an instance",
+        "It's declared outside any impl block",
+        "It returns a reference",
+        "Associated functions must take String arguments"
+      ],
+      "answer": 0,
+      "topic": "structs",
+      "explanation": [
+        "Associated functions live inside impl blocks.",
+        "new returns Self (an owned value).",
+        "Argument types are unrelated to the fn-vs-method split."
+      ]
+    },
+    {
+      "q": "`let n = limit.ok_or(\"missing\")?;` when `limit: Option<usize>` and the enclosing fn returns `Result<_, String>` does:",
+      "options": [
+        "Binds n to the usize, or early-returns Err(\"missing\") from the fn",
+        "Panics on None",
+        "Loops until Some appears",
+        "Converts None to 0 and continues"
+      ],
+      "answer": 0,
+      "topic": "option-result",
+      "explanation": [
+        "Panic comes from unwrap/expect, not ?.",
+        "No retry semantics exist.",
+        "None becomes the Err branch, never a fabricated value."
+      ]
+    },
+    {
+      "q": "`pub trait Provider: Send + Sync` (base.rs:464) declares:",
+      "options": [
+        "Supertrait bounds every implementor must satisfy",
+        "Provider's two required methods",
+        "That the trait is async",
+        "The crate the trait belongs to"
+      ],
+      "answer": 0,
+      "topic": "generics-traits",
+      "explanation": [
+        "Methods are declared inside the body; bounds follow the colon.",
+        "Async-ness comes from #[async_trait] and async fn, not these bounds.",
+        "Crate paths appear in use statements, not trait heads."
+      ]
+    },
+    {
+      "q": "Chaining `?` through several functions gives callers:",
+      "options": [
+        "Each function's context layered onto the underlying error as it flows upward",
+        "Only the outermost error, inner causes erased",
+        "A guaranteed stack trace",
+        "Panics at the first failure"
+      ],
+      "answer": 0,
+      "topic": "error-handling",
+      "explanation": [
+        "anyhow keeps the chain; each layer adds context without dropping the cause.",
+        "Stack traces need backtrace features and aren't collected by ?.",
+        "? returns errors; it never unwinds via panic."
+      ]
+    },
+    {
+      "q": "A goose app function typically returns:",
+      "options": [
+        "anyhow::Result<T> so any fallible step can use ?",
+        "ProviderError directly",
+        "A tuple (T, Option<Error>)",
+        "Future<T> with side-channel errors"
+      ],
+      "answer": 0,
+      "topic": "anyhow",
+      "explanation": [
+        "ProviderError is the library crate's typed enum; app code uses the open-ended anyhow error.",
+        "Errors-in-tuples is not the Rust convention.",
+        "Failures belong in Result, not side channels."
+      ]
+    },
+    {
+      "q": "`#[derive(Error)]` plus `#[error(\"Rate limit exceeded: {details}\")]` on a variant generates:",
+      "options": [
+        "Display and Error impls from the template — the variant can be returned as an error",
+        "Retry loops keyed on the message",
+        "A serde schema for the error",
+        "Automatic logs on construction"
+      ],
+      "answer": 0,
+      "topic": "thiserror",
+      "explanation": [
+        "Behavior like retries is written by callers, not generated.",
+        "Serde derives are separate (Serialize/Deserialize).",
+        "Logging requires explicit tracing calls."
+      ]
+    },
+    {
+      "q": "`#[serde(rename_all = \"camelCase\")]` on Message changes:",
+      "options": [
+        "The JSON keys for the struct's fields (and back on deserialize)",
+        "The struct's type name to camelCase",
+        "String values inside the struct",
+        "The memory layout of the struct"
+      ],
+      "answer": 0,
+      "topic": "serde",
+      "explanation": [
+        "Type names need named renames, not rename_all.",
+        "Content values are never rewritten by key renames.",
+        "Serde attributes change wire format, not layout."
+      ]
+    },
+    {
+      "q": "Adding a new field with `#[serde(default)]` keeps old JSON files loading because:",
+      "options": [
+        "Missing keys fall back to the type's Default rather than erroring",
+        "Old files are rewritten to include the key",
+        "The field is skipped in both directions",
+        "All parse errors are suppressed"
+      ],
+      "answer": 0,
+      "topic": "serde",
+      "explanation": [
+        "Serde never modifies input documents.",
+        "skip hides a field; default fills a missing one.",
+        "Only that field's absence is tolerated; other errors still surface."
+      ]
+    },
+    {
+      "q": "An `async fn` body compiles to:",
+      "options": [
+        "A pollable state machine suspended at .await points without blocking the thread",
+        "A blocking call until the future completes",
+        "A generator object you must drive with next()",
+        "A promise polyfill"
+      ],
+      "answer": 0,
+      "topic": "async",
+      "explanation": [
+        "Futures poll lazily; awaiting is non-blocking for the runtime thread.",
+        "next() drives Streams; a plain future is awaited.",
+        "Rust futures are native; no polyfill involved."
+      ]
+    },
+    {
+      "q": "`#[tokio::main]` on `async fn main` does:",
+      "options": [
+        "Builds the tokio runtime and drives main to completion on its worker threads",
+        "Adds retry-on-panic to main",
+        "Turns main into a background thread",
+        "Enables std Mutex to work across awaits"
+      ],
+      "answer": 0,
+      "topic": "tokio",
+      "explanation": [
+        "No automatic retry exists.",
+        "main runs on the runtime's threads, not a detached background one.",
+        "std Mutex compatibility with await is a Send question, unrelated to the macro."
+      ]
+    },
+    {
+      "q": "A MutexGuard releases the lock when:",
+      "options": [
+        "Dropped — normally at the end of its scope",
+        "Another lock() call is made",
+        "Explicitly told to via unlock() — Rust guards have no such method",
+        "The Mutex is Cloned"
+      ],
+      "answer": 0,
+      "topic": "arc-mutex",
+      "explanation": [
+        "A second lock() waits; it can't release the first guard — unlock() doesn't exist, drop is the mechanism.",
+        "RAII drop, not method calls, releases locks.",
+        "Mutex isn't Clone; even if it were, cloning wouldn't unlock."
+      ]
+    },
+    {
+      "q": "Holding a std MutexGuard across an .await in goose-style code fails because:",
+      "options": [
+        "The future stops being Send, violating MessageStream's + Send bound",
+        "Tokio deletes locks on suspension",
+        "The guard's value type changes at the await",
+        "Mutexes are forbidden in async crates"
+      ],
+      "answer": 0,
+      "topic": "traits-async",
+      "explanation": [
+        "Locks aren't deleted; the Send trait is what's checked.",
+        "Guard types are stable across awaits — Send-ness is the issue.",
+        "Mutexes are used in async code, just never held across awaits."
+      ]
+    }
+  ],
+  "miniLab": {
+    "title": "Echo agent: struct + trait + anyhow + serde + async stream + lock-guarded state",
+    "instructions": "Build a tiny 'echo agent' crate from scratch (this is the capstone of Unit 0 — the unit's exam mini-lab).\n\n1. In your working folder: `cargo new u0-echo-agent`, then `cd u0-echo-agent`.\n2. Add deps: `cargo add tokio --features macros,rt,time`, `cargo add futures`, `cargo add async-trait`, `cargo add anyhow`, `cargo add serde --features derive`, `cargo add serde_json`.\n3. In `src/main.rs` write all of the following (each maps to a lesson):\n   - a serde struct `EchoConfig { model: String, temperature: f32 }` with `#[derive(Serialize, Deserialize)]` (l14)\n   - `struct EchoAgent { config: EchoConfig, calls: Arc<Mutex<HashMap<String, usize>>> }` — lock-guarded shared state (l15)\n   - a trait with one method, e.g. `trait Agent { async fn stream(&self, input: &str) -> anyhow::Result<StreamOfStrings>; }` implemented with `#[async_trait]` (l12 + l13)\n   - in the impl, log the call under `calls` (lock, increment, drop the guard BEFORE any await — l15's golden rule), then build a stream with `futures::stream::unfold` that sleeps ~20ms between pieces (tokio) and yields 2-3 chunks that echo the input plus a `[call N]` counter read from the snapshot (l15)\n   - `#[tokio::main] async fn main` that constructs the agent, runs TWO concurrent stream() calls via `tokio::join!`, prints each combined output, and prints `ECHO-AGENT-OK` at the end (l15)\n   - define `StreamOfStrings` as `Pin<Box<dyn Stream<Item = anyhow::Result<String>> + Send>>` yourself (l12)\n4. Run `cargo run` until you see both streams echo and `ECHO-AGENT-OK` prints.\n5. From the folder that CONTAINS the `u0-echo-agent` directory, run the verify script below and paste its full output into the exam answer box:\n\n```powershell\npowershell -File u0-echo-agent-verify.ps1\n```\n\nSave the verify script's output — the grader checks it contains `VERIFY PASSED` plus the concrete fragments listed in the pass markers.",
+    "verifyScript": "param(\n    [string]$EchoDir = (Join-Path (Get-Location) 'u0-echo-agent')\n)\n$ErrorActionPreference = 'Stop'\n$fails = 0\n$passes = 0\nfunction Check {\n    param([string]$Name, [bool]$Ok, [string]$Detail)\n    if ($Ok) {\n        Write-Host ('[PASS]  ' + $Name)\n        $script:passes++\n    } else {\n        Write-Host ('[FAIL]  ' + $Name + ' - ' + $Detail)\n        $script:fails++\n    }\n}\n$projOk = (Test-Path $EchoDir) -and (Test-Path (Join-Path $EchoDir 'Cargo.toml'))\nCheck 'u0-echo-agent project exists' $projOk 'run cargo new u0-echo-agent in this folder first'\n$depsOk = $false\nif ($projOk) {\n    $cargo = Get-Content (Join-Path $EchoDir 'Cargo.toml') -Raw\n    $depsOk = [bool](($cargo -match 'tokio') -and ($cargo -match 'anyhow') -and ($cargo -match 'serde') -and ($cargo -match 'futures') -and ($cargo -match 'async-trait'))\n}\nCheck 'Cargo.toml declares tokio anyhow serde futures async-trait' $depsOk 'run the cargo add commands from the instructions'\n$mainPath = Join-Path $EchoDir 'src/main.rs'\nif (Test-Path $mainPath) {\n    $src = Get-Content $mainPath -Raw\n    $c1 = [bool]($src -match 'struct EchoAgent')\n    $c2 = [bool](($src -match 'Serialize') -and ($src -match 'Deserialize'))\n    $c3 = [bool]($src -match 'for EchoAgent')\n    $c4 = [bool]($src -match 'anyhow::Result')\n    $c5 = [bool]($src -match 'async fn stream')\n    $c6 = [bool]($src -match 'Arc<Mutex<')\n    $c7 = [bool](($src -match 'stream::unfold') -and ($src -match 'Box::pin'))\n    $c8 = [bool](($src -match 'tokio::join!') -and ($src -match 'ECHO-AGENT-OK'))\n    Check 'EchoAgent struct present' $c1 'define struct EchoAgent with a serde config field'\n    Check 'serde derive on config struct' $c2 'add #[derive(Serialize, Deserialize)] to EchoConfig'\n    Check 'trait implemented for EchoAgent' $c3 'write a trait and impl it for EchoAgent'\n    Check 'anyhow::Result in signatures' $c4 'use anyhow::Result in fn signatures'\n    Check 'async fn stream present' $c5 'implement an async fn stream method'\n    Check 'lock-guarded shared state' $c6 'add Arc<Mutex<HashMap<String, usize>>> as a call log'\n    Check 'stream built and pinned' $c7 'yield chunks via futures::stream::unfold and Box::pin'\n    Check 'concurrent runs and ECHO-AGENT-OK marker' $c8 'run two streams via tokio::join! and print ECHO-AGENT-OK'\n} else {\n    Check 'src/main.rs exists' $false 'missing u0-echo-agent/src/main.rs'\n}\nWrite-Host ''\nif ($fails -eq 0) {\n    Write-Host ('VERIFY PASSED ' + $passes + '/' + ($passes + $fails))\n    exit 0\n} else {\n    Write-Host ('VERIFY FAILED - ' + $fails + ' of ' + ($passes + $fails) + ' checks failed')\n    exit 1\n}",
+    "passMarkers": [
+      "VERIFY PASSED",
+      "EchoAgent struct present",
+      "async fn stream present",
+      "lock-guarded shared state",
+      "concurrent runs and ECHO-AGENT-OK marker"
+    ]
+  }
+}

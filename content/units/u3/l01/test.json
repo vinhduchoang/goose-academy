@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Which serde attribute makes `ExtensionConfig` in crates/goose/src/agents/extension.rs:161 dispatch on a `\"type\"` field?",
+    "options": [
+      "A JSON manifest format",
+      "#[serde(tag = \"type\")] with per-variant `rename` attributes",
+      "A hand-written match on a `version` integer",
+      "The `type` field is ignored; goose probes each variant in order"
+    ],
+    "answer": 1,
+    "topic": "extension-manifest",
+    "explanation": [
+      "The enum is deserialized from config.yaml/JSON, not from a dedicated manifest format.",
+      "Dispatch is declaration-driven via serde attributes; goose never guesses variants by probing.",
+      "Missing/ignoring the type field would leave every entry defaulting to one variant, which the code does not do."
+    ]
+  },
+  {
+    "q": "A stdio extension entry is missing its `cmd` field. What happens when it passes through `validate_bundled_extensions`?",
+    "options": [
+      "goose silently uses a default shell command",
+      "The entry is rejected with an error that includes the entry id and the missing-field name",
+      "The entry runs anyway because the process launcher has a fallback",
+      "The manifest is re-parsed as YAML"
+    ],
+    "answer": 1,
+    "topic": "validation",
+    "explanation": [
+      "The validator never substitutes defaults for required commands - it fails fast with a message.",
+      "A `stdio` extension without `cmd` is a hard error in validate_extensions.rs, so it cannot launch.",
+      "Re-parsing would not conjure a command, and the validator already holds parsed JSON."
+    ]
+  },
+  {
+    "q": "Which names pass `validate_plugin_name`?",
+    "options": [
+      "\"MyPlugin\" and \"my__plugin\"",
+      "\"my-plugin\" and \"v1.2.0\"",
+      "\"my-plugin\" and \"MyPlugin\"",
+      "\"-my-plugin-\" and \"my..plugin\""
+    ],
+    "answer": 1,
+    "topic": "extension-manifest",
+    "explanation": [
+      "Uppercase and consecutive underscores are not in the allowed character class.",
+      "Uppercase letters fail the lowercase-only rule.",
+      "Leading/trailing dashes and `..` are explicitly rejected."
+    ]
+  },
+  {
+    "q": "Why must a plugin name not contain `..` or `--`?",
+    "options": [
+      "JSON keys cannot contain those sequences",
+      "Both can be abused for path traversal and ambiguity tricks, so the validator bans them",
+      "They are reserved for goose's internal plugin namespaces",
+      "The OSV API rejects packages with those characters"
+    ],
+    "answer": 1,
+    "topic": "validation",
+    "explanation": [
+      "JSON keys can legally contain those characters.",
+      "Namespaces use a deterministic `plugin:name` prefixing scheme, not reserved characters.",
+      "The OSV check concerns npm/PyPI packages, not plugin names."
+    ]
+  },
+  {
+    "q": "What does `deny_if_malicious_cmd_args` do for the command `notepad`?",
+    "options": [
+      "Queries OSV for the package 'notepad'",
+      "Skips the check entirely and returns Ok - unknown commands are fail-open with a debug log",
+      "Blocks it because it is not in the allowlist",
+      "Prompts the user for confirmation"
+    ],
+    "answer": 1,
+    "topic": "security",
+    "explanation": [
+      "Only npx/uvx-class executables map to an ecosystem (npm/PyPI); other commands are not queried.",
+      "There is no allowlist; non-npx/uvx commands simply bypass the check.",
+      "The check blocks on MAL- advisories, it never prompts."
+    ]
+  },
+  {
+    "q": "The OSV endpoint is unreachable when a user runs `npx some-pkg`. What happens?",
+    "options": [
+      "The extension is blocked as a precaution",
+      "The check logs an error and the command proceeds (fail open)",
+      "goose retries the request in a loop until it succeeds",
+      "goose asks the user to approve the package manually"
+    ],
+    "answer": 1,
+    "topic": "security",
+    "explanation": [
+      "Blocking on a network outage would break legitimate workflows, so the design fails open instead.",
+      "requires no retry loop: the code returns Ok immediately on request/HTTP/parse errors.",
+      "There is no manual approval path; the choice is block-on-MAL or proceed."
+    ]
+  },
+  {
+    "q": "Which change unblocks this install? `config.yaml` has `extensions: { myext: { enabled: true, type: builtin, cmd: node } }`",
+    "options": [
+      "Remove the `type` field so the variant is inferred",
+      "The `builtin` variant has no `cmd` field - either make it `stdio` with `cmd: node` or drop the cmd from the builtin entry",
+      "Add `display_name` to satisfy the validator",
+      "Set `enabled` to false"
+    ],
+    "answer": 1,
+    "topic": "extension-system",
+    "explanation": [
+      "Omitting the type still leaves an invalid combination; `builtin` entries must not carry a cmd.",
+      "display_name is optional and unrelated to the shape error.",
+      "Disabling hides the entry but the config is still malformed."
+    ]
+  }
+]

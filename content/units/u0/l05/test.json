@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In goose's token_counter.rs:78, `for tool in tools` — which JS shape is the closest mental model?",
+    "options": [
+      "`for (const tool of tools)`",
+      "`for (const i in tools)`",
+      "`tools.forEach((tool) => ...)` — only difference is syntax",
+      "`while (tools.length--) {...}`"
+    ],
+    "answer": 0,
+    "topic": "control-flow",
+    "explanation": [
+      "for...in iterates keys/indexes, not values — the exact anti-pattern Rust avoids.",
+      "Closest but wrong: forEach takes a closure; Rust's for moves ownership rules into play, not a callback.",
+      "A while-with-decrement is index-mongering Rust removes entirely."
+    ]
+  },
+  {
+    "q": "What does this print? `for i in 0..3 { print!(\"{i} \"); } for i in 0..=2 { print!(\"{i} \"); }`",
+    "options": [
+      "`0 1 2 0 1 2 `",
+      "`0 1 2 0 1 2 3 `",
+      "It does not compile: ranges can't be used in for loops",
+      "`0 1 2 3 0 1 2 3 `"
+    ],
+    "answer": 0,
+    "topic": "control-flow",
+    "explanation": [
+      "0..=2 includes 2, so the second loop is also 0 1 2 — no trailing 3.",
+      "Ranges are the standard for-loop driver in Rust.",
+      "neither loop touches 3."
+    ]
+  },
+  {
+    "q": "`loop { if done { break \"done\" } }` — what is special here?",
+    "options": [
+      "break carries a value, so the loop is an expression evaluating to \"done\"",
+      "Nothing: break normally takes a value",
+      "It panics because break cannot carry data in loops",
+      "done must be a String for this to compile"
+    ],
+    "answer": 0,
+    "topic": "control-flow",
+    "explanation": [
+      "In C/JS break takes no value; Rust's value-carrying break is the unusual bit.",
+      "It compiles fine — this is the value-bearing loop form.",
+      "\"done\" is a &str here; the loop type is &str, no String needed."
+    ]
+  },
+  {
+    "q": "usage_estimator.rs:30 builds `response_text` with `.iter().map(...).collect::<Vec<_>>().join(\" \")`. The `.collect::<Vec<_>>()` step:",
+    "options": [
+      "Materializes an intermediate Vec of rendered strings before joining",
+      "Is unnecessary and always optimized away",
+      "Joins the strings directly without allocation",
+      "Sorts the strings before joining"
+    ],
+    "answer": 0,
+    "topic": "control-flow",
+    "explanation": [
+      "Rust never silently removes intermediate allocations; the Vec is real.",
+      "An iterator has no join; the collect builds the slice-joinable container.",
+      "collect preserves order — it's not a sort."
+    ]
+  },
+  {
+    "q": "`.filter_map(|c| c.filter_for_audience(Role::Assistant))` (message.rs:989) is equivalent to which TS?",
+    "options": [
+      "`.flatMap(c => c.filterForAudience(role) ? [f(c)] : [])` (f applied to unwrapped values)",
+      "`.filter(...).map(g)` where g re-wraps Option",
+      "`.map(...).filter(Boolean)`",
+      "`.reduce(...)` combining all audiences"
+    ],
+    "answer": 0,
+    "topic": "control-flow",
+    "explanation": [
+      "filter_map unwraps the Some and drops Nones in one pass — there is no re-wrapping step.",
+      "map().filter(Boolean) doesn't unwrap anything.",
+      "It selects, not accumulates; the audience filter is per-item."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0308]: mismatched types — expected &str, found integer`. `let v = if big { \"long\" } else { 99 };`",
+    "options": [
+      "Make both branches the same type, e.g. \"99\" instead of 99",
+      "Add a `return` before each branch",
+      "Declare `let v: String` to accept both",
+      "Parenthesize the if expression"
+    ],
+    "answer": 0,
+    "topic": "control-flow",
+    "explanation": [
+      "return is meaningless inside a let initializer expression.",
+      "The annotation changes nothing; the branches must still agree.",
+      "Parens don't change the type-unification rule for if expressions."
+    ]
+  },
+  {
+    "q": "In `for t in &turns { ... }` (a Vec<Turn>), why the `&`?",
+    "options": [
+      "Iterating by reference, so the Vec keeps ownership of its elements",
+      "& makes the loop twice as fast",
+      "Without & the loop body cannot access fields",
+      "It is a typo-safe requirement of Vec"
+    ],
+    "answer": 0,
+    "topic": "control-flow",
+    "explanation": [
+      "Performance is possible but incidental; ownership is the reason.",
+      "Field access works either way; the point is who owns the data after.",
+      "Rust permits for x in turns (by value) — it just moves the Vec."
+    ]
+  }
+]

@@ -1,0 +1,114 @@
+[
+  {
+    "q": "When `collect_stream` (base.rs:365) sees chunk 1 = text delta and chunk 2 = usage-only, what is the final output?",
+    "options": [
+      "Error: usage must precede content",
+      "One message whose content is the coalesced text, plus the usage from chunk 2",
+      "Two separate messages because each chunk is standalone",
+      "The usage from chunk 2 is dropped because it arrived after content"
+    ],
+    "answer": 1,
+    "topic": "streaming",
+    "explanation": [
+      "Usage-after-content is the normal, expected ordering.",
+      "Text deltas coalesce into one message; only non-text-non-thinking blocks stay separate.",
+      "collect_stream keeps the last usage seen, not the first."
+    ]
+  },
+  {
+    "q": "What does `ensure_usage_tokens` (usage_estimator.rs:9) do when both input and output counts are already present?",
+    "options": [
+      "Re-counts anyway to verify the vendor",
+      "Returns Ok immediately - the fallback only fills gaps",
+      "Overwrites them with larger estimates",
+      "Deletes total_tokens so it can be recomputed"
+    ],
+    "answer": 1,
+    "topic": "usage-tracking",
+    "explanation": [
+      "Vendor numbers are trusted; re-counting would waste CPU and could only diverge.",
+      "Estimates never overwrite measured values.",
+      "total_tokens is only recomputed when a gap was filled."
+    ]
+  },
+  {
+    "q": "What does `count_chat_tokens` (token_counter.rs:129) count?",
+    "options": [
+      "Only the user's raw text",
+      "Tokens across system prompt, messages, and tool definitions via the chat template",
+      "Only the response text",
+      "File bytes on disk"
+    ],
+    "answer": 1,
+    "topic": "token-counter",
+    "explanation": [
+      "The chat template includes system and tool overhead, not just user text.",
+      "Counting is for request-side estimation; response text is counted separately for output.",
+      "It counts semantic tokens, not bytes."
+    ]
+  },
+  {
+    "q": "Which price source wins in `canonical_cost.rs` precedence?",
+    "options": [
+      "Bundled declarative provider definitions",
+      "The bundled canonical registry",
+      "Provider-reported costs",
+      "The user's custom provider config prices"
+    ],
+    "answer": 2,
+    "topic": "cost-usages",
+    "explanation": [
+      "Declarative definitions rank last - they only fill registry gaps.",
+      "The registry ranks below provider-reported and user-declared prices.",
+      "User-declared prices are second; the provider's own reported cost is the ground truth at tier 1."
+    ]
+  },
+  {
+    "q": "Which attribute does `record_usage` (gen_ai_telemetry.rs:52) write onto the span?",
+    "options": [
+      "The full user prompt text",
+      "gen_ai.usage.cache_read.input_tokens",
+      "The API key",
+      "The model's parameter count"
+    ],
+    "answer": 1,
+    "topic": "observability",
+    "explanation": [
+      "Prompt text is gated by the opt-in capture env var, never by record_usage.",
+      "Secrets never enter telemetry.",
+      "Parameter counts are not usage attributes."
+    ]
+  },
+  {
+    "q": "Why is `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` off by default?",
+    "options": [
+      "The OTel SDK crashes if content is captured",
+      "Capturing message content risks leaking prompts; observability must be secure by default",
+      "The attribute name is too long for OTel",
+      "Only the UI needs content"
+    ],
+    "answer": 1,
+    "topic": "security",
+    "explanation": [
+      "Content capture works fine technically; the gate is a privacy decision.",
+      "Attribute names have no such limit; the gate is intentional design.",
+      "Sampling layers can consume content, but defaults must stay leak-free."
+    ]
+  },
+  {
+    "q": "Fix this: your stream yields `Ok((Some(msg), Some(usage)))` for every chunk, but the agent shows repeated duplicated text. The correct change is:",
+    "options": [
+      "Emit cumulative text per delta (like collect_stream's coalescing contract) OR emit only the final full message",
+      "Change role to User",
+      "Add retry_config",
+      "Set time_to_first_token_ms to 0"
+    ],
+    "answer": 0,
+    "topic": "streaming",
+    "explanation": [
+      "Role has nothing to do with delta duplication.",
+      "Retry config does not change chunk semantics.",
+      "Stats timing does not affect content merging."
+    ]
+  }
+]

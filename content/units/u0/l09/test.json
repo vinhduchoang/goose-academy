@@ -1,0 +1,114 @@
+[
+  {
+    "q": "A lifetime like `'a` in `&'a str` describes:",
+    "options": [
+      "A relationship: this borrow is valid for 'a, and the compiler checks nothing using it outlives that",
+      "How to extend a value's life to 'a",
+      "A runtime timer deleting memory at 'a",
+      "The string length limit 'a"
+    ],
+    "answer": 0,
+    "topic": "lifetimes",
+    "explanation": [
+      "Lifetimes never extend anything; they only relate borrows.",
+      "No runtime mechanism exists — lifetimes vanish after compile.",
+      "Lifetimes are unrelated to string length or capacity."
+    ]
+  },
+  {
+    "q": "Why must `struct LoggingConfig<'a>` carry a lifetime parameter (logging.rs:13)?",
+    "options": [
+      "The struct borrows &'a str fields, so its own validity depends on those borrowed strings",
+      "Every Rust struct must declare 'a",
+      "It forces the struct to be Copy",
+      "Because LoggingConfig is also used with threads"
+    ],
+    "answer": 0,
+    "topic": "lifetimes",
+    "explanation": [
+      "Structs without borrows need no lifetime at all.",
+      "Lifetimes don't grant Copy.",
+      "Threading (Send/Sync) is a different property, unrelated to 'a."
+    ]
+  },
+  {
+    "q": "`pub fn resolved_model<'a>(&'a self, default_model: Option<&'a str>, override_model: Option<&'a str>) -> Option<&'a str>` (checks/mod.rs:162). What guarantee does the signature give?",
+    "options": [
+      "The returned &str never outlives self, default_model, or override_model",
+      "The returned &str is always 'static",
+      "The function returns an owned copy",
+      "default_model and override_model must be identical strings"
+    ],
+    "answer": 0,
+    "topic": "lifetimes",
+    "explanation": [
+      "It returns a borrow — tying it to all three inputs means callers can use it only while they all live.",
+      "Option<&'a str> is a view, not an owned copy.",
+      "Identical values aren't required; the types merely share a lifetime."
+    ]
+  },
+  {
+    "q": "Why does elision NOT apply to `fn first_of(x: &str, y: &str) -> &str`?",
+    "options": [
+      "With multiple input references the compiler can't guess which input the output borrows from",
+      "Elision only works inside structs",
+      "Because there is no `self` parameter",
+      "Elision requires exactly zero parameters"
+    ],
+    "answer": 0,
+    "topic": "lifetimes",
+    "explanation": [
+      "Elision works in plain functions too (see trim_prompt).",
+      "Methods (&self) are the most common elision case, not the only one.",
+      "Elision requires the output's lifetime to be inferable — count of inputs matters, not zero."
+    ]
+  },
+  {
+    "q": "What does `&'static str` mean?",
+    "options": [
+      "A borrow valid for the entire program — string literals and embedded data",
+      "A string allocated on a background thread",
+      "A string that must be leaked to stay alive",
+      "A compile-time constant that can never be used dynamically"
+    ],
+    "answer": 0,
+    "topic": "lifetimes",
+    "explanation": [
+      "'static concerns lifetime, not which thread created the value.",
+      "Leaking is one way to *create* 'static data from owned data — not the definition.",
+      "Literals are 'static and usable anywhere, including dynamically."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0106]: missing lifetime specifier` on `fn pick(x: &str, y: &str) -> &str`. The fix:",
+    "options": [
+      "Annotate inputs and output with lifetimes tied to the arm that supplies the result: `fn pick<'a>(x: &'a str, y: &'a str) -> &'a str`",
+      "Return `&'static str`",
+      "Change parameters to String",
+      "Add `#[derive(Lifetime)]`"
+    ],
+    "answer": 0,
+    "topic": "lifetimes",
+    "explanation": [
+      "'static would be a lie: the inputs may be short-lived locals.",
+      "Changing to String returns owned data — valid but changes the contract; the error asks for the borrow's lifetime, not a rewrite.",
+      "Lifetimes are syntax, not derives."
+    ]
+  },
+  {
+    "q": "`SystemPromptBuilder<'a, M> { manager: &'a M }` (prompt_manager.rs:45) — which statement is false?",
+    "options": [
+      "The builder owns the manager and frees it in Drop",
+      "The builder borrows its manager for 'a",
+      "M is a type parameter, 'a is a lifetime parameter",
+      "Building a prompt never copies the manager's extensions"
+    ],
+    "answer": 0,
+    "topic": "lifetimes",
+    "explanation": [
+      "It borrows — &'a M — the builder neither owns nor frees the manager.",
+      "Structs may carry both lifetime and type parameters.",
+      "The borrow avoids deep-copying extension config, exactly as designed."
+    ]
+  }
+]

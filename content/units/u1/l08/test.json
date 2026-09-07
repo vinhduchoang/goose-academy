@@ -1,0 +1,114 @@
+[
+  {
+    "q": "What is the canonical on-disk shape of an extension in goose?",
+    "options": [
+      "ExtensionConfig — a serde-tagged enum (stdio / sse / builtin) with command, args, and env",
+      "A .wasm module loaded at runtime",
+      "A cargo feature flag",
+      "A plugin DLL"
+    ],
+    "answer": 0,
+    "topic": "extension-system",
+    "explanation": [
+      "Goose extensions are processes, not WebAssembly.",
+      "Features enable code paths, not dynamic extensions.",
+      "No native DLL loading exists; stdio/SSE are the transports."
+    ]
+  },
+  {
+    "q": "Which stage rejects an extension whose env map tries to override a disallowed key?",
+    "options": [
+      "Validation (ExtensionConfig::validate checks DISALLOWED_KEYS)",
+      "Discovery (resolve_extensions_for_new_session)",
+      "Dispatch (dispatch_tool_call)",
+      "Compaction"
+    ],
+    "answer": 0,
+    "topic": "validation",
+    "explanation": [
+      "Discovery resolves names, it doesn't vet env maps.",
+      "Dispatch assumes validated configs; it runs tools.",
+      "Compaction touches messages, not extension manifests."
+    ]
+  },
+  {
+    "q": "Where does a newly-added extension become a live, callable tool?",
+    "options": [
+      "ExtensionManager registers it and get_prefixed_tools() exposes namespaced tools to the provider",
+      "Cargo rebuilds the binary",
+      "Session storage archives it",
+      "The canonical registry"
+    ],
+    "answer": 0,
+    "topic": "extension-system",
+    "explanation": [
+      "Extensions don't require rebuilding goose core.",
+      "Storage persists configs but doesn't make tools live.",
+      "The canonical registry stores model metadata, not tools."
+    ]
+  },
+  {
+    "q": "What does the malware gate do at spawn time?",
+    "options": [
+      "Scans the command/args for malicious signatures and returns ExtensionError before the server starts",
+      "Rate-limits all tool calls",
+      "Sandboxes the process in a VM",
+      "Uploads the binary for cloud scanning"
+    ],
+    "answer": 0,
+    "topic": "security",
+    "explanation": [
+      "Rate limiting is a tracing-layer concern.",
+      "Extensions run as plain child processes — no VM sandbox.",
+      "The scan is local and offline; nothing is uploaded."
+    ]
+  },
+  {
+    "q": "What problem does tool namespacing (get_prefixed_tools) solve?",
+    "options": [
+      "Collisions: two extensions may both define a tool with the same name; prefixes disambiguate ownership",
+      "It encrypts tool names",
+      "It hides tools from the model",
+      "It sorts tools by cost"
+    ],
+    "answer": 0,
+    "topic": "extension-system",
+    "explanation": [
+      "Names stay plaintext; naming is about identity, not secrecy.",
+      "Prefixed tools are still advertised to the model.",
+      "Ordering is irrelevant to the registry."
+    ]
+  },
+  {
+    "q": "`validate_bundled_extensions` runs at:",
+    "options": [
+      "Startup — it sanity-checks the bundled extension set before any session begins",
+      "Every tool call",
+      "Only on Windows",
+      "When the user archives a session"
+    ],
+    "answer": 0,
+    "topic": "validation",
+    "explanation": [
+      "Per-call checks belong to the pipeline (l07), not this validator.",
+      "It is platform-independent.",
+      "Session archival doesn't involve extension validation."
+    ]
+  },
+  {
+    "q": "Fix this PR failure: an extension added via config never appears in the tool list. The manifest is valid, the process starts, but tools are absent. Most likely missing step:",
+    "options": [
+      "The extension was never passed through Agent::add_extension (load stage) into the manager's registry",
+      "The session needs more RAM",
+      "The provider needs a higher temperature",
+      "Cargo.lock must be regenerated"
+    ],
+    "answer": 0,
+    "topic": "extension-system",
+    "explanation": [
+      "Memory isn't a registration precondition.",
+      "Temperature affects sampling, not registry membership.",
+      "Cargo.lock concerns build deps, not runtime extension configs."
+    ]
+  }
+]

@@ -1,0 +1,114 @@
+[
+  {
+    "q": "A goose recipe YAML's run-time inputs live in which block?",
+    "options": [
+      "parameters — keys with defaults that the prompt interpolates as {{ key }}",
+      "extensions — which are substituted at parse time",
+      "activities — one value per input",
+      "title — serialized as env vars"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "extensions declare allowed tooling, not inputs.",
+      "activities list capabilities, not parameter values.",
+      "title is a display string; no env serialization happens."
+    ]
+  },
+  {
+    "q": "`goose run` prints the cli.rs:2244 error when:",
+    "options": [
+      "None of --instructions, --text, or --recipe was provided",
+      "The recipe file contains a parameter without a default",
+      "The binary was built with debug symbols",
+      "A provider API key is missing"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "A missing default is a recipe-authoring gap, not a CLI usage error.",
+      "Debug builds are fully supported for runs.",
+      "Key errors surface later, from the provider, not as this usage error."
+    ]
+  },
+  {
+    "q": "Phase guards in the self-test prompt use `{% if test_phases == \"all\" or \"basic\" in test_phases %}` to:",
+    "options": [
+      "Run a phase only when its name is selected, so bounded runs skip unrelated scenarios",
+      "Encrypt the phase block from casual readers",
+      "Guarantee phases run in parallel",
+      "Validate YAML syntax at load time"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "There is no encryption semantics in recipe templates.",
+      "Parallelism is controlled elsewhere (parallel_tests parameter).",
+      "The guard is about conditional inclusion, not syntax validation."
+    ]
+  },
+  {
+    "q": "The nested-delegation scenario is CRITICAL in the self-test suite because:",
+    "options": [
+      "A delegate spawning delegates would bypass SessionType::SubAgent recursion prevention — a security boundary",
+      "It consumes the most tokens of any scenario",
+      "Delegates are the newest extension type",
+      "It only runs on release branches"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "Cost is not the criterion for CRITICAL severity.",
+      "Age of a feature doesn't determine test severity.",
+      "The suite runs anywhere; severity comes from what the check enforces."
+    ]
+  },
+  {
+    "q": "`{{recipe_dir}}` in release_risk_check/recipe.yaml:10 exists so that:",
+    "options": [
+      "The recipe can reference its own bundled script by relative path wherever the recipe lives",
+      "The recipe can upload itself to the workspace root",
+      "Recipes can hard-code absolute Linux paths on all platforms",
+      "The prompt can switch working directories mid-run"
+    ],
+    "answer": 0,
+    "topic": "feature-workflow",
+    "explanation": [
+      "No upload behavior exists in recipe templating.",
+      "Hard-coded absolute paths would break portability — the opposite of the mechanism.",
+      "Directory switching is shell behavior, not a template variable."
+    ]
+  },
+  {
+    "q": "You ran the recipe without rebuilding after your change, and the run still passed. The correct conclusion is:",
+    "options": [
+      "The run did NOT validate your change — the binary predates it, so rebuild and rerun",
+      "The recipe run is smarter than the compiled binary",
+      "Recipes validate source files directly",
+      "The change needs no validation since tests were green"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "Recipes drive the compiled binary as-is; there is no intelligence layer above it.",
+      "The prompt watches observable behavior, not source text.",
+      "The whole point of the recipe run is end-to-end validation of the built artifact."
+    ]
+  },
+  {
+    "q": "Fix this recipe authoring failure: your new scenario runs on every phase selection but its log path `{{ workspace_dir }}/phase_label_fitting.md` is only created in some branches. The fix:",
+    "options": [
+      "Move the log write inside the same guarded block that runs the scenario, so selection and artifact always match",
+      "Create the file unconditionally at recipe load",
+      "Remove the workspace_dir parameter entirely",
+      "Rename the file to a global path outside workspace_dir"
+    ],
+    "answer": 0,
+    "topic": "goose-self-test",
+    "explanation": [
+      "Creating artifacts unconditionally misstates what actually ran — the report lies by omission.",
+      "workspace_dir scoping is what keeps the archive phase working; removal breaks cleanup.",
+      "Leaving the workspace breaks the recipe's own archive/cleanup contract."
+    ]
+  }
+]

@@ -1,0 +1,130 @@
+[
+  {
+    "q": "In Rust, `Option<T>` is:",
+    "options": [
+      "An enum with variants Some(T) and None — the compiler makes missing values impossible to ignore",
+      "A class with a null member",
+      "A box that may contain null",
+      "A macro that unwraps values"
+    ],
+    "answer": 0,
+    "topic": "option-result",
+    "explanation": [
+      "There is no null member concept in Option's design.",
+      "Box is a different construct (heap allocation); Option carries no allocation of its own.",
+      "Option is a type, not a macro."
+    ]
+  },
+  {
+    "q": "`some_option.map(|n| n / 1_024)` returns:",
+    "options": [
+      "Some(result) when the input was Some, None when it was None — the closure only sees the inner value",
+      "The inner value directly",
+      "A bool saying whether mapping succeeded",
+      "The input unchanged if the closure panics"
+    ],
+    "answer": 0,
+    "topic": "option-result",
+    "explanation": [
+      "map preserves the Option wrapper; it never exposes the raw value.",
+      "Bools come from is_some()/is_none(); map transforms.",
+      "map never changes the wrapper structure."
+    ]
+  },
+  {
+    "q": "Why is `context_limit` an `Option<usize>` instead of `usize` (model.rs:44)?",
+    "options": [
+      "\"Not configured\" is meaningfully different from 0 — Option encodes the unset state in the type",
+      "usize cannot hold 128_000",
+      "Serde cannot serialize usize",
+      "Option fields are always faster to read"
+    ],
+    "answer": 0,
+    "topic": "enums",
+    "explanation": [
+      "usize holds enormous values easily.",
+      "Serde serializes usize without issue.",
+      "Option adds a branch, not speed."
+    ]
+  },
+  {
+    "q": "What does `Err(e) => return Err(e)` accomplish in function f?",
+    "options": [
+      "Bubbles a failure out of f unchanged, preserving the typed error",
+      "Retries the operation that produced e",
+      "Converts e to a string and throws it",
+      "Silently discards the error"
+    ],
+    "answer": 0,
+    "topic": "option-result",
+    "explanation": [
+      "The match makes no attempt to re-run anything.",
+      "Rust has no throw; errors are values carried in Err.",
+      "Discarding would be ignoring the Err arm entirely."
+    ]
+  },
+  {
+    "q": "goose's `ProviderError` models failure as an enum (errors.rs:7) rather than strings. What does that enable?",
+    "options": [
+      "Callers dispatch on variants — e.g. rate limit vs server error — without parsing message text",
+      "Faster string comparison at runtime",
+      "Automatic retry of every error",
+      "Panic-free provider code"
+    ],
+    "answer": 0,
+    "topic": "enums",
+    "explanation": [
+      "Enum matching is pattern-based; speed vs strings isn't the point.",
+      "Goose retries selectively via policies, not automatically.",
+      "Panics remain possible via unwrap/expect; the enum models expected failures."
+    ]
+  },
+  {
+    "q": "In `ProviderError`, `RateLimitExceeded { details: String, retry_delay: Option<Duration> }` is a variant with:",
+    "options": [
+      "Named (struct-shaped) fields, one of which may be absent",
+      "Positional fields only",
+      "No payload",
+      "A Box'd payload"
+    ],
+    "answer": 0,
+    "topic": "enums",
+    "explanation": [
+      "Positional variants look like Tuple(String); this one has field names.",
+      "It carries two fields, so \"no payload\" is wrong.",
+      "Boxing is unnecessary here; the fields are plain owned data."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0599]: no method named `temperature` found for struct `ModelRequest` in a function returning Result — you wrote `req.temperature` where req is `Ok(ModelRequest)`. The fix:",
+    "options": [
+      "Extract the value first: handle Ok(req) => req.temperature and the Err arm",
+      "Rename the field to temperature()",
+      "Add #[derive(Default)]",
+      "Use req.temperature.unwrap_or(0.0) directly on the Result"
+    ],
+    "answer": 0,
+    "topic": "option-result",
+    "explanation": [
+      "Field access syntax cannot pierce the Result wrapper regardless of naming.",
+      "Default doesn't provide accessor methods on the inner value.",
+      "Result has unwrap_or, but you can't reach fields through it without extraction first."
+    ]
+  },
+  {
+    "q": "What does `?` do at a high level (e.g. `parse().map_err(...)?`)?",
+    "options": [
+      "On Ok(v) continues with v; on Err(e) returns Err(e) from the enclosing function early",
+      "Runs the expression in a loop until it succeeds",
+      "Converts the error to a panic",
+      "Checks the value at runtime and logs it"
+    ],
+    "answer": 0,
+    "topic": "error-handling",
+    "explanation": [
+      "No loop is involved; ? is early return.",
+      "Panics come from unwrap()/expect(), not ?.",
+      "? performs no logging."
+    ]
+  }
+]

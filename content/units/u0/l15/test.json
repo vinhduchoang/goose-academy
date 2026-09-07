@@ -1,0 +1,114 @@
+[
+  {
+    "q": "`SharedProvider = Arc<Mutex<Option<Arc<dyn Provider>>>>` (types.rs:7) — why the *outer* Arc?",
+    "options": [
+      "Many subsystems share the same provider slot without owning separate copies",
+      "To make the provider swap faster",
+      "To mark the provider as async",
+      "To prevent the provider from being used in streams"
+    ],
+    "answer": 0,
+    "topic": "arc-mutex",
+    "explanation": [
+      "Arc buys shared ownership, not speed (it costs atomics).",
+      "Async-ness is orthogonal to Arc.",
+      "Arc<dyn Provider> is precisely what streams accept — it doesn't block them."
+    ]
+  },
+  {
+    "q": "`records.lock().unwrap()` (testprovider.rs:206) returns a MutexGuard. When does the lock release?",
+    "options": [
+      "When the guard is dropped — at the end of its scope",
+      "When the program exits",
+      "After a fixed timeout",
+      "On the next lock() call"
+    ],
+    "answer": 0,
+    "topic": "arc-mutex",
+    "explanation": [
+      "Locks are scope-bound RAII; no program-exit dependency.",
+      "There's no timeout on std Mutex::lock — it blocks indefinitely.",
+      "A second lock() call waits; it doesn't release anything."
+    ]
+  },
+  {
+    "q": "Holding a `std::sync::MutexGuard` across an `.await` in a Send-required future fails to compile because:",
+    "options": [
+      "MutexGuard is not Send, so the future can't be moved between threads while it holds locked state",
+      "Tokio forbids std Mutex entirely",
+      "The guard becomes unusable after await (turns into &mut)",
+      "Rust deallocates locked state on suspension"
+    ],
+    "answer": 0,
+    "topic": "async",
+    "explanation": [
+      "std Mutex is fine in tokio — held only for short non-await sections.",
+      "Guards remain usable; it's the Send trait the compiler checks.",
+      "Suspension doesn't deallocate; the Send requirement is what fails."
+    ]
+  },
+  {
+    "q": "Why does TestProvider compute `hash_input(messages)` OUTSIDE the records lock?",
+    "options": [
+      "Hashing inside the lock would serialize all concurrent streams behind one big critical section",
+      "Hashing requires the lock held for correctness",
+      "hash_input can't run while the HashMap exists",
+      "To prevent deadlocks with tokio's Mutex"
+    ],
+    "answer": 0,
+    "topic": "arc-mutex",
+    "explanation": [
+      "Correctness only needs the lock around the map read/write, not around pure computation.",
+      "Hashing is independent of the map; it can run before taking it.",
+      "There's no interaction with tokio Mutex here — it's std Mutex synchronization cost that matters."
+    ]
+  },
+  {
+    "q": "`async fn stream(...)` compiles to:",
+    "options": [
+      "A state machine that polls; .await suspends it without blocking the OS thread",
+      "A background thread per call",
+      "A callback registered with the event loop of Node",
+      "A lazy iterator"
+    ],
+    "answer": 0,
+    "topic": "async",
+    "explanation": [
+      "Tokio runs many futures on a few threads; no thread-per-call.",
+      "There's no Node event loop — that's the JS model.",
+      "A stream yields many values; a single future yields one."
+    ]
+  },
+  {
+    "q": "`MessageStream = Pin<Box<dyn Stream<Item = Result<(Option<Message>, Option<ProviderUsage>), ProviderError>> + Send>>` — the `Option`s around Message/ProviderUsage exist because:",
+    "options": [
+      "Streams may yield usage-only or finish with no final message, so each slot can be absent per item",
+      "Provider messages are often null in JSON",
+      "Rust requires every stream item be an Option",
+      "It marks the stream as possibly empty of all items"
+    ],
+    "answer": 0,
+    "topic": "traits-async",
+    "explanation": [
+      "The Option shapes matter per-item (message vs usage vs both), not JSON nulls.",
+      "Items can be any type; Option-ness here is modeled deliberately.",
+      "Both slots are independently optional — it's not about the whole stream being empty."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0277]: `(dyn Stream<...> + Send)` cannot be shared between threads safely` when boxing your Pin<Unfold>. The likeliest cause:",
+    "options": [
+      "Your stream's awaiting code holds a non-Send value (like a MutexGuard) across an await",
+      "The Box needs to be Arc instead",
+      "Pin cannot wrap a Box",
+      "You imported futures incorrectly"
+    ],
+    "answer": 0,
+    "topic": "traits-async",
+    "explanation": [
+      "Plain Box is fine; Arc is for shared ownership, not Send-ness.",
+      "Pin<Box<dyn Stream>> is the standard shape (base.rs:327).",
+      "Imports don't alter the Send property of held values."
+    ]
+  }
+]

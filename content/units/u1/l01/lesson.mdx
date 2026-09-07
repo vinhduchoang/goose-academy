@@ -1,0 +1,84 @@
+---
+unit: 1
+unitSlug: architecture
+order: 1
+id: u1-l01
+slug: 01-workspace-graph
+title: "Workspace graph: crate boundaries and dependency direction"
+topics:
+  - crate-graph
+  - workspace
+durationMin: 20
+cites:
+  - file: Cargo.toml
+    line: 2
+    note: 'workspace members — crates/* plus vendor/v8 kept only for cargo-machete'
+  - file: crates/goose-sdk-types/Cargo.toml
+    line: 10
+    note: 'description = "Shared types for the goose Development Kit (GDK)" — the crate''s whole reason to exist'
+  - file: crates/goose-provider-types/Cargo.toml
+    line: 2
+    note: 'package name goose-provider-types — the trait/datamodel home that goose and goose-providers both depend on'
+  - file: crates/goose-providers/src/lib.rs
+    line: 8
+    note: 'pub use goose_provider_types::{base, ..., model, ...} — implementations re-export the type-only crate'
+  - file: crates/goose/src/lib.rs
+    line: 15
+    note: 'pub mod conversation { pub use goose_providers::conversation::*; } — goose consumes the datamodel from goose-providers'
+---
+
+# Workspace graph: crate boundaries and dependency direction
+
+In Unit 0 you built goose. Now you read its skeleton. Goose v1.49.0 is a 15-crate workspace. The single most useful artifact for understanding it is the crate-level dependency graph — because in a Rust workspace the *legal* dependency directions are the architecture, and circularity is a compile error, not a code smell.
+
+## The members
+
+Five members do the real work, and their directions are deliberate. Read the root manifest first: `Cargo.toml:2` lists `crates/*` as members. Every crate under `crates/` is in the workspace, with one shared lockfile and shared `[workspace.dependencies]` versions.
+
+| Crate | Role | Depends on (workspace) |
+|-------|------|------------------------|
+| `goose-sdk-types` | ACP/GDK message types for SDK consumers | none |
+| `goose-provider-types` | `Provider` trait, `Message`/`ModelConfig` data model | none (external crates only) |
+| `goose-providers` | concrete providers: openai, anthropic, google, … | `goose-provider-types` |
+| `goose` | core library: agents, sessions, config, tools | `goose-provider-types`? No — `goose-providers` |
+| `goose-cli` | the binary: CLI + TUI + MCP host | `goose`, `goose-mcp` |
+| `goose-mcp` | built-in MCP servers (computercontroller, memory, …) | none (rmcp only, external) |
+
+Sanity-check this in a terminal instead of trusting a diagram:
+
+```text
+cargo metadata --no-deps --format-version 1
+```
+
+Each package entry carries `dependencies: [{ name, req, path, … }]`. Entries whose `path` points inside the workspace are *workspace edges*. Everything else is an outside edge. That minuscule distinction is how you read any Rust repo like a maintainer.
+
+## Why two type-only crates exist
+
+`goose-sdk-types` and `goose-provider-types` exist for exactly one reason: **extension authors must compile without dragging in the engine**. Look at the actual manifests:
+
+- `crates/goose-sdk-types/Cargo.toml:10` — "Shared types for the goose Development Kit (GDK)". Dependencies: `agent-client-protocol`, `serde`, `schemars` — nothing from the goose repo.
+- `crates/goose-provider-types/Cargo.toml:2` — the package that defines `Provider`, `Message`, `ModelConfig`, `formats`, `canonical`. Its dependencies are `rmcp`, `serde`, `tokio` — again nothing that pulls goose core.
+
+The engine then *re-exports up the stack*: `crates/goose-providers/src/lib.rs:8` re-exports the type crate wholesale, and `crates/goose/src/lib.rs:15` consumes `goose_providers::conversation` as its own module. Providers depend on types, goose depends on providers, the CLI depends on goose. Dependencies point *up* (extension-facing types at the bottom of the stack), never down. An extension crate that only depends on `goose-provider-types` cannot accidentally see `goose` — the compiler enforces the boundary.
+
+<FounderLens>
+
+**Problem solved:** before the split, extension authors imported goose (and its entire tree of deps) just to get `Message` and `Provider`. The type-only crates make the SDK contract a *layered* API: small deps at the bottom, heavy engine at the top.
+
+**Tradeoff:** splitting types out means the datamodel can't privately reach back into goose (e.g. `Message` can't hold a goose-only `Session` handle — look: it doesn't; it holds `rmcp::model::Role` in `crates/goose-provider-types/src/conversation/message.rs:962`). Goose-side enrichments must live in goose and reference the shared types, not extend them. You pay re-export boilerplate (`crates/goose/src/lib.rs:15`) to keep the boundary.
+
+**Where it's heading:** the trend has been *more* splitting — `goose-context-management` was carved out this cycle to share compaction across languages; `goose-agent` now holds the state machine. Expect the provider trait surface to keep migrating into `goose-provider-types`.
+
+**Where it breaks:** any crate that wants a different major version of a shared dependency (`rmcp 3.0.0` here) forces the whole workspace onto one winner — the single-lockfile tradeoff. And re-export chains mean `cargo doc` type signatures show `goose_providers::conversation::message::Message` no matter which crate you think you imported.
+
+**Where you'd extend it:** add a `cargo:cycles` lint (e.g. a Justfile recipe running `cargo metadata | jq` over workspace edges) so a circular dependency appears in CI minutes, not when someone first tries to build. Material for Unit 2.
+
+</FounderLens>
+
+## Reading the graph
+
+The `Maintainer-level` reading order: find all *sinks* (crates nothing depends on except the CLI), then walk up. In goose the sinks are the type crates; the CLI is the only source-ish node with a binary target. Every edge in between is an abstraction boundary you can cite in a PR review: "this belongs in goose-providers, not goose — goose-provider-types must stay engine-free."
+
+## Exercise: one arc, deeply
+
+Trace one concrete arc: `Provider` trait → implementation → wiring. `Provider` is *defined* in `crates/goose-provider-types/src/base.rs:464`, `goose-providers::openai` *implements* it, and goose's `crates/goose/src/providers/base.rs:31` adds `ProviderDef` — the env-configurable companion (from_env) that the CLI's provider factory iterates. The dependency arrow is: implementations ← trait. When you see a type in a signature, ask "which crate *owns* this type?" — ownership tells you where a change belongs.

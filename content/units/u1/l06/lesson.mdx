@@ -1,0 +1,100 @@
+---
+unit: 1
+unitSlug: architecture
+order: 6
+id: u1-l06
+slug: 06-providers-deep-dive
+title: "Providers deep dive: the trait, streaming, usage, canonical cost"
+topics:
+  - providers
+  - cost-usages
+  - streaming
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/base.rs
+    line: 464
+    note: 'pub trait Provider: Send + Sync — get_name, resume, stream (primary), complete (default on top of stream)'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 485
+    note: 'async fn complete — default impl = stream() + collect_stream; the plan''s complete() still exists but as a convenience wrapper'
+  - file: crates/goose-providers/src/openai.rs
+    line: 701
+    note: 'impl Provider for OpenAiProvider — a full provider implementation (descriptor + streaming + tool mapping + usage)'
+  - file: crates/goose/src/providers/base.rs
+    line: 31
+    note: 'pub trait ProviderDef: ProviderDescriptor + Send + Sync — the env-configurable companion (from_env) goose uses to register providers'
+  - file: crates/goose/src/providers/canonical_cost.rs
+    line: 37
+    note: 'pub fn estimate_model_cost(provider, model, usage) -> Option<f64> — canonical pricing lookup + merge with declarative pricing'
+  - file: crates/goose-provider-types/src/conversation/token_usage.rs
+    line: 93
+    note: 'pub struct Usage { input_tokens, output_tokens, total_tokens, cache tokens } — the account unit'
+  - file: crates/goose-provider-types/src/formats/openai.rs
+    line: 201
+    note: 'pub fn format_messages(messages, image_format) -> Vec<Value> — the OpenAI envelope translation layer'
+  - file: crates/goose/src/token_counter.rs
+    line: 215
+    note: 'pub async fn create_token_counter — loads the BPE tokenizer (tiktoken) used for local estimation'
+---
+
+# Providers deep dive: the trait, streaming, usage, canonical cost
+
+The plan's lesson says "`Provider` trait, `complete()`, formats, usage estimation, `canonical_cost`". All real — but note the drift in emphasis: in v1.49.0 the trait is *streaming-first*. `crates/goose-provider-types/src/base.rs:464` declares `Provider`, and its primary required method is now `stream()`; `complete()` at `base.rs:485` is a *provided default* that collects the stream:
+
+```rust
+async fn complete(
+    &self, model_config: &ModelConfig, system: &str,
+    messages: &[Message], tools: &[Tool],
+) -> Result<(Message, ProviderUsage), ProviderError> {
+    let stream = self.stream(model_config, system, messages, tools).await?;
+    collect_stream(stream).await
+}
+```
+
+Providers that don't want incremental emission simply implement `stream` once; `complete` comes free. The trait also owns `get_context_limit` (delegating to `ContextLimitResolver` in `crates/goose-provider-types/src/context_limit.rs:9`), `retry_config`, `fetch_supported_models` and friends. Every field of the turn's cost/limits story hangs off this one trait.
+
+## One full provider: OpenAI
+
+`crates/goose-providers/src/openai.rs:701` — `impl Provider for OpenAiProvider`. Read it whole (it's the archetype):
+
+1. `impl ProviderDescriptor` (line 655) supplies metadata/registration.
+2. `stream()` (line 787) builds the native request, streams the response *in provider format*, and pipes each chunk through the envelope parser (`formats/openai.rs` defines the wire shapes) into `MessageContentBlock`s.
+3. `stream_for_model` decides payload flavor (chat completions vs responses API) — provider families have internal dialects.
+4. Tool calls arrive in provider dialect (OpenAI: a `tool_calls` array on the chunk delta with `arguments` JSON), get converted to `ToolRequest` blocks, and every event carries `ProviderUsage` deltas once `stream_options.include_usage` is on.
+
+## The envelope layer: formats
+
+`crates/goose-provider-types/src/formats/` is a family of *pure* translation modules (anthropic.rs, openai.rs, google.rs, ollama.rs, …) — `formats/openai.rs:201` (`format_messages`) converts goose `Message`s into OpenAI-shaped JSON; the mirror parser turns OpenAI-shaped replies back into blocks. This layer is where "where would streaming break" gets its answer:
+
+- **merge/split tool-call messages** (`merge_split_tool_call_messages`) — one assistant message may fragment tool calls across chunks; some providers reply with one call per message; the formats reconcile them.
+- **reasoning/thinking preservation** — Anthropic requires thinking blocks be passed back in order and marked; `formats/anthropic.rs` handles signatures and staleness (`thinking_block_is_stale`).
+- **schema dialects** — `anthropic_flavored_input_schema` (openai-format JSON schema → Anthropic Shape) exists because input schemas are *not* portable.
+
+Streaming breaks when a provider emits content the format parser can't re-assemble: interleaved tool calls, arguments split across multiple chunks, thinking blocks out of order. That's the failure class to watch.
+
+## Usage and money
+
+Two different kinds of "usage":
+
+1. **Reported usage** — `Usage` (`token_usage.rs:93`): `input_tokens`, `output_tokens`, `total_tokens`, cache tokens — filled from provider responses, additive via `impl Add`.
+2. **Estimated usage** — `crates/goose/src/token_counter.rs:215` (`create_token_counter`) loads a tiktoken-style BPE tokenizer to count *before/without* a provider telling you — used for context planning and compaction sizing (l10).
+
+Cost is a third layer: `crates/goose/src/providers/canonical_cost.rs:37` (`estimate_model_cost`) does a canonical registry lookup of per-token prices, merged with any declarative pricing the user/provider supplied — `ProviderUsage` at `token_usage.rs:7` then accumulates cost math + `CostSource`. Reported usage and canonical cost are deliberately separate: canonical prices are static data, provider-reported usage is dynamic truth — the two can disagree, and `Usage`/`ProviderUsage` keep the disagreement visible.
+
+## Registration
+
+The `Provider` trait is *not* what the CLI iterates. `crates/goose/src/providers/base.rs:31` defines `ProviderDef` — a provider *factory* (`from_env`) bundling descriptor metadata with construction from environment/config. `Provider` = a live instance; `ProviderDef` = the recipe the CLI uses to make one from env vars + extension config. When you add a provider you implement: formats for its envelope, a `Provider` impl, and a `ProviderDef` registration.
+
+<FounderLens>
+
+**Problem solved:** many provider HTTP dialects over one agent pipeline. The stack splits provider code into four replaceable layers — trait contract, envelope/format translation, registration, and pricing — so a new provider is mostly *translation work*, and the pipeline never cares which wire protocol is behind `stream()`.
+
+**Tradeoff:** streaming-first with `complete()` as a default inverts the old API; a naive provider author implements `stream` and accidentally buffers the whole response — correct but unbounded, and `complete` hides it.
+
+**Where it's heading:** format modules are migrating capability logic (`toolshim`, thinking preservation, image format selection) out of provider impls, and costs toward declarative providers (pricing shipped as config). Token estimation is being slimmed toward remote-only counting for non-BPE providers.
+
+**Where it breaks:** the formats layer is the sharp edge — provider quirks surface as malformed multi-chunk tool calls; usage/cost disagreements between reported, estimated, and canonical numbers corrupt the session cost ledger if merged carelessly. Also, `Agent` swaps providers via the `Arc<Mutex<Option<Arc<dyn Provider>>>>` handle (l04) — a provider's in-flight stream must outlive that swap lock.
+
+**Where you'd extend it:** a `CanonicalUsageReconciler` op that logs when reported vs estimated tokens diverge past a threshold — a security + cost-control feature in one, riding on l05's operation pattern.
+
+</FounderLens>

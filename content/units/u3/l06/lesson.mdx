@@ -1,0 +1,105 @@
+---
+unit: 3
+unitSlug: extensions
+order: 6
+id: u3-l06
+slug: 06-mcp-server-basics
+title: "MCP I: the goose-mcp crate, a server example, tools live in goose"
+topics: [mcp, mcp-server, extension-system]
+durationMin: 20
+cites:
+  - file: crates/goose-mcp/src/lib.rs
+    line: 57
+    note: 'pub static BUILTIN_EXTENSIONS - the name-to-spawner map goose uses (memory/computercontroller/autovisualiser/tutorial)'
+  - file: crates/goose-mcp/src/memory/mod.rs
+    line: 104
+    note: 'pub struct MemoryServer - ToolRouter<Self> + instructions + memory dirs; the canonical server shape'
+  - file: crates/goose-mcp/src/memory/mod.rs
+    line: 116
+    note: '#[tool_router(router = tool_router)] impl - the rmcp macro that generates the router'
+  - file: crates/goose-mcp/src/memory/mod.rs
+    line: 390
+    note: '#[tool(name = "remember_memory", description = ...)] - a tool declared as an async fn with typed params'
+  - file: crates/goose-mcp/src/memory/mod.rs
+    line: 402
+    note: 'params.data.is_empty() guard - servers validate input and return ErrorData, they don''t panic'
+  - file: crates/goose-mcp/src/mcp_server_runner.rs
+    line: 47
+    note: 'service.waiting().await - the stdio serve loop every builtin server runs'
+  - file: crates/goose-mcp/examples/mcp.rs
+    line: 31
+    note: 'rmcp::service::serve_directly(memory_server, stdio transport) - the simple-server template'
+  - file: crates/goose/src/agents/mcp_client.rs
+    line: 639
+    note: 'pub struct McpClient - goose''s client side: initialize, list tools, call tools, elicit'
+  - file: crates/goose-cli/src/cli.rs
+    line: 1614
+    note: 'handle_mcp_command - `goose mcp <server>` runs a builtin server standalone over stdio'
+---
+
+# MCP I: the goose-mcp crate, a server example, tools live in goose
+
+MCP (Model Context Protocol) is the wire standard goose speaks with external
+tool capability. In the goose repo it appears twice: as the **client**
+(`McpClient`, `crates/goose/src/agents/mcp_client.rs:639`) and as a set of
+**servers** shipped in `crates/goose-mcp/`. That crate is both the reference
+implementation and the copy-paste source for production servers.
+
+## The goose-mcp crate
+
+`crates/goose-mcp/src/lib.rs:57` publishes `BUILTIN_EXTENSIONS`: a map from
+name (`memory`, `computercontroller`, `autovisualiser`, `tutorial`) to a spawner
+that serves that server over a duplex stream *inside* the goose process.
+Standalone, the CLI can run any of them via `goose mcp <server>`
+(`crates/goose-cli/src/cli.rs:1614`), and `examples/mcp.rs:31` shows the
+simplest possible wiring — `serve_directly(server, rmcp::transport::stdio())`.
+
+## The canonical server shape (MemoryServer)
+
+`MemoryServer` (`crates/goose-mcp/src/memory/mod.rs:104`) is three things:
+
+1. **A struct** holding a `ToolRouter<Self>` plus its own state (memory dirs).
+2. **`#[tool_router(router = tool_router)]`** on the impl (line 116) — the
+   rmcp macro generates the router glue from annotated methods.
+3. **`#[tool(...)]` async fns** (line 390) — each tool is a method with
+   serializable typed `Parameters<T>` (JsonSchema-derived) and a
+   `RequestContext<RoleServer>` meta handle (per-call headers like
+   `agent-working-dir`), returning `Result<CallToolResult, ErrorData>`.
+
+Servers also carry `instructions` — the system-prompt text goose splices in
+so the agent knows *when* to use the tool. A tool without good instructions
+gets called by accident or never.
+
+Note what line 402 does: `params.data.is_empty()` → `Err(ErrorData::new(...))`.
+Real servers validate input **in the tool**, because the schema only constrains
+types — empty strings, absurd ranges, and cross-field contradictions are the
+server's problem.
+
+## The goose client side
+
+On the goose side, `McpClient` performs the initialize handshake, lists tools,
+subscribes to notifications, and dispatches `CallTool` requests with
+`WORKING_DIR`/session headers (identity plumbing starts in
+`session_context.rs`). Config is an `ExtensionConfig::Stdio` entry
+(`{cmd, args, env_keys, timeout}`) — the manager spawns the process twice per
+session lifecycle: once to handshake, re-spawn on restart. Every tool then
+surfaces to the agent verbatim (`rmcp::model::Tool`), complete with its
+JsonSchema.
+
+<FounderLens>
+
+Why did goose build *its own MCP servers in-repo* when the ecosystem has
+hundreds of standalone ones? Because some tools are too entangled with goose
+memory/conversation to be a separate process — memory persists across
+sessions, computercontroller holds UI state. The cost of in-process servers:
+they can only use the duplex-transport spawner path, not plain stdio — hence
+both `spawn_and_serve` and `goose mcp <server>` existing. External servers
+are where most extensions live, but the *patterns* (typed params, tool
+router, instructions) transfer verbatim.
+
+</FounderLens>
+
+## The lab
+
+Write your own `notes-server` MCP crate with two real tools, serve it over
+stdio, and produce the exact config.yaml entry goose needs to call it live.

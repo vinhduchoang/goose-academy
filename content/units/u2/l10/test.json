@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Where does the dependency security policy actually live in the v1.49.0 checkout?",
+    "options": [
+      "deny.toml at the repo root — the plan-era rust-toolchain/ location no longer holds it",
+      "rust-toolchain/deny.toml as older docs claimed and still do",
+      "Embedded inside .github/workflows as YAML constants",
+      "Cargo.lock [metadata] section"
+    ],
+    "answer": 0,
+    "topic": "deny-toml",
+    "explanation": [
+      "The file moved; the root location is verifiable truth in this checkout.",
+      "The policy is a file, not workflow constants.",
+      "Cargo.lock records resolutions, not advisory policy."
+    ]
+  },
+  {
+    "q": "`yanked = \"deny\"` in deny.toml means a PR whose dependency graph contains a yanked crate will:",
+    "options": [
+      "Fail the Cargo Deny CI workflow until the dependency is updated or justified in the ignore list",
+      "Merged with a warning banner on the PR",
+      "Only fail when the yanked crate is a direct dependency",
+      "Auto-downgrade to the previous non-yanked version silently"
+    ],
+    "answer": 0,
+    "topic": "deny-toml",
+    "explanation": [
+      "deny level fails CI for the whole graph — warnings are a different level.",
+      "The policy applies to transitive deps too; that is the point of supply-chain checks.",
+      "Nothing auto-rewrites your dependency graph — humans decide the bump."
+    ]
+  },
+  {
+    "q": "Reviewing a dependency PR, the immediate signals a goose reviewer checks are:",
+    "options": [
+      "Added via cargo add, lockfile consistent, and the crate does not raise a denied advisory",
+      "The crate's GitHub star count and download ranking",
+      "Whether the author is in .github/CODEOWNERS",
+      "The crate's license compatibility with GPL-3.0 only"
+    ],
+    "answer": 0,
+    "topic": "review-doctrine",
+    "explanation": [
+      "Popularity signals are not review gates in this repo's rules.",
+      "Authorship of the PR is not a dependency-validity signal.",
+      "No license whitelist exists; the rule is about cargo add + lock + advisories."
+    ]
+  },
+  {
+    "q": "The Never section of AGENTS.md makes hand-editing `Cargo.toml` dependency entries a blocker because:",
+    "options": [
+      "Human edits desync Cargo.lock and bypass version-resolution review; cargo add keeps both consistent",
+      "GitHub refuses diffs that touch Cargo.toml directly",
+      "cargo add writes a TOML format cargo otherwise cannot parse",
+      "Hand-edited entries run an extra build script"
+    ],
+    "answer": 0,
+    "topic": "review-doctrine",
+    "explanation": [
+      "GitHub has no such filter for Cargo.toml diffs.",
+      "cargo parses hand-written TOML fine; the concern is lock consistency.",
+      "No extra build script exists; the rule is about consistency, not features."
+    ]
+  },
+  {
+    "q": "A planted diff adds `get_tokenizer().unwrap()` on a fallible path. Which written rule does it violate?",
+    "options": [
+      "Errors use anyhow::Result — unwrap turns a handled error path into a panic",
+      "Never use unwrap in any Rust codebase including goose",
+      "rust-toolchain forbids unwrap with a lint that fails CI",
+      "The Provider trait requires Result-free methods"
+    ],
+    "answer": 0,
+    "topic": "review-doctrine",
+    "explanation": [
+      "The rule is about error style (anyhow + ?), not a blanket language ban.",
+      "No lint denies unwrap workspace-wide in the lints section.",
+      "Provider methods return Results; the rule concerns style, not absence of Results."
+    ]
+  },
+  {
+    "q": "The strongest single blocker among these findings, and why:",
+    "options": [
+      "The parity gap — fixing behavior in agent.rs only may ship a user-visible divergence between the two agent loops",
+      "The restating comment — code quality rules make comments reviewable",
+      "The missing lockfile sync — CI regenerates lockfiles anyway",
+      "The string_slice panic — code style issue only"
+    ],
+    "answer": 0,
+    "topic": "parity",
+    "explanation": [
+      "A comment violation is real but style-level; parity is behavioral divergence.",
+      "No lockfile regeneration happens in CI — consistency is enforced by the rule.",
+      "A panic on multibyte input is correctness, but parity compounds the same bug across two universes."
+    ]
+  },
+  {
+    "q": "Fix this review failure: a reviewer approves a diff that passes tests but contains a hand-added dependency AND a skipped `cargo fmt`. Which gate would have caught each?",
+    "options": [
+      "fmt by just check-everything (cargo fmt --all); the dependency by human review of cargo add usage + cargo-deny CI advisories",
+      "Both by cargo clippy alone",
+      "Both by cargo test alone",
+      "fmt by deny.toml, dependency by the stale bot"
+    ],
+    "answer": 0,
+    "topic": "review-doctrine",
+    "explanation": [
+      "clippy lints code patterns; it does not format or audit dependencies.",
+      "cargo test proves behavior, not style or supply-chain policy.",
+      "deny.toml audits advisories, not formatting; stale bot handles old issues."
+    ]
+  }
+]

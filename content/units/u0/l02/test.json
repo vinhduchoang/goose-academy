@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In goose's token_counter.rs, `const MAX_TOKEN_CACHE_SIZE: usize = 1_024;` — what does the underscore mean?",
+    "options": [
+      "It's a digit-group separator ignored by the compiler; the value is 1024",
+      "It's Rust syntax for a range: values 1 through 24",
+      "It marks the number as a binary literal",
+      "It means the constant is lazily computed"
+    ],
+    "answer": 0,
+    "topic": "data-types",
+    "explanation": [
+      "Underscore in a numeric literal is only for human readability, never a range.",
+      "Binary literals use the 0b prefix, not embedded underscores.",
+      "const values are compile-time; underscores don't change evaluation timing."
+    ]
+  },
+  {
+    "q": "`let mut func_token_count = 0;` followed later by `func_token_count += FUNC_INIT;` where `FUNC_INIT: usize = 7;`. What type does Rust infer for `func_token_count`?",
+    "options": [
+      "usize",
+      "i32, because bare literals default to i32",
+      "u8, because 7 fits in a byte",
+      "The literal stays untyped until runtime"
+    ],
+    "answer": 0,
+    "topic": "data-types",
+    "explanation": [
+      "The default-i32 rule applies only when inference has no other signal; here the += with a usize forces usize.",
+      "Rust never narrows to the smallest type automatically; u8 must be written explicitly.",
+      "Inference happens at compile time; there is no untyped runtime value."
+    ]
+  },
+  {
+    "q": "What does this print? `let v = 3; let v = v + 1; let v = \"goose\"; println!(\"{}\", v);`",
+    "options": [
+      "\"goose\"",
+      "4",
+      "\"4\"",
+      "It does not compile because you cannot reuse a variable name"
+    ],
+    "answer": 0,
+    "topic": "data-types",
+    "explanation": [
+      "The final binding shadows the numeric ones; the last value printed is the string.",
+      "Strings do not coerce numbers into themselves.",
+      "Shadowing is explicitly allowed — same name, new binding, even a different type."
+    ]
+  },
+  {
+    "q": "Why did goose pick `usize` (not `u64`) for token counts and lengths in token_counter.rs?",
+    "options": [
+      "Counts index real memory (cache entries, string slices), which is exactly what usize sizes",
+      "usize is always 64-bit on every platform",
+      "u64 cannot hold values above 4 billion",
+      "It was an arbitrary choice with no consequences"
+    ],
+    "answer": 0,
+    "topic": "data-types",
+    "explanation": [
+      "usize is pointer-sized: 64-bit on 64-bit targets, 32-bit on 32-bit targets.",
+      "u64 holds far more than 4 billion; u32 already reaches that range.",
+      "The choice is principled: lengths index memory, so the platform size type is correct."
+    ]
+  },
+  {
+    "q": "What is the output of `let x = dbg!(2 + 2);`?",
+    "options": [
+      "A debug line like `[file.rs:1] 2 + 2 = 4` plus x is bound to 4",
+      "Only `4` is printed",
+      "Nothing is printed; dbg! is optimized out",
+      "A compile error because dbg! cannot wrap an expression"
+    ],
+    "answer": 0,
+    "topic": "data-types",
+    "explanation": [
+      "dbg! prints file:line and the expression's value; the plain 4 println is not what dbg! emits.",
+      "dbg! unwraps to its argument in debug builds; it always prints when hit, even in release it prints (only disabled with certain lints off).",
+      "Wrapping arbitrary expressions is exactly what dbg! exists for."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0277]: cannot multiply usize by f64`. You wrote `counter *= 2.5;` where counter is usize. Which change unblocks it?",
+    "options": [
+      "Change the multiplier to an integer, or convert explicitly: `counter = (counter as f64 * 2.5) as usize;`",
+      "Add `mut` to the counter declaration",
+      "Change the assignment to `counter = counter * 2.5;`",
+      "Cast only the left side: `(counter as f32) *= 2.5;`"
+    ],
+    "answer": 0,
+    "topic": "data-types",
+    "explanation": [
+      "mut only allows mutation; it doesn't fix a type mismatch between usize and f64.",
+      "The operator is not the problem — mixing usize with f64 is.",
+      "as-casts produce a new value; you cannot assign through a place-cast like that."
+    ]
+  },
+  {
+    "q": "Which list matches Rust primitive sizes?",
+    "options": [
+      "usize = pointer-sized, u64 = 64-bit, f32 = 32-bit float, char = 4 bytes (Unicode scalar)",
+      "usize = always 32-bit, u64 = 64-bit, f32 = 64-bit float, char = 1 byte",
+      "usize = 64-bit, u64 = 64-bit, f32 = 32-bit, char = 2 bytes",
+      "usize = 64-bit, u64 = 32-bit, f32 = 16-bit, char = variable 1-6 bytes"
+    ],
+    "answer": 0,
+    "topic": "data-types",
+    "explanation": [
+      "usize tracks the pointer size of the target; f32 is 32-bit (f64 is the 64-bit float); char holds a full Unicode scalar value, not a byte.",
+      "usize is 64-bit only on 64-bit targets; char is always 4 bytes, not 2.",
+      "u64 is 64-bit; f32 cannot be 16-bit; char is fixed at 4 bytes."
+    ]
+  }
+]

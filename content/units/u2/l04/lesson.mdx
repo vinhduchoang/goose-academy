@@ -1,0 +1,93 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 4
+id: u2-l04
+slug: 04-testing-doctrine
+title: "Testing doctrine: unit vs tests/, mock providers, record-replay"
+topics: [testing-doctrine, mock-provider, mcp-test-recording]
+durationMin: 20
+cites:
+  - file: AGENTS.md
+    line: 93
+    note: 'prefer the tests/ folder for tests, e.g. crates/goose/tests/'
+  - file: crates/goose/tests/mcp_integration_test.rs
+    line: 44
+    note: 'an inline MockProvider implementing the real Provider trait for integration tests'
+  - file: crates/goose/tests/mcp_integration_test.rs
+    line: 199
+    note: 'GOOSE_RECORD_MCP toggles record vs replay mode in the MCP integration test'
+  - file: Justfile
+    line: 456
+    note: 'record-mcp-tests recipe — GOOSE_RECORD_MCP=1 run, then git add the replay directory'
+  - file: crates/goose-test-support/src/mcp.rs
+    line: 16
+    note: 'McpFixtureServer — a fixture MCP server (get_code, get_image tools) for tests'
+  - file: crates/goose/Cargo.toml
+    line: 271
+    note: 'insta dev-dependency powering the .snap snapshot assertions'
+---
+
+# Testing doctrine: unit vs tests/, mock providers, record-replay
+
+Goose's testing rules are short, and the bridge rule between them is fidelity:
+tests should exercise the real seam a bug would cross. `AGENTS.md:93` states
+the placement rule plainly: **prefer the `tests/` folder** — e.g.
+`crates/goose/tests/` integration tests over boxed-in `#[cfg(test)]` modules —
+because a test that talks to the crate only through its public API breaks far
+less often and proves more.
+
+## The three layers
+
+**Unit tests** — inside `src/`, white-box, fast, one behavior. In goose they
+still matter for pure functions (token math, config resolution). They may not
+reach the network, the session manager, or a real provider.
+
+**Integration tests in `tests/`** — compile against the public crate. This is
+where agent loops, MCP plumbing, and provider wiring are proven, e.g.
+`crates/goose/tests/mcp_integration_test.rs`. They are the "prefer" layer.
+
+**Record-replay fixtures** — when the seam is a *live MCP server* costing
+network + nondeterminism, goose records real server traffic once and replays
+it: `Justfile:456-458` defines `record-mcp-tests`, which sets
+`GOOSE_RECORD_MCP=1`, runs the MCP integration test to capture responses into
+`crates/goose/tests/mcp_replays/`, and stages them. The test itself branches
+on that env var (`mcp_integration_test.rs:199`).
+
+## Mock providers: fake the seam, keep the trait
+
+Providers sit behind the `Provider` trait. The integration test defines its
+own `MockProvider` at `mcp_integration_test.rs:44` implementing the *real*
+trait — not a special test interface. That is the doctrine: mocks implement
+production traits. And the shared `goose-test-support` crate carries fixtures
+like `McpFixtureServer` (`mcp.rs:16`) — a real in-process MCP server exposing
+`get_code`, `get_image` — so many test suites reuse one server instead of
+reinventing sockets.
+
+<FounderLens>
+
+Why record-replay instead of pure mocks for MCP? A mock asserts what you
+*think* the wire format is; a replay asserts what a real server *actually*
+sent, schema quirks included. Tradeoff: replays rot when the server behavior
+drifts — the artifacts must be re-recorded deliberately (`just
+record-mcp-tests`), which is why replays are committed and reviewed like code.
+Where it breaks: record mode against a flaky network becomes a debugging
+session, so record runs must be single-threaded and reviewed.
+
+</FounderLens>
+
+## Snapshots as the assertion language
+
+Goose dev-depends on `insta` (`crates/goose/Cargo.toml:271`). The snapshot
+tests you saw in `prompt_manager.rs` are the same tool. One discipline note
+for contributors: a `.snap` file is *evidence*, not your playground — run
+whichever acceptance path the team documents rather than editing bytes.
+
+## What your PR test needs to prove (checklist)
+
+1. It fails against the buggy code (regression proves repro).
+2. It exercises the public seam, not private internals.
+3. Deterministic — no wall-clock dependence; env vars set through test guards
+   (goose uses an `env_lock` helper for exactly this).
+4. Fast enough to stay in the default `cargo test` run (or consciously
+   gated/skipped like the scenario tests you saw in CI).

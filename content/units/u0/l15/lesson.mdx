@@ -1,0 +1,152 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 15
+id: u0-l15
+slug: 15-async-state
+title: "Shared state and async: Arc, Mutex, tokio, Stream"
+topics:
+  - arc-mutex
+  - async
+  - tokio
+  - traits-async
+durationMin: 20
+cites:
+  - file: crates/goose/src/agents/types.rs
+    line: 7
+    note: 'SharedProvider = Arc<Mutex<Option<Arc<dyn Provider>>>> — doubly-Arc''d swappable provider'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 40
+    note: 'struct TestProvider holds records: Arc<Mutex<HashMap<...>>> — lock-guarded shared state'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 167
+    note: '#[async_trait] on impl Provider — async methods on the trait object'
+  - file: crates/goose/src/providers/testprovider.rs
+    line: 206
+    note: 'self.records.lock().unwrap() — taking a MutexGuard to touch shared state'
+  - file: crates/goose-provider-types/src/base.rs
+    line: 457
+    note: 'stream_from_single_message — Box::pin wraps a future stream into MessageStream'
+---
+
+# Shared state and async: Arc, Mutex, tokio, Stream
+
+Goose is a *concurrent* program: sessions run in parallel, streams push
+messages, a token cache is shared across every call. The last lesson assembles
+the toolkit — and you end by reading the fake provider goose already ships.
+
+## Arc: shared ownership
+
+JS lets any variable point anywhere. Rust moved one-owner; `Arc` (atomic
+reference count) reintroduces *shared* ownership — safely, at runtime cost:
+
+```rust
+let shared = Arc::new(value);
+let clone1 = Arc::clone(&shared);   // cheap: bumps a counter, no deep copy
+```
+
+`crates/goose/src/agents/types.rs:7`:
+
+```rust
+pub type SharedProvider = Arc<Mutex<Option<Arc<dyn Provider>>>>;
+```
+
+Double Arc — outer Arc so many subsystems share the *slot*; the `Mutex` so one
+goroutine-of-Rust swaps the provider at a time; the inner Arc so the provider
+survives being swapped out; `Option` so "no provider yet" is a state. Read
+nested types inside-out, like nested closures in TS.
+
+## Mutex: exclusive access to shared state
+
+`testprovider.rs:40-45`:
+
+```rust
+pub struct TestProvider {
+    records: Arc<Mutex<HashMap<String, TestRecord>>>,
+```
+
+The lock is taken explicitly — `testprovider.rs:206`:
+
+```rust
+let records = self.records.lock().unwrap();
+```
+
+`lock()` returns a `MutexGuard`: deref it to read/write, drop it (end of
+scope) to unlock. No `synchronized` blocks, no forgetting the unlock. Poisoning
+(a panic while holding the lock) makes `lock()` a `Result` — goose's
+`.unwrap()` there is a loud "this state must be sane" policy.
+
+<Diff
+  oldCode="// TS: a global-ish cache nobody owns in type terms
+const cache = new Map<string, number>();
+cache.set(key, count);          // races are your problem"
+  newCode="// Rust: shared state is owned by an Arc, guarded by a Mutex
+let cache = Arc::new(Mutex::new(HashMap::new()));
+{
+    let mut guard = cache.lock().unwrap();
+    guard.insert(key, count);
+}                                  // guard dropped -> unlocked" />
+
+## Async: tokio + async fn + .await
+
+`#[async_trait] impl Provider for TestProvider` at `testprovider.rs:167-173` —
+async methods on the trait you met in l12:
+
+```rust
+#[async_trait]
+impl Provider for TestProvider {
+    async fn stream(
+        &self,
+        model_config: &ModelConfig,
+        system: &str,
+        messages: &[Message],
+        tools: &[Tool],
+    ) -> Result<MessageStream, ProviderError> {
+```
+
+`async fn` compiles to a state machine; `.await` polls it without blocking the
+thread. But a *stream* is not one future — it's many values over time.
+
+## Stream: the Rust async iterator
+
+`base.rs:327`:
+
+```rust
+pub type MessageStream = Pin<
+    Box<dyn Stream<Item = Result<(Option<Message>, Option<ProviderUsage>), ProviderError>> + Send>,
+>;
+```
+
+`Stream` ≈ your `AsyncIterator` (TS async generators!) — each poll yields the
+next item. `Box::pin` (see `base.rs:457`) pins the stream in heap memory, which
+Rust requires for async values used as trait objects.
+
+A single-message "stream" is literally one future converted:
+
+```rust
+let stream = futures::stream::once(async move { Ok((Some(message), Some(usage))) });
+```
+
+<FounderLens>
+
+Why `Arc<Mutex<...>>` and not a messages-channel for TestProvider's records?
+The provider serves many concurrent `stream` calls; each must read the same
+replay table and (in record mode) add rows. Channel actors would force every
+read through a queue — a lock is simpler and cheaper when contention is low
+(tests hammering replay counts). Tradeoff: `Mutex` in `tokio` must be std's
+non-async kind here (short critical sections), not `tokio::sync::Mutex` — the
+latter dark magic for long holds. Where it breaks: a slow operation under
+lock (e.g. hashing huge conversations) — goose keeps `hash_input` OUTSIDE the
+lock for exactly that reason.
+
+</FounderLens>
+
+<MindShift>
+
+In JS, async is everywhere and race conditions are invisible until they happen
+(usually Friday). Rust keeps a paper trail: you see `Arc` (shared), `Mutex`
+(guarded), `async fn` (suspends), `Stream` (many values). The *type* is the
+architecture — and when you write your mini fake provider today, every choice
+above appears in the signature, reviewable by a stranger just like you.
+
+</MindShift>

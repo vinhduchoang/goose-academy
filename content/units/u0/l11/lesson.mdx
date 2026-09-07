@@ -1,0 +1,149 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 11
+id: u0-l11
+slug: 11-enum-option-result
+title: "Enums with data, Option, Result: errors as values"
+topics:
+  - enums
+  - option-result
+durationMin: 20
+cites:
+  - file: crates/goose-provider-types/src/errors.rs
+    line: 7
+    note: 'pub enum ProviderError — a rich error enum derived from thiserror::Error'
+  - file: crates/goose-provider-types/src/errors.rs
+    line: 9
+    note: 'NotConfigured — a unit variant carrying no data'
+  - file: crates/goose-provider-types/src/errors.rs
+    line: 44
+    note: 'NotImplemented(String) — a variant carrying a message String'
+  - file: crates/goose-provider-types/src/model.rs
+    line: 44
+    note: 'pub context_limit: Option<usize> — "maybe a value" modeled as an enum'
+---
+
+# Enums with data, Option, Result: errors as values
+
+Enum variants *carry data*. `Option` and `Result` are just enums in the standard
+library — and goose's `ProviderError` is the grown-up version you'll `match`
+daily.
+
+## Option: the null-free maybe
+
+`crates/goose-provider-types/src/model.rs:44`:
+
+```rust
+pub context_limit: Option<usize>,
+```
+
+`Option<usize>` is either `Some(128_000)` or `None` — the enum idea of
+`undefined`, minus the category collapse (JS `undefined` also means "bug", "not
+yet", and "deleted"). Methods you'll see everywhere:
+
+```rust
+config.context_limit          // Option<usize> — no runtime null deref possible
+config.context_limit.unwrap_or(128_000)   // value or fallback
+config.context_limit.map(|n| n / 1_000)   // transform inside
+config.context_limit.and_then(validate)    // chain fallible steps
+```
+
+## Result: errors as values, not throws
+
+Goose's entire I/O layer returns `Result` — e.g. the provider contract
+`-> Result<MessageStream, ProviderError>` at `base.rs:479`. `Result<T, E>` is:
+
+```rust
+pub enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+```
+
+Handling is explicit and total:
+
+```rust
+match result {
+    Ok(stream) => stream,
+    Err(e) => return Err(e),
+}
+```
+
+The `?` sugar (l13) is just this match, inline.
+
+<Diff
+  oldCode="// TS: exceptions fly; callers may forget to catch
+function get(path: string): string {
+  if (!exists) throw new Error('load failed');
+  return fs(path);
+}"
+  newCode="// Rust: failure is part of the return type, checked at call sites
+fn load(path: &str) -> Result<String, ProviderError> {
+    match fs::read_to_string(path) {
+        Ok(s) => Ok(s),
+        Err(_) => Err(ProviderError::NotImplemented(format!(\"cannot load {path}\"))),
+    }
+}" />
+
+## The rich enum: ProviderError
+
+`crates/goose-provider-types/src/errors.rs:7` — an enum where each variant
+models one failure *class*, with different payload shapes:
+
+```rust
+pub enum ProviderError {
+    NotConfigured,                       // no data
+    RateLimitExceeded {
+        details: String,
+        retry_delay: Option<Duration>,   // struct-shaped payload
+    },
+    NotImplemented(String),              // positional payload
+    // ...
+}
+```
+
+Callers match on the *variant*, not on string contents: `RateLimitExceeded`
+vs `ServerError` are different enum values, so a retry loop can decide
+`rate limit -> wait`, `server error -> retry`, `refusal -> give up` without
+paring error strings.
+
+## Exhaustive match on both arms (the "error-as-value" discipline)
+
+Because `Result` is an enum, handling *both* arms is compiler-checkable:
+
+```rust
+fn context_or_default(config: &ModelConfig) -> usize {
+    match config.context_limit {
+        Some(n) => n,
+        None => DEFAULT_CONTEXT_LIMIT,   // model.rs:11 real const
+    }
+}
+```
+
+A missing `None` arm is a compile error — you cannot ship the JS bug where
+`undefined` silently becomes a 0-limit config.
+
+<FounderLens>
+
+Why make `ProviderError` take so many shapes (tuples, named structs,
+`Option<Duration>`)? Because retry strategy needs structure: `retry_delay` on
+`RateLimitExceeded` lets goose back off *policy-free* — the provider reports
+facts, the agent loop decides. Tradeoff: 15+ variants means every new failure
+class needs its variant added, and adding variants is a cross-crate change for
+consumers (extensions match exhaustively). Where it breaks: `thiserror`
+Display strings can drift from the variant's intent — that's why the enum
+stays the source of truth, with strings as rendering only.
+
+</FounderLens>
+
+<MindShift>
+
+In JS, "throw" is a side channel; the caller learns about errors by reading
+docs or by surprise. In Rust, `Result<T, E>` puts success AND failure in the
+signature — the *E type is the error contract*. When promoting your TS
+instincts, the fastest question is: "what's the E on this function?" It
+names everything that can go wrong, with a compiler that nags you to read
+it.
+
+</MindShift>

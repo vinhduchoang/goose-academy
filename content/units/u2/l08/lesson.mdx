@@ -1,0 +1,101 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 8
+id: u2-l08
+slug: 08-self-test-recipes
+title: "Self-test & recipes: rebuild, run the recipe, add a scenario"
+topics: [goose-self-test, feature-workflow]
+durationMin: 20
+cites:
+  - file: goose-self-test.yaml
+    line: 7
+    note: 'activities — the recipe''s declared list of what the suite validates, from file ops to delegation'
+  - file: goose-self-test.yaml
+    line: 23
+    note: 'parameters block — test_phases/test_depth/workspace_dir etc., interpolated into the prompt'
+  - file: goose-self-test.yaml
+    line: 115
+    note: 'extensions block — builtin extension declarations (developer, todo, summon...) the recipe may use'
+  - file: workflow_recipes/release_risk_check/recipe.yaml
+    line: 10
+    note: '{{recipe_dir}} + {{version}} — recipe templates interpolate parameters and paths'
+  - file: crates/goose-cli/src/cli.rs
+    line: 2244
+    note: 'CLI contract: goose run needs --instructions, --text, or --recipe — recipes are first-class modes'
+  - file: AGENTS.md
+    line: 94
+    note: 'the standing rule — feature lands when the self-test recipe validates it'
+---
+
+# Self-test & recipes: rebuild, run the recipe, add a scenario
+
+Unit 2's spine is the self-test loop. You already know the rule
+(`AGENTS.md:94`); here is the mechanics: what a recipe file is, how goose
+executes it, and how to add a scenario without breaking the suite.
+
+## A recipe is a runnable prompt template
+
+`goose-self-test.yaml` is a YAML document, not Rust and not a test harness.
+Its anatomy (`goose-self-test.yaml:7-23`):
+
+- `title` / description — human-readable contract;
+- `activities` — the itinerary, one line per capability;
+- `parameters` — runtime inputs with defaults (`test_phases: all`,
+  `test_depth: standard`, `workspace_dir: ./gooseselftest`) that the prompt
+  interpolates as `{{ test_phases }}`;
+- `extensions` (`:115`) — builtins the recipe is allowed to use (developer,
+  todo, summon...);
+- `prompt` — the long, phased instructions the agent follows: create the
+  workspace, run the scenarios, log to `phaseN_*.md`, print a final summary.
+
+Recipes generalize: `workflow_recipes/release_risk_check/recipe.yaml` is a
+release-risk assessment with `{{recipe_dir}}` and `{{version}}` placeholders
+(`:10`) — the same templating, a different job. "Recipe" = parameterized,
+version-controlled do-this-checklist executed by a goose run.
+
+## The run contract
+
+The CLI exposes recipes as a first-class input mode. `cli.rs:2244` refuses a
+run without one of `--instructions (-i)`, `--text (-t)`, or `--recipe`. So
+the invocation is:
+
+```text
+cargo build -p goose-cli --bin goose   # rebuild first — the recipe tests THIS binary
+goose run --recipe goose-self-test.yaml
+```
+
+The recipe name resolves in-recipes or by full path; parameters pass as
+key-value flags. This run is end-to-end: real provider calls, real shell,
+real session state — which is exactly why it validates what unit tests
+can't.
+
+## Adding a scenario without breaking the suite
+
+1. Add the capability to `activities` — matched wording, one line.
+2. Add a phase block in the prompt, guarded by the phase parameter so it only
+   runs when selected (`{% if test_phases == "all" or "basic" in test_phases %}`).
+3. Log the result to the workspace file pattern (`phaseN_*.md`) and make the
+   final executive summary report it.
+4. Respect the success criterion: phase success >= 80% tests pass, and the
+   summary block distinguishes working features from issues found.
+
+<FounderLens>
+
+The suite has a blunt security scenario: nested delegation prevention — a
+delegate trying to spawn its own delegate must fail, else the run declares
+CRITICAL FAILURE. That's self-test as *policy enforcement*, not just
+regression: when goose tests itself, the test list IS the maintainers' list
+of promises to users. Where it breaks: a recipe run needs a configured,
+sometimes paid, provider — contributors on thin setups "validate" by reading
+instead of running, and the slip between reading and running a prompt is
+where recipe rot hides.
+
+</FounderLens>
+
+## The reviewer's question
+
+When your PR claims "self-test updated", a reviewer checks three things: the
+activity line matches the feature, the prompt block is actually runnable by a
+fresh goose, and the phase guard is correct. Writing a scenario only you can
+execute is the fastest way to a "Needs info" comment.

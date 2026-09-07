@@ -1,0 +1,103 @@
+---
+unit: 3
+unitSlug: extensions
+order: 7
+id: u3-l07
+slug: 07-mcp-hardening
+title: "MCP II: schemas, errors, elicitation, auth - hardening a server"
+topics: [mcp-schemas, mcp-auth, error-handling, option-result]
+durationMin: 20
+cites:
+  - file: crates/goose-mcp/src/memory/mod.rs
+    line: 402
+    note: 'params.data.is_empty() -> Err(ErrorData::new(INVALID_PARAMS,...)) - schema is only a shape contract'
+  - file: crates/goose/src/action_required_manager.rs
+    line: 16
+    note: 'pub(crate) enum ElicitationOutcome - Accept(user_data) / Decline / Cancel, the three ways a human answers mid-call'
+  - file: crates/goose/src/elicitation.rs
+    line: 16
+    note: 'fn elicitation_response_action - maps the outcome back into rmcp''s ElicitationAction'
+  - file: crates/goose/src/agents/mcp_client.rs
+    line: 11
+    note: 'ElicitRequestParams imported from rmcp - the client-side half goose speaks as an MCP client'
+  - file: crates/goose/src/agents/extension_manager.rs
+    line: 1105
+    note: 'create_streamable_http_client - AuthRequired responses kick off the extension OAuth handshake'
+  - file: crates/goose/src/config/extensions.rs
+    line: 10
+    note: 'DEFAULT_EXTENSION_TIMEOUT = 300 seconds - every spawned extension gets a bounded life'
+  - file: crates/goose/src/plugins/mcp_servers.rs
+    line: 171
+    note: 'validate_mcp_servers_manifest_value - the config-side validation every .mcp.json must pass'
+---
+
+# MCP II: schemas, errors, elicitation, auth — hardening a server
+
+Lab 3.6's server works on well-behaved input. Production means hardening: schemas
+that fail loudly, errors the agent can *recover* from, a way to ask the user
+mid-call, and a credential boundary. All four are protocol features goose
+already speaks — you set the server side up, goose handles its half.
+
+## Schemas constrain shape — never meaning
+
+`JsonSchema` on params guarantees types, nothing more. `text` can be a
+megabyte of spaces; `tag` can be `"__proto__"`. That is why the reference
+server guards *inside* the tool
+(`crates/goose-mcp/src/memory/mod.rs:402`): semantic checks live in the
+handler, and the failure channel is `ErrorData` with a protocol `ErrorCode` —
+`INVALID_PARAMS` for caller faults, `INTERNAL_ERROR` for yours. The agent reads
+that distinction: it re-phrases on `INVALID_PARAMS`, it tells you to file a bug
+on `INTERNAL_ERROR`.
+
+## Errors the agent can act on
+
+Goose's tool pipeline propagates tool errors into the transcript with the
+`is_error` flag — a failed `CallToolResult` becomes a message the model sees,
+so honesty in error text is a feature, not a courtesy: include what was
+rejected, and what a valid value would look like. Reserve timeouts for the
+infrastructure layer: spawns die at `DEFAULT_EXTENSION_TIMEOUT` of 300s
+(`crates/goose/src/config/extensions.rs:10`), and per-call cancellation is
+separate.
+
+## Elicitation: ask a human mid-call
+
+Sometimes the tool cannot proceed without a human decision (pay money, pick a
+branch). MCP models this as *elicitation*: the server issues an `Elicit`
+request; goose renders the question via its action-required manager and learns
+one of three outcomes — `Accept(user_data)`, `Decline`, `Cancel`
+(`crates/goose/src/action_required_manager.rs:16`). The response is mapped back
+to rmcp's `ElicitationAction` (`crates/goose/src/elicitation.rs:16`) and
+delivered as a message; the MCP client carries the `ElicitRequestParams`
+request type (`crates/goose/src/agents/mcp_client.rs:11`).
+
+## Auth: two doors
+
+- **stdio servers**: an API key arrives either via `env_keys` (goose feeds the
+  configured secret) or per-request meta headers; the tool checks and rejects
+  with `INVALID_REQUEST`-class errors.
+- **streamable_http servers**: the server answers `AuthRequired`; goose runs the
+  pre-registered OAuth client through
+  `create_streamable_http_client`
+  (`crates/goose/src/agents/extension_manager.rs:1105`) before the first call.
+
+And the config side of MCP: every `.mcp.json`/manifest entry is schema-checked
+by `validate_mcp_servers_manifest_value`
+(`crates/goose/src/plugins/mcp_servers.rs:171`) long before a process spawns.
+
+<FounderLens>
+
+Why is elicitation a *protocol* feature instead of "just make it another
+tool result"? Because a tool call is synchronous in the loop — a
+blocks-the-world question needs a first-class channel, and MCP chose
+Accept/Decline/Cancel as the minimal human-answer alphabet. Goose's
+ElicitationOutcome is that alphabet, verbatim. The hardness tradeoff: every
+elicitation consumes a user's attention, so hardened servers must make
+elicitation *rare and decidable* — a bad auth token must NOT elicit, it must
+fail fast, or malicious servers can turn the user into a dialog box.
+
+</FounderLens>
+
+## The lab
+
+Harden `notes-server`: bounded inputs, informative errors, a real elicitation
+tool, an auth check — plus tests for every failure branch you add.

@@ -1,0 +1,114 @@
+[
+  {
+    "q": "Parameter schemas in MCP tools guarantee:",
+    "options": [
+      "Semantic validity of every value",
+      "Type/shape matching only - semantic checks stay in the handler",
+      "The server will never be called with bad data",
+      "Authentication of the caller"
+    ],
+    "answer": 1,
+    "topic": "mcp-schemas",
+    "explanation": [
+      "A String can still hold garbage; meaning is the handler's job.",
+      "Schemas reduce bad calls, they cannot eliminate them.",
+      "Auth is a separate concern from param schemas."
+    ]
+  },
+  {
+    "q": "Your server rejects a 600-character note. The right ErrorCode is:",
+    "options": [
+      "INTERNAL_ERROR - the server must own every failure",
+      "INVALID_PARAMS - the caller sent an unacceptable value",
+      "A 500 status code",
+      "No code, just empty response"
+    ],
+    "answer": 1,
+    "topic": "error-handling",
+    "explanation": [
+      "INTERNAL_ERROR means the server is at fault; a policy-bad input is the caller's fault.",
+      "MCP returns ErrorData with protocol codes, not HTTP statuses.",
+      "Empty responses hide the policy from the agent."
+    ]
+  },
+  {
+    "q": "What are the three elicitation outcomes goose understands?",
+    "options": [
+      "Accept, Retry, Abort",
+      "Accept, Decline, Cancel",
+      "Yes, No, Maybe",
+      "Allow, Deny, Default"
+    ],
+    "answer": 1,
+    "topic": "mcp-auth",
+    "explanation": [
+      "Retry/Abort are not part of the answer alphabet.",
+      "Variant names in code are Accept/Decline/Cancel.",
+      "There is no Default outcome."
+    ]
+  },
+  {
+    "q": "In goose, which module converts the user's answer back into rmcp's ElicitationAction?",
+    "options": [
+      "extension_manager.rs",
+      "elicitation.rs",
+      "config/extensions.rs",
+      "token_counter.rs"
+    ],
+    "answer": 1,
+    "topic": "mcp",
+    "explanation": [
+      "The manager runs transports; conversion is the elicitation module.",
+      "Config gates extension shapes, not answers.",
+      "Token counting is unrelated."
+    ]
+  },
+  {
+    "q": "A hardened server receives a bad auth header. Best behavior:",
+    "options": [
+      "Elicit a new token from the user",
+      "Fail fast with INVALID_REQUEST-class error - never turn auth into a dialog",
+      "Ignore auth and serve anyway",
+      "Panic"
+    ],
+    "answer": 1,
+    "topic": "mcp-auth",
+    "explanation": [
+      "Eliciting for credentials trains users to type secrets into prompts.",
+      "Serving unauthenticated defeats the boundary.",
+      "Panics kill the process for a routine failure."
+    ]
+  },
+  {
+    "q": "`tokio::time::timeout(d, slow_work)` returns Err(_) - what's the recommended server response?",
+    "options": [
+      "Retry slow_work immediately",
+      "Return ErrorData with a bounded 'timed out after Xs' message",
+      "Increase d and wait",
+      "Close the MCP connection"
+    ],
+    "answer": 1,
+    "topic": "error-handling",
+    "explanation": [
+      "Auto-retry can duplicate side effects.",
+      "Unbounded waiting defeats the timeout's purpose.",
+      "A single slow tool should not drop the connection."
+    ]
+  },
+  {
+    "q": "Which change unblocks testability of the validation logic? `add_note` holds 40 lines of checks inside the #[tool] fn, so unit tests need a running server.",
+    "options": [
+      "Move checks into std::process::exit calls",
+      "Extract a pure fn like validate_note(text, tag) -> Result<(), String> and test it directly",
+      "Delete the checks",
+      "Mark the tool async fn as #[test] too"
+    ],
+    "answer": 1,
+    "topic": "option-result",
+    "explanation": [
+      "exit() kills the test runner.",
+      "Removing checks removes the hardening.",
+      "A tool fn cannot double as a test without a tokio runtime + mock transport."
+    ]
+  }
+]

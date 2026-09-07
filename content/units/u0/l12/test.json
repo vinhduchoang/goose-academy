@@ -1,0 +1,114 @@
+[
+  {
+    "q": "`pub trait Provider: Send + Sync` (base.rs:464) — the colon means:",
+    "options": [
+      "Supertrait bounds: implementing types must also be Send and Sync",
+      "Provider inherits from Send and Sync as structs",
+      "Send/Sync are methods Provider must implement",
+      "The trait is only usable in async code"
+    ],
+    "answer": 0,
+    "topic": "generics-traits",
+    "explanation": [
+      "Traits aren't structs; there's no struct inheritance here.",
+      "Send and Sync are auto traits, not methods.",
+      "The bounds are about thread-safety capability, not async syntax."
+    ]
+  },
+  {
+    "q": "Why does `complete()` in the Provider trait have a default body (collecting `stream`)?",
+    "options": [
+      "New providers ship by implementing one method; the boilerplate is shared",
+      "Defaults make trait methods optional to call",
+      "Rust requires half of each trait to have bodies",
+      "It forces every provider to buffer its stream"
+    ],
+    "answer": 0,
+    "topic": "providers",
+    "explanation": [
+      "Default bodies still exist unless overridden; callers always can call them.",
+      "No such requirement exists in Rust.",
+      "Buffering is the default behavior — overridable when it hurts."
+    ]
+  },
+  {
+    "q": "`Box<dyn Provider>` is required (rather than a bare `Provider`) because:",
+    "options": [
+      "Trait objects are unsized and must sit behind a pointer — Box gives the indirection and ownership",
+      "Provider values exceed stack limits",
+      "dyn makes types cloneable",
+      "It queues providers in an async channel"
+    ],
+    "answer": 0,
+    "topic": "generics-traits",
+    "explanation": [
+      "Size limits aren't the reason; unsized-ness of dyn types is.",
+      "dyn has nothing to do with cloning (dyn Trait types aren't Clone by default).",
+      "Box is mere allocation; no channel semantics."
+    ]
+  },
+  {
+    "q": "`fn summarize<T: Display>(items: &[T], max: usize) -> String` accepts:",
+    "options": [
+      "Any slice whose element type implements Display — e.g. i32, String, ProviderStub with a Display impl",
+      "Only strings",
+      "Only integers",
+      "Any type, checked at runtime"
+    ],
+    "answer": 0,
+    "topic": "generics-traits",
+    "explanation": [
+      "The Display bound admits any Display type, including &str/String.",
+      "Integers are one admissible category, not the whole set.",
+      "Bounds are compile-time; there is no runtime checking."
+    ]
+  },
+  {
+    "q": "`pub fn new(model_name: impl AsRef<str>) -> Self` (model.rs:103) is equivalent to:",
+    "options": [
+      "`pub fn new<T: AsRef<str>>(model_name: T) -> Self`",
+      "`pub fn new(model_name: Box<dyn AsRef<str>>) -> Self`",
+      "`pub fn new(model_name: &str) -> Self`",
+      "A runtime duck-typed parameter"
+    ],
+    "answer": 0,
+    "topic": "generics-traits",
+    "explanation": [
+      "impl Trait in argument position is sugar for a generic bound, not a trait object.",
+      "&str is only one accepted type — the point is accepting String AND &str.",
+      "Rust never duck-types; the bound is static."
+    ]
+  },
+  {
+    "q": "`MessageStream = Pin<Box<dyn Stream<Item = Result<(Option<Message>, Option<ProviderUsage>), ProviderError>> + Send>>` — which two facts are compile-time checked?",
+    "options": [
+      "Each item has the exact Result<(Option<Message>, Option<ProviderUsage>), ProviderError> type, and the stream is Send",
+      "The stream length and its average item size",
+      "The provider's name and its API key",
+      "Stream items are deduplicated and sorted"
+    ],
+    "answer": 0,
+    "topic": "providers",
+    "explanation": [
+      "Nothing about length/size is in the type.",
+      "Provider identity is not part of the stream type.",
+      "Ordering/dedup would be runtime behavior, not type-level facts."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0277]: the trait bound `ProviderStub: Named` is not satisfied` when calling `introduce(&stub)`. The fix:",
+    "options": [
+      "Write `impl Named for ProviderStub` providing the required methods",
+      "Change the bound to `T: Display` only and delete Named",
+      "Annotate stub with `let mut`",
+      "Box the stub"
+    ],
+    "answer": 0,
+    "topic": "generics-traits",
+    "explanation": [
+      "Deleting the bound changes the function's contract instead of fulfilling it.",
+      "mut has nothing to do with trait impls.",
+      "Boxing doesn't magically implement Named."
+    ]
+  }
+]

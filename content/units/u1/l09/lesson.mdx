@@ -1,0 +1,91 @@
+---
+unit: 1
+unitSlug: architecture
+order: 9
+id: u1-l09
+slug: 09-mcp-internals
+title: "MCP internals: mcp_client, rmcp, schema normalization"
+topics:
+  - mcp
+  - mcp-schemas
+durationMin: 20
+cites:
+  - file: Cargo.toml
+    line: 23
+    note: 'rmcp = { version = "3.0.0", default-features = false, features = ["schemars", "auth"] } — the workspace-wide MCP protocol implementation'
+  - file: crates/goose/src/agents/agent.rs
+    line: 102
+    note: 'pub const MCP_PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion::V_2025_11_25 — the pinned protocol revision'
+  - file: crates/goose/src/agents/mcp_client.rs
+    line: 639
+    note: 'pub struct McpClient — goose''s MCP client wrapper (connection, capabilities, call dispatch)'
+  - file: crates/goose/src/agents/mcp_client.rs
+    line: 392
+    note: 'impl ClientHandler for GooseClient — rmcp-hosting parallel client with request interception'
+  - file: crates/goose-mcp/src/lib.rs
+    line: 3
+    note: 'use rmcp::{ServerHandler, ServiceExt}; — built-in goose servers are rmcp ServerHandlers served over stdio'
+  - file: crates/goose-mcp/src/mcp_server_runner.rs
+    line: 39
+    note: 'pub async fn serve<S>(server: S) — stdio serve loop every goose-mcp server uses'
+  - file: crates/goose/src/agents/tool_schema_normalize.rs
+    line: 6
+    note: 'pub fn normalize_input_schema(schema) -> bool — pre-provider schema normalization entry'
+  - file: crates/goose/src/agents/tool_schema_normalize.rs
+    line: 271
+    note: 'fn inline_refs — collapsing $ref definitions so providers that don''t resolve refs still receive a usable schema'
+---
+
+# MCP internals: mcp_client, rmcp, schema normalization
+
+The plan names `mcp_client.rs` (real — `crates/goose/src/agents/mcp_client.rs`; the ".rb" in the plan is a typo), `rmcp`, and schema normalization. In v1.49.0 the protocol stack is: goose → `McpClient` (client wrapper) → `rmcp 3.0.0` (protocol implementation, `Cargo.toml:23`) → extension servers (anything speaking MCP over stdio/SSE). Goose *also* is an MCP server: `goose-mcp` hosts built-in servers on the same stack.
+
+## The protocol pin
+
+Goose pins the protocol revision once, at `crates/goose/src/agents/agent.rs:102`:
+
+```rust
+pub const MCP_PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion::V_2025_11_25;
+```
+
+Every client handshake negotiates from this constant. When the ecosystem bumps the spec, this single line changes — everything downstream inherits it through `rmcp::model`.
+
+## The client
+
+`crates/goose/src/agents/mcp_client.rs:639` — `McpClient` wraps the rmcp connection with goose's needs: capabilities tracking (`GooseMcpClientCapabilities`), structured errors, cancellation, and the ability to sandbox/enrich tool calls. Peak under the hood:
+
+- `McpClientTrait` (`mcp_client.rs:108`) is the seam the rest of goose programs against — test doubles and alternative transports plug in here.
+- `impl ClientHandler for GooseClient` (`mcp_client.rs:392`) hooks rmcp's handler callbacks at the client side: goose intercepts tool-request completion to layer command-atomics, prompting, and tool metadata.
+- The stdio duplex is spawned per extension (l08's manager); SSE transport holds long-lived HTTP connections. Both end in the same `McpClientTrait` surface — a transport-agnostic seam.
+
+## The server side (goose as a server)
+
+Two files suffice to write an MCP server in goose-mcp:
+
+1. `crates/goose-mcp/src/mcp_server_runner.rs:39` — `serve<S: rmcp::ServerHandler>(server)` publishes any handler over `stdio()`; every built-in (computercontroller, memory, tutorial, …) uses it.
+2. `crates/goose-mcp/src/lib.rs:3` — the `rmcp::{ServerHandler, ServiceExt}` imports: goose's servers are just `#[tool_impl]`-annotated rmcp handlers. The `BUILTIN_EXTENSIONS` static (same lib.rs, line 57) maps extension names to `SpawnServerFn`s that run these handlers in-process — that's why "builtin" extensions cost no extra process.
+
+## Schema normalization: the dirty-real-world layer
+
+`crates/goose/src/agents/tool_schema_normalize.rs` — the file that exists because *every MCP ecosystem emits slightly different JSON Schemas*. The entry is `normalize_input_schema` (`tool_schema_normalize.rs:6`); inside are the repairs:
+
+- `collapse_const_unions` (`:26`) — dialects that emit `{"anyOf":[{"type":"string","const":"a"},...]}` for enums instead of `enum: [...]`.
+- `inline_refs` (`:271`) — provider models that cannot resolve `$ref` entries receive the definitions inlined, or identity-keyword substitutions where semantics survive.
+- `collapse_node`/`try_collapse_union` — pruning unsupported keyword shapes (predates-const dialects, ref-sibling-ignoring dialects — each `dialect_*` predicate documents one ecosystem's quirk).
+- `percent_decode` (`:350`) — some servers percent-encode `$defs` keys; goose decodes before processing.
+
+Normalization happens *before* the schema reaches a provider (toolshim especially: models with weak schema support). If two extension servers hand out colliding or malformed schemas for the same tool name, this module is where goose decides what the model actually sees.
+
+<FounderLens>
+
+**Problem solved:** one agent, many tool ecosystems, every one speaking MCP "a little differently". The client seam (`McpClientTrait`) + protocol pin + normalization layer turn ecosystem chaos into one uniform `Tool` stream for the pipeline (l07) and the provider formats (l06).
+
+**Tradeoff:** pinning `ProtocolVersion::V_2025_11_25` and normalizing schemas means goose *lags* brand-new spec features in exchange for stability — and can silently mis-shape cutting-edge schema constructs. Transport-agnostic seams hide per-transport failure modes: stdio vs SSE timeouts behave differently, and cancellation races live under the `ActiveToolCallGuard`-style bookkeeping.
+
+**Where it's heading:** ACP (agent-client-protocol) — the sibling `agent-client-protocol*` workspace deps — is being layered alongside MCP for first-class app integration; watch the `acp/` module. Tools carrying audience/elicitation metadata (the `Annotation` blocks in rmcp messages) point at a richer permission story per tool call (l07's ActionRequired futures).
+
+**Where it breaks:** schema normalization is heuristic — a weird-but-legal schema from a new server can be over-normalized into subtle misbehavior (dropped fields, merged descriptions). Cross-server tool-name collisions after normalization are the classic production failure; namespacing (l08) resolves ownership but normalization still runs per-tool.
+
+**Where you'd extend it:** a normalization *diff log* — record before/after schema for every tool so support can tell "model saw X, server published Y" instantly. Small, high-value, fits Unit 2's small-fix workout.
+
+</FounderLens>

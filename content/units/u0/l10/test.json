@@ -1,0 +1,114 @@
+[
+  {
+    "q": "What distinguishes an associated function from a method in a Rust impl?",
+    "options": [
+      "An associated function takes no self (ModelConfig::new); a method takes &self, &mut self, or self",
+      "Associated functions are unsafe, methods are safe",
+      "Methods must return Self, associated functions must return ()",
+      "Associated functions are declared outside impl blocks"
+    ],
+    "answer": 0,
+    "topic": "structs",
+    "explanation": [
+      "Safety has nothing to do with the self-shape split.",
+      "Both can return anything; builders returning Self are just a common convention.",
+      "Both live inside impl blocks on the same type."
+    ]
+  },
+  {
+    "q": "`pub fn with_context_limit(mut self, limit: usize) -> Self` consumes self. What does this design buy?",
+    "options": [
+      "Chaining: each call returns a whole, modified value — no shared mutation state",
+      "Faster runtime because no reference exists",
+      "The struct becomes Copy",
+      "Callers must wrap the config in an Arc"
+    ],
+    "answer": 0,
+    "topic": "structs",
+    "explanation": [
+      "It's about expressiveness, not speed from missing refs.",
+      "Bodies move fields around with mut self; Copy isn't granted.",
+      "No Arc is implied — consuming builders return plain Self values."
+    ]
+  },
+  {
+    "q": "In goose, TokenCounter's fields are private (token_counter.rs:22-25) while ModelConfig's are all pub (model.rs:41+). Why the difference?",
+    "options": [
+      "TokenCounter hides fields to protect its cache invariant; ModelConfig is plain data crossing trust boundaries",
+      "ModelConfig is used more often, so it got pub fields",
+      "TokenCounter is deprecated",
+      "Private fields don't compile in the provider-types crate"
+    ],
+    "answer": 0,
+    "topic": "structs",
+    "explanation": [
+      "Visibility is about invariants, not popularity.",
+      "TokenCounter is core infrastructure, not deprecated.",
+      "Private fields work in any crate; the choice is deliberate."
+    ]
+  },
+  {
+    "q": "Which line is a valid constructor call for `impl AgentConfig { pub fn new(model_name: impl AsRef<str>) -> Self }`?",
+    "options": [
+      "`AgentConfig::new(\"gpt-4o\")`",
+      "`AgentConfig.new(\"gpt-4o\")`",
+      "`new(\"gpt-4o\")`",
+      "`AgentConfig::new::<\"gpt-4o\">()`"
+    ],
+    "answer": 0,
+    "topic": "structs",
+    "explanation": [
+      "Methods use dot syntax; associated functions need Type::fn.",
+      "Unqualified calls require the type to be in scope contextually — not the case here.",
+      "That turbofish syntax constrains generics; the string literal argument is not how it's used."
+    ]
+  },
+  {
+    "q": "`#[derive(Debug, Clone)] struct AgentConfig {...}` — what does Clone provide here?",
+    "options": [
+      "A generated .clone() that deep-copies every field",
+      "A garbage collector hook",
+      "Copy semantics so assignment never moves",
+      "A way to compare two configs for equality"
+    ],
+    "answer": 0,
+    "topic": "structs",
+    "explanation": [
+      "Rust has no GC hooks; derive generates trait impls.",
+      "Copy is a separate, stricter trait. Clone requires explicit clone() calls.",
+      "Equality comes from PartialEq/Eq derives, not Clone."
+    ]
+  },
+  {
+    "q": "`let c = AgentConfig::new(\"x\").with_temperature(0.7);` followed by `let c2 = c.with_temperature(0.9);` then `println!(\"{}\", c.summary());`",
+    "options": [
+      "Compile error E0382: the second builder call moved c, so using c afterwards is illegal",
+      "Prints the config with temperature 0.9",
+      "Prints the config with temperature 0.7",
+      "Runtime panic from a double builder call"
+    ],
+    "answer": 0,
+    "topic": "structs",
+    "explanation": [
+      "If clone() were used the copy would hold 0.9 — but with the move, both values exist yet only c2 is usable.",
+      "c was moved into the second call; the 0.7-tuned value lives on in c2 as 0.9 — reading c doesn't print anything, it fails to compile.",
+      "No panic: moves are compile-time, and builder chaining is safe."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0599]: no method named `model` found for struct `AgentConfig`` — you wrote `config.model;`. The likely cause:",
+    "options": [
+      "The field is declared private elsewhere, or the real field name differs (e.g. model_name)",
+      "Methods must be called with `->`",
+      "AgentConfig is missing a constructor",
+      "You must first import the field"
+    ],
+    "answer": 0,
+    "topic": "structs",
+    "explanation": [
+      "Rust uses dot for both fields and methods; there's no arrow syntax.",
+      "E0599 occurs at the call/access site regardless of construction.",
+      "Field access needs no import if visibility allows."
+    ]
+  }
+]

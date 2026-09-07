@@ -1,0 +1,114 @@
+[
+  {
+    "q": "In cargo metadata output, how do you tell a workspace-internal dependency from an external one?",
+    "options": [
+      "Internal dependency entries carry a `path` field pointing inside the workspace; external ones do not",
+      "Internal dependencies are listed under `workspace-dependencies`; external ones under `dependencies`",
+      "Internal dependencies have `req = \"workspace\"`; external ones have a version",
+      "There is no way: cargo metadata flattens both kinds into one list"
+    ],
+    "answer": 0,
+    "topic": "crate-graph",
+    "explanation": [
+      "`workspace-dependencies` is a table in Cargo.toml manifests, not a field in metadata JSON.",
+      "Version requirements exist in both kinds; `req` values are semver strings everywhere.",
+      "`--no-deps` metadata keeps both kinds in `dependencies`, distinguished by the optional `path`."
+    ]
+  },
+  {
+    "q": "Why does goose split its data model and Provider trait into `goose-provider-types`?",
+    "options": [
+      "So extension/author crates can compile against the trait + data model without pulling in the whole engine",
+      "To make the build faster by parallelizing compilation of two identical copies",
+      "Because crates.io requires traits to live in a separate crate from implementations",
+      "To hide the provider architecture from the goose-cli binary"
+    ],
+    "answer": 0,
+    "topic": "crate-graph",
+    "explanation": [
+      "There is a single copy of the types; splitting does not duplicate work.",
+      "crates.io has no such rule; many workspaces keep traits and impls in one crate.",
+      "The CLI uses these types too — the split is about who can depend on what, not hiding."
+    ]
+  },
+  {
+    "q": "Which dependency direction is legal in the goose workspace?",
+    "options": [
+      "goose-providers -> goose-provider-types -> (external only); goose -> goose-providers",
+      "goose-provider-types -> goose, since goose has more helpers available",
+      "goose -> goose-cli, because the CLI exposes the agent loop API",
+      "Any direction, as long as the cycle has an even number of edges"
+    ],
+    "answer": 0,
+    "topic": "workspace",
+    "explanation": [
+      "That edge would drag the entire engine into the sink crate, defeating its purpose.",
+      "The dependency arrow is the reverse: goose-cli depends on goose's library API.",
+      "Rust rejects all cycles, odd or even, regardless of arc count."
+    ]
+  },
+  {
+    "q": "`crates/goose/src/lib.rs:15` does `pub mod conversation { pub use goose_providers::conversation::*; }`. What does this achieve?",
+    "options": [
+      "Goose keeps consuming the datamodel from goose-providers while presenting it under its own module path",
+      "It creates a second, independent copy of the conversation types inside goose",
+      "It makes the conversation module private to the goose crate",
+      "It enables tree-shaking of unused conversation types at link time"
+    ],
+    "answer": 0,
+    "topic": "crate-graph",
+    "explanation": [
+      "A re-export is an alias, not a copy — the type identity stays `goose_providers::conversation::...`.",
+      "`pub mod` publicly re-exports; nothing is hidden here.",
+      "Rust does not tree-shake at link time via re-exports; a type used once is compiled once."
+    ]
+  },
+  {
+    "q": "What does the `rankdir=BT` line in your l01-graph.dot do?",
+    "options": [
+      "It draws the graph bottom-to-top so dependency sinks (type crates) sit at the bottom",
+      "It sorts nodes by binary-size descending",
+      "It tells GraphViz that the graph package is from crates.io",
+      "It is required for cycles to render"
+    ],
+    "answer": 0,
+    "topic": "crate-graph",
+    "explanation": [
+      "GraphViz does not know about binary sizes; that is not a DOT attribute.",
+      "`rankdir` controls layout direction only; provenance is irrelevant to DOT.",
+      "Cyclic graphs fail in `dot` regardless of rankdir."
+    ]
+  },
+  {
+    "q": "A PR adds `goose = { path = \"../goose\" }` to `goose-provider-types/Cargo.toml`. Which change statement is TRUE?",
+    "options": [
+      "The entire workspace becomes unbuildable due to a cycle until the edge is removed",
+      "It compiles fine but slows CI down slightly",
+      "cargo automatically drops the edge because it is a type-only crate",
+      "It only breaks if both crates export a type with the same name"
+    ],
+    "answer": 0,
+    "topic": "workspace",
+    "explanation": [
+      "A cycle anywhere breaks the whole workspace graph; cargo does not degrade gracefully.",
+      "Cargo never removes declared dependencies — it errors on the cycle.",
+      "Name collisions produce different errors; the cycle error fires first."
+    ]
+  },
+  {
+    "q": "Which of these is a workspace member listed in the root Cargo.toml?",
+    "options": [
+      "vendor/v8 (kept only so cargo-machete doesn't fail inspection)",
+      "goose-ui",
+      "goose-desktop",
+      "goose-py"
+    ],
+    "answer": 0,
+    "topic": "workspace",
+    "explanation": [
+      "There is no goose-ui crate in this workspace.",
+      "The desktop UI lives outside the Rust workspace layout.",
+      "python bindings are not a workspace member here."
+    ]
+  }
+]

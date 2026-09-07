@@ -1,0 +1,114 @@
+[
+  {
+    "q": "A bug report's To Reproduce section exists primarily to:",
+    "options": [
+      "Turn the bug into a falsifiable input/output contract a maintainer can run",
+      "Prove the reporter read the code before filing",
+      "Satisfy a minimum character count on GitHub",
+      "Document which version the reporter preferred"
+    ],
+    "answer": 0,
+    "topic": "reproduction",
+    "explanation": [
+      "Reading the code is not required — often impossible for the reporter.",
+      "There is no character quota; structure is for triage, not length.",
+      "Version preference is irrelevant; the version actually run matters."
+    ]
+  },
+  {
+    "q": "Which describes real commit 509fcac69 in this checkout's history?",
+    "options": [
+      "fix(token_counter): fix panic with GitHub Copilot (#4632) — a +3/-1 change in one file",
+      "feat: add a new provider integration across 9 crates",
+      "chore: bump workspace version to 1.49.0",
+      "fix(desktop): resolve UI freeze after renaming session"
+    ],
+    "answer": 0,
+    "topic": "reproduction",
+    "explanation": [
+      "Large multi-crate feature work was not this commit's shape.",
+      "The version bump to 1.49.0 is dd8de0196, not this fix.",
+      "The desktop freeze fix is ec96aa059, a different PR."
+    ]
+  },
+  {
+    "q": "Mid-bisect, git reports the current commit DOES show the bug. You run:",
+    "options": [
+      "git bisect bad",
+      "git bisect good",
+      "git bisect skip",
+      "git bisect reset"
+    ],
+    "answer": 0,
+    "topic": "bisect",
+    "explanation": [
+      "good marks commits where the repro passes — this one failed.",
+      "skip is only for commits you cannot test (build breaks, unrelated crash).",
+      "reset aborts the whole bisect session and returns you to your branch."
+    ]
+  },
+  {
+    "q": "`git bisect run .\\check.ps1` interprets the script's behavior how?",
+    "options": [
+      "Exit 0 = good, non-zero = bad; bisect replays the script on every midpoint",
+      "Any printed output line containing PASS means good",
+      "Exit 0 = bad, 125 = good, 1 = skip — one higher than manual convention",
+      "The script must call `git bisect bad` itself or the run errors"
+    ],
+    "answer": 0,
+    "topic": "bisect",
+    "explanation": [
+      "bisect run keys on the exit code, not on stdout text.",
+      "The convention is: 0 good, 1-127 (except 125) bad, 125 skip.",
+      "The script only signals via exit code; it never drives git itself."
+    ]
+  },
+  {
+    "q": "Your 6-commit scratch history has a regression at commit 4. With a working repro script, manual midpoint bisect needs about how many repro runs?",
+    "options": [
+      "2 to 3 (log2 of the history)",
+      "5 (one per remaining commit)",
+      "1 (always the midpoint)",
+      "6 (worst case: every commit tested)"
+    ],
+    "answer": 0,
+    "topic": "bisect",
+    "explanation": [
+      "Testing every commit is linear search — exactly what bisect avoids.",
+      "A single run finds the buggy commit only by luck, not by search.",
+      "Worst case with bisect on 6 commits is 3 runs, not 6."
+    ]
+  },
+  {
+    "q": "Fix this workflow error: you bisected and git said commit X is first bad, but your colleague says X also happens to be a merge commit. Your next step is:",
+    "options": [
+      "Treat X as a hypothesis — read its diff and confirm the regression actually enters there",
+      "Restart with `git bisect start --first-parent` and delete the log",
+      "Report the bug against the maintainer and stop",
+      "Ignore the colleague; bisect output is authoritative"
+    ],
+    "answer": 0,
+    "topic": "bisect",
+    "explanation": [
+      "--first-parent is useful, but starting over before reading the diff wastes the session.",
+      "Bisect gave you a candidate; abandoning it to others skips the confirmation work.",
+      "On merge histories the reported commit is a starting point, not a verdict."
+    ]
+  },
+  {
+    "q": "In the real clone, `git log --oneline -8 -- crates/goose/src/token_counter.rs` is the right first command because:",
+    "options": [
+      "It constrains history to the file you suspect, making a fix-commit scan fast",
+      "It verifies the file still compiles",
+      "It fetches a fresh copy of the file from the remote",
+      "It shows which GitHub user owns the file"
+    ],
+    "answer": 0,
+    "topic": "bisect",
+    "explanation": [
+      "git log never compiles anything.",
+      "git log is local read-only history; fetching is git fetch.",
+      "Ownership lives in .github/CODEOWNERS, unrelated to git log path filtering."
+    ]
+  }
+]

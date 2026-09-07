@@ -1,0 +1,107 @@
+---
+unit: 2
+unitSlug: core-contribution
+order: 2
+id: u2-l02
+slug: 02-bug-repro-bisect
+title: "Bug reproduction & bisecting: from issue to culprit commit"
+topics: [reproduction, bisect]
+durationMin: 20
+cites:
+  - file: .github/ISSUE_TEMPLATE/bug_report.md
+    line: 21
+    note: 'the To Reproduce section — numbered steps are what maintainers triage on first'
+  - file: .github/ISSUE_TEMPLATE/bug_report.md
+    line: 14
+    note: 'attach the diagnostics zip so maintainers can skip environment guessing'
+  - file: crates/goose/src/token_counter.rs
+    line: 10
+    note: 'global TOKENIZER OnceCell — a real historical panic site fixed in 509fcac69 (#4632)'
+  - file: crates/goose/src/token_counter.rs
+    line: 12
+    note: 'MAX_TOKEN_CACHE_SIZE 1_024 — added by the LRU caching change 08e748051 (#9586)'
+  - file: crates/goose/src/agents/large_response_handler.rs
+    line: 5
+    note: '200_000-char spill threshold — the file that once had a race fixed in a6beb956f (#5065)'
+---
+
+# Bug reproduction & bisecting: from issue to culprit commit
+
+Goose PRs are graded on verification plans, and the cheapest verification of a
+bug fix is a **reproduction**: the exact inputs that turn good code into bad
+output. The bug template asks for numbered repro steps (`bug_report.md:21`)
+before anything else, and for the diagnostics zip (`bug_report.md:14`) so the
+maintainer spends zero time on your environment.
+
+## Reproduction is a contract
+
+A repro has three parts, all falsifiable:
+
+1. **Given** — version (use `git describe --tags`), OS, minimal config.
+2. **When** — the exact commands/inputs, numbered.
+3. **Then** — observed output vs expected output.
+
+If you cannot reproduce an issue from its report, the report is under-triaged
+— write the missing repro step as a comment before touching code. Every goose
+regression test you will write later is just a repro statement turned into an
+assertion.
+
+A real example from this repo's own history: issue #4632 — `token_counter`
+panicked when used with GitHub Copilot. The fix (`509fcac69`) is instructive
+because it is tiny: +3/-1 in one file. A panic is usually a one-line root
+cause hiding inside a complex call chain; repro turns the search for that line
+into a search with a trigger.
+
+## Bisect: binary search over history
+
+`git bisect` automates the second half of the hunt: which commit introduced
+the regression. The mechanics:
+
+```text
+git bisect start
+git bisect bad            # current commit shows the bug
+git bisect good v1.48.0   # a commit/tag where the bug did not exist
+# git checks out the midpoint; run your repro on it:
+#   repro fails -> git bisect bad
+#   repro passes -> git bisect good
+# repeat until: "X is the first bad commit"
+git bisect log            # permanent record
+git bisect reset
+```
+
+The magic is the midpoint checkout — git jumps to the half-way commit and lets
+your repro script be the judge. With one runnable repro you need ~log2(N) runs
+instead of N.
+
+## Making the repro a script pays double
+
+A one-command repro (`.\check.ps1` or `cargo test --package goose some_test`)
+turns bisect into near-full automation:
+
+```text
+git bisect run .\check.ps1
+```
+
+`bisect run` replays the repro on each midpoint and reports the first bad
+commit without you pressing any keys. Exit 0 = good, non-zero = bad.
+
+<FounderLens>
+
+Why does goose tolerate ~5,600 commits of history instead of squashing? Because
+history IS the debugging tool: bisect needs real intermediate states. Tradeoff:
+linear readable history vs bisectable history — goose picks bisectable, and
+that is why contributors are asked to keep commits small and individually
+coherent. Where it breaks: merges create non-linear histories where `first bad
+commit` can be misleading — treat the reported commit as a hypothesis, then
+confirm by reading its diff.
+
+</FounderLens>
+
+## Landmarks in your clone's past
+
+| Commit | Subject | Why it matters for this lesson |
+|---|---|---|
+| `509fcac69` | fix(token_counter): fix panic with GitHub Copilot (#4632) | textbook +3/-1 panic fix — read `git show` |
+| `a82a1d7de` | replace panic with proper error handling in get_tokenizer (#7175) | same file, same disease, fixed by returning `Result` |
+| `08e748051` | Use LRU cache for token counting (#9586) | behavior-preserving perf change — great bisect practice target |
+| `a6beb956f` | Fix mcp large response race condition (#5065) | race in `large_response_handler` — repro that is timing-based |

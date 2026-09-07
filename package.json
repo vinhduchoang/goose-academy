@@ -1,0 +1,52 @@
+{
+  "name": "goose-academy",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify:content": "tsx scripts/verify-content.ts",
+    "drift": "tsx scripts/check-drift.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@mdx-js/react": "^3",
+    "@next/mdx": "^16",
+    "@tailwindcss/typography": "^0.5.20",
+    "gray-matter": "^4.0.3",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx-frontmatter": "^5.2.0",
+    "shiki": "^3",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1",
+    "@tailwindcss/postcss": "^4",
+    "@types/mdx": "^2",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.4",
+    "tailwindcss": "^4",
+    "tsx": "^4",
+    "typescript": "^5",
+    "vitest": "^3"
+  },
+  "packageManager": "pnpm@12.3.4",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@tailwindcss/oxide",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

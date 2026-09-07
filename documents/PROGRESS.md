@@ -36,3 +36,12 @@
 
 - 2026-09-07: Design created, iterated (Unit 0 expanded to 15 lessons; Units 1-3
   deepened to founder-level). Artifact files written.
+- 2026-09-08 (session 1): Phase 1 scaffold. Next.js 16.3.4 (App Router, Turbopack),
+  MDX via @next/mdx + remark-mdx-frontmatter (frontmatter YAML -> `frontmatter`
+  export), shiki async RSC code highlighting, Tailwind v4 + typography, Vitest 3,
+  Playwright (chromium installed), tsx scripts, zod. pnpm 12.3.4 enabled via corepack.
+  Exemplar lesson u0-l01 authored (content/units/u0/l01/*) with cites validated
+  against local clone (ver 1.49.0). Gate scripts wired in package.json.
+  Decisions: lesson route `/units/{unitSlug}/{lessonSlug}`; content ids `un-lnn`;
+  `content/manifest.ts` will be codegen (scripts/generate-manifest.ts); drift checker
+  accepts GOOSE_REPO path env (local clone C:\Users\admin\projects\goose is v1.49.0).

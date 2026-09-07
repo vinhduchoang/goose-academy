@@ -1,0 +1,94 @@
+---
+unit: 0
+unitSlug: rust-core
+order: 1
+id: u0-l01
+slug: 01-toolchain
+title: "Toolchain: rustup, cargo, a multi-crate workspace"
+topics:
+  - cargo
+  - workspace
+  - rustup
+  - justfile
+durationMin: 20
+cites:
+  - file: Cargo.toml
+    line: 2
+    note: workspace members list — every crate under crates/* is a member
+  - file: Cargo.toml
+    line: 7
+    note: resolver = "2" (edition 2021 resolver, required for modern feature unification)
+  - file: Justfile
+    line: 7
+    note: check-everything recipe — the precommit gate goose maintainers run
+---
+
+# Toolchain: rustup, cargo, a multi-crate workspace
+
+Goose is one big Rust workspace — ~15 crates under `crates/*`, one binary (`goose`),
+two debug/release paths, and a set of conventions encoded in tooling. Before you can
+read it like a maintainer, you need the toolchain to speak the same dialect.
+
+## The two tools you will use every single day
+
+**rustup** manages Rust toolchains. `cargo` is the build system, package manager, test
+runner, and formatter-driver. On goose you pin your toolchain via
+`rust-toolchain.toml` at the repo root, so every contributor builds with the same
+compiler.
+
+Key commands: `cargo build` (debug), `cargo build --release`, `cargo test`,
+`cargo clippy --all-targets -- -D warnings`, `cargo fmt --all`. In goose, clippy runs
+with `-D warnings` — warnings are errors, not suggestions.
+
+<FounderLens>
+
+Why a workspace? Goose squats at the boundary of several ecosystems: the core agent
+loop, the CLI, MCP servers, and the type-only crates (`goose-sdk-types`,
+`goose-provider-types`) that let *extensions* compile without pulling the whole
+engine. A workspace makes the dependency direction explicit and the compile-time
+coupling cheap. Tradeoff: one `Cargo.lock` risks version ping-pong; the team buys
+that risk for single-command rebuildability. Where it breaks: adding a crate that
+wants a different major of a shared dep — the resolver has to pick one winner.
+
+</FounderLens>
+
+## Your first goal: build goose
+
+Clone, enter, and run:
+
+```text
+git clone git@github.com:block/goose.git
+cd goose
+cargo build -p goose-cli --bin goose
+```
+
+<CodeRunnerPrompt command="cargo build -p goose-cli --bin goose" title="Build the goose binary (first run takes several minutes)" />
+
+## Reading the workspace file
+
+One place: the root `Cargo.toml` (`Cargo.toml:2` role: lists members `crates/*`, plus
+`vendor/v8` kept for cargo-machete). The `resolver = "2"` line means edition-2021
+feature unification: features from dev-dependencies don't leak into the normal build.
+
+## Exercise: map each crate
+
+Use `cargo metadata --no-deps --format-version 1` in a terminal. For each member crate
+write one sentence: what it builds, and one thing it depends on (only from other
+workspace members). Expected output (partial):
+
+| Crate | Purpose |
+|-------|---------|
+| `goose` | core agent library — Session, Agent, providers, tools (now `goose-agent`) |
+| `goose-cli` | the `goose` binary: CLI + TUI + server modes |
+| `goose-mcp` | MCP protocol glue (rmcp-based) |
+| `goose-sdk-types` | type-only SDK contracts for extensions |
+| `goose-provider-types` | provider trait/linkage types |
+
+<MindShift>
+
+In a JS monorepo each package carries its own lockfile and release cadence. A Rust
+workspace forces you to model dependency direction FIRST because the compiler will
+scream if you get it circular. Don't fight it — reading the crate graph is reading
+the architecture.
+
+</MindShift>

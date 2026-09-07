@@ -1,0 +1,109 @@
+[
+  {
+    "q": "What does `cargo build -p goose-cli --bin goose` do?",
+    "options": [
+      "Builds only the goose-cli package and only its `goose` binary target",
+      "Builds every workspace member and all its binaries",
+      "Builds goose-cli in release mode",
+      "Installs a prebuilt goose binary from a remote registry"
+    ],
+    "answer": 0,
+    "topic": "cargo",
+    "explanation": [
+      "-p selects one package; --bin select one binary target. Nothing implies --release.",
+      "Without -p cargo builds the default members; with -p it narrows to one package.",
+      "pip-install style behavior does not exist in cargo outside `cargo install`."
+    ]
+  },
+  {
+    "q": "In the root Cargo.toml, `resolver = \"2\"` means:",
+    "options": [
+      "Edition 2021 feature unification: dev-dependency features do not leak into the normal build",
+      "Cargo may resolve two versions of any crate in the graph",
+      "The workspace compiles twice in parallel to catch race conditions",
+      "Dependencies are fetched from crates.io over HTTP/2"
+    ],
+    "answer": 0,
+    "topic": "workspace",
+    "explanation": [
+      "The resolver never splits a single semver range into two versions of the same crate in one build.",
+      "That is not a Rust concept at all.",
+      "HTTP transport defaults have nothing to do with the feature resolver."
+    ]
+  },
+  {
+    "q": "Which tool installs and switches Rust toolchain versions?",
+    "options": ["cargo", "rustup", "rustc", "clippy"],
+    "answer": 1,
+    "topic": "rustup",
+    "explanation": [
+      "cargo builds and manages packages; it calls whichever toolchain rustup selected.",
+      "rustc is the compiler binary itself; it does not manage toolchains.",
+      "clippy is a linter built on rustc; it runs on the active toolchain."
+    ]
+  },
+  {
+    "q": "`cargo metadata --no-deps --format-version 1` returns:",
+    "options": [
+      "A JSON document describing workspace members but not their resolved dependency graph",
+      "The file hashes of every crate on crates.io",
+      "A human-readable log of the last build",
+      "Only the versions of rustc and cargo"
+    ],
+    "answer": 0,
+    "topic": "cargo",
+    "explanation": [
+      "It never contacts crates.io for hashes; it reflects the local workspace + lockfile.",
+      "Build logs come from cargo itself while building, not from metadata queries.",
+      "rustc/cargo versions are reported by `rustc --version`, not cargo metadata."
+    ]
+  },
+  {
+    "q": "The Justfile recipe `check-everything` runs, among others:",
+    "options": [
+      "`cargo fmt --all` and `cargo clippy --all-targets -- -D warnings`",
+      "`cargo build --release` and `cargo publish`",
+      "`cargo clean` and `cargo doc`",
+      "`cargo test --all` and `cargo fuzz`"
+    ],
+    "answer": 0,
+    "topic": "justfile",
+    "explanation": [
+      "It checks style, not releases: nothing builds or publishes a release.",
+      "It does not clean artifacts or generate docs.",
+      "Fuzzing is not part of the style gate for PRs."
+    ]
+  },
+  {
+    "q": "What does the flag `-D warnings` in `cargo clippy -- -D warnings` do?",
+    "options": [
+      "Treats every clippy warning as a hard error",
+      "Disables warnings entirely",
+      "Sets the lint level to \"deny\" only for the `warnings` lint group listed after it",
+      "Dumps warnings to a file called warnings"
+    ],
+    "answer": 0,
+    "topic": "justfile",
+    "explanation": [
+      "Lints are promoted, not silenced — the opposite of disabling.",
+      "It promotes ALL warnings to errors; it is not scoped to a group of the same name.",
+      "`-D` is a rustc flag for allow/warn/deny, not an output redirect."
+    ]
+  },
+  {
+    "q": "Fix this compile error: `error[E0599]: no function or associated item named 'run' found for struct 'Agent'`. The most likely first thing to check is:",
+    "options": [
+      "Whether the feature flag enabling that crate's `run` module is off in this build",
+      "Whether rustup is installed",
+      "Whether the Cargo.lock file is missing",
+      "Whether the file has CRLF line endings"
+    ],
+    "answer": 0,
+    "topic": "workspace",
+    "explanation": [
+      "rustup problems produce toolchain errors, not missing-item errors against your code.",
+      "A missing lockfile makes cargo regenerate it, not lose inherent items.",
+      "Line endings do not affect name resolution."
+    ]
+  }
+]

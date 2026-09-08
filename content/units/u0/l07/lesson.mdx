@@ -67,12 +67,12 @@ shared right now." Three real goose examples:
   a modified copy of yourself, reuse the rest."
 
 <Diff
-  oldCode="// JS: assignment shares — both names point at the same object
+  oldCode={`// JS: assignment shares — both names point at the same object
 const a = { text: 'hi' };
-const b = a;            // same object, mutate b and a changes"
-  newCode="// Rust: assignment moves — one owner, dead binding is a compile error
-let a = TextualMessage { text: \"hi\".into() };
-let b = a.clone();      // explicit copy: a stays alive, both mutate freely" />
+const b = a;            // same object, mutate b and a changes`}
+  newCode={`// Rust: assignment moves — one owner, dead binding is a compile error
+let a = TextualMessage { text: "hi".into() };
+let b = a.clone();      // explicit copy: a stays alive, both mutate freely`} />
 
 ## Stack vs heap (the "why no GC" question)
 

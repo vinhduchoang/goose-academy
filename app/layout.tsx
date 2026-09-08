@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ProgressProvider } from "@/components/ProgressProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,20 +29,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-zinc-50 font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-            <a href="/" className="text-sm font-bold tracking-tight">
+            <Link href="/" className="text-sm font-bold tracking-tight">
               Goose Contributor Academy
-            </a>
+            </Link>
             <nav className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-300">
-              <a href="/units/rust-core" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+              <Link href="/" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Units
-              </a>
-              <a href="/drills" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+              </Link>
+              <Link href="/drills" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Drills
-              </a>
+              </Link>
             </nav>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+          <ProgressProvider>{children}</ProgressProvider>
+        </main>
         <footer className="border-t border-zinc-200 py-6 text-center text-xs text-zinc-500 dark:border-zinc-800">
           Goose Contributor Academy — labs pinned to goose v1.49.0 · progress lives in your browser
         </footer>

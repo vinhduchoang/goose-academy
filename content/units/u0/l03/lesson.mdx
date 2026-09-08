@@ -69,12 +69,12 @@ borrowed, but the *result* is a fresh `String` — because the rendered prompt i
 built at runtime and owned by the caller.
 
 <Diff
-  oldCode="// TS: same type everywhere
-const name: string = \"goose\";
-const prompt: string = render(system, ctx);"
-  newCode="// Rust: ownership is part of the type
-let name: &str = \"goose\";            // borrowed from the binary
-let prompt: String = render_template(\"system.md\", &ctx); // owned, built at runtime" />
+  oldCode={`// TS: same type everywhere
+const name: string = "goose";
+const prompt: string = render(system, ctx);`}
+  newCode={`// Rust: ownership is part of the type
+let name: &str = "goose";            // borrowed from the binary
+let prompt: String = render_template("system.md", &ctx); // owned, built at runtime`} />
 
 ## Tuples, arrays, Vec, slices
 

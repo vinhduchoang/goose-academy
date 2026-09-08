@@ -4,13 +4,10 @@ import {
   loadAllLessons,
   loadDrills,
   loadExams,
-  parseLessonFolder,
   validateExam,
-  topicIndexFor,
 } from "../lib/content-io";
 import { generateManifest } from "./generate-manifest";
 import { TOPICS } from "../lib/schema";
-import type { ContentIssue } from "../lib/content-io";
 
 const CONTENT_ROOT = path.resolve(__dirname, "..", "content");
 const MANIFEST_PATH = path.join(CONTENT_ROOT, "manifest.ts");

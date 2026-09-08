@@ -19,7 +19,7 @@ function fixFrontmatter(fmText: string): { out: string; notesFixed: number } {
     .map((line) => {
       const kv = line.match(/^(\s*(?:-\s*)?\w[-\w]*):\s*(.*)$/);
       if (!kv) return line;
-      const [_, keyPart, val] = kv;
+      const [, keyPart, val] = kv;
       const key = keyPart.replace(/^\s*-?\s*/, "");
       if ((key === "note" || key === "title") && val.trim() !== "" && !isQuoted(val)) {
         notesFixed++;

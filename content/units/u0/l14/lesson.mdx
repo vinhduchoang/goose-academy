@@ -107,16 +107,16 @@ almost (with `alias = "shell"` exactly) drives the discriminator key. Reminds
 you: serde isn't only structs, it's the enum shapes you learned in l06.
 
 <Diff
-  oldCode="// TS — hand-written mapping everywhere
+  oldCode={`// TS — hand-written mapping everywhere
 type Wire = { modelName: string, temperature?: number };
-const toWire = (m: ModelConfig): Wire => ({ modelName: m.model_name, ... });"
-  newCode="// Rust — derive + attributes
+const toWire = (m: ModelConfig): Wire => ({ modelName: m.model_name, ... });`}
+  newCode={`// Rust — derive + attributes
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = \"camelCase\")]
+#[serde(rename_all = "camelCase")]
 pub struct ModelConfig {
     pub model_name: String,
     pub temperature: Option<f32>,
-}" />
+}`} />
 
 <FounderLens>
 

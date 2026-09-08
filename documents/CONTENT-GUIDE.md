@@ -53,6 +53,13 @@ Rules:
 - Use `<FounderLens>`, `<MindShift>` (Unit 0), `<Diff oldCode=… newCode=…>`,
   `<CodeRunnerPrompt command="…" title="…"/>` components — they are globally
   registered, no imports needed.
+- **MDX attribute rules (binding):** attribute values are JSX strings. When the code
+  you show contains `"` or `'`, use expression containers with JS template literals:
+  `oldCode={`…`}` — inner quotes stay plain (`"`), and any literal backtick or
+  `${` inside must be escaped (`\``, `\${`). Never write `\"` inside an attribute
+  string, never use single-quoted attributes, and quote every `title`/`note` value
+  in frontmatter (single-quote YAML strings with `'` escaped as `''`; avoid raw
+  `<` `>` sequences in notes).
 
 ## lab.md
 

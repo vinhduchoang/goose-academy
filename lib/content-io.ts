@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { z } from "zod";
 import { parseFrontmatterRaw } from "@/lib/fmparse";
 import {
   DRILLS_SCHEMA,

@@ -53,19 +53,19 @@ pub fn stream_from_single_message(message: Message, usage: ProviderUsage) -> Mes
 keyword, and the `-> MessageStream` signature says what the block must become.
 
 <Diff
-  oldCode="// TS: early return is the primary tool
+  oldCode={`// TS: early return is the primary tool
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
   return s.slice(0, n - 1) + '…';
-}"
-  newCode="// Rust: last expression returns; early return only for the short path
+}`}
+  newCode={`// Rust: last expression returns; early return only for the short path
 fn char_truncate(s: &str, max_chars: usize) -> String {
     if s.chars().count() <= max_chars {
         return s.to_string();          // early return IS idiomatic here
     }
     let tail: String = s.chars().take(max_chars - 1).collect();
-    tail + "…"                          // expression as return value
-}" />
+    tail + "..."                          // expression as return value
+}`} />
 
 ## Parameters and return types are mandatory
 

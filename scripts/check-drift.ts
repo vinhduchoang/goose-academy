@@ -23,7 +23,9 @@ function main(): number {
     }
   };
   const version = extractWorkspaceVersion(readFile("Cargo.toml"));
-  const contentRoot = path.resolve(__dirname, "..", "content");
+  const contentRoot = path.resolve(
+    process.env.GOOSE_CONTENT_DIR ?? path.join(__dirname, "..", "content")
+  );
   const cites = collectCites(contentRoot);
   const { issues, versionIssue } = checkDrift(
     cites,

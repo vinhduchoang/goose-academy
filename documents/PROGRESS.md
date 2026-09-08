@@ -3,45 +3,94 @@
 ## State
 
 - DESIGN LOCKED: 2026-09-07 (see COURSE-PLAN.md, ground truth).
-- Current location: `C:\Users\admin\projects\goose\goose-academy-artifact` (temporary
-  isolated folder inside goose repo — do not commit to upstream goose).
-- Next action (external): create `C:\Users\admin\projects\goose-academy`, git init,
-  move this folder's contents there. Then delete this folder from the goose repo.
+- Location: `C:\Users\admin\projects\goose-academy` (own repo, git on `main`).
+- **ALL 10 PHASES COMPLETE** — full verification gate is green (2026-09-08).
+
+## Verification gate (run end-to-end, no human needed)
+
+```
+pnpm typecheck && pnpm test && pnpm verify:content && pnpm test:e2e
+```
+
+Plus: `pnpm lint` (0 errors), `pnpm build` (59 SSG pages), and
+`pnpm drift C:\Users\admin\projects\goose` (277 citations, DRIFT OK against the
+local v1.49.0 checkout). Last full-gate run: 2026-09-08 session 1.
 
 ## Decisions (locked)
 
-1. Course: 46 lessons, 4 units, 4 project-exams. Unit 0=15 (Rust), 1=11 (architecture),
-   2=10 (contribution), 3=10 (extensions).
-2. Pedagogy: 30/70 theory-practice. Labs against local goose clone pinned v1.49.0.
-3. App: Next.js + MDX + Tailwind + shiki, LocalStorage, no backend v1.
-4. Grading: pure TS functions; score cap 100; topic-tagged tests; remediation engine.
-5. Docs-first: docs/ = architecture, usecases, business-rules, testcases, milestones,
-   PROGRESS. Traceability: UC -> TC -> test -> code.
-6. Verification gate: `pnpm typecheck && pnpm test && pnpm verify:content && pnpm test:e2e`.
-7. Self-heal protocol adopted (see COURSE-PLAN.md section 4).
+1. Course: 46 lessons (u0=15, u1=11, u2=10, u3=10), 4 exams (25/25/25/40 Qs + mini-lab),
+   30 drills, 78 canonical topics. All schema-valid, all cites verified line-by-line
+   against the real goose clone (workspace version 1.49.0).
+2. App: Next.js 16.3.4 App Router (Turbopack) + @next/mdx + remark-frontmatter +
+   remark-mdx-frontmatter (YAML frontmatter → `frontmatter` export) + remark-gfm;
+   shiki async RSC highlighting; Tailwind v4 + typography; zod; pnpm 12.
+3. Grader: pure TS in `lib/` (grading, remediation, progress, lab, drift, schema,
+   fmparse, content-io, build-attempt). Score cap 100, pass threshold 80,
+   lesson complete = labVerified AND bestScore ≥ 80, exam gated by unit completion.
+4. Content pipeline: `content/manifest.ts` is codegen (scripts/generate-manifest.ts);
+   `scripts/verify-content.ts` validates content + regenerates manifest when stale;
+   `scripts/check-drift.ts` (CLI) validates file:line cites vs a checkout pinned
+   to v1.49.0 (GOOSE_REPO / GOOSE_CONTENT_DIR overridable).
+5. Progress: LocalStorage only (`goose-academy-progress-v1`), no backend v1.
+6. Unit tests carry TC ids (documents/testcases.md) — 43 Vitest tests.
+   E2E: 9 Playwright specs implementing golden flows TC-E2E-01..06 (e2e/flow-*).
+7. Windows-first: verify.ps1 labs are PS 5.1; e2e runs chromium headless-shell.
+
+## Known deviations from COURSE-PLAN (locked, verified against reality)
+
+- Frontmatter is YAML (plan-compatible) — js-yaml in MDX build; linted by
+  scripts/fix-quote-notes.ts once (277 scalar quotes added). CONTENT-GUIDE.md
+  documents MDX attribute constraints discovered during build.
+- Lab verification is learner-declared checkbox (no backend; per BR-04 the app
+  never auto-passes labs). Exam mini-lab verdict IS auto-graded from pasted
+  output via passMarkers.
+- Drift checker runs as CLI/PowerShell (no in-app page), exercised by Playwright
+  flow 05 with a hermetic fixture (portable across machines).
+- e2e webServer runs `pnpm start` against the committed build; `pnpm test:e2e`
+  in CI does not self-build (documented in milestones.md).
+
+## Internals worth knowing (resume aid)
+
+- routes: `/` `/units/[slug]` `/units/[slug]/[lesson]` `/exam/[unit]`
+  `/report/[attempt]` `/drills?topic=`.
+- Page data flows: manifest → server pages → client shells (components/*Client).
+- MDX content serialization: lesson.mdx/lab.md render server-side; only plain
+  LessonMeta/TestItem/verify.ps1 strings cross to client components.
+- Content agents respected CONTENT-GUIDE.md + topics.json; outputs committed in
+  one sweep and verified by verify:content.
 
 ## Open items
 
-- Repo location for app (waiting on user to create goose-academy folder).
-- No code written yet. Phase 1 not started.
+- None blocking. Optional backlog (not required by plan DoD):
+  - prettier setup; CI workflow with the 4-command gate (offline machine);
+  - per-release re-drift task when goose ships 1.50+;
+  - optional DB sync only if multi-device tracking demanded.
 
 ## Resume point (for a fresh session)
 
-1. Read COURSE-PLAN.md fully.
-2. Confirm final app location; if still pending, continue in current artifact folder.
-3. Start Phase 1: scaffold Next.js + MDX + Vitest + Playwright + docs/ skeleton.
-4. Update this file as work progresses (protocol: same-session updates).
+1. Read COURSE-PLAN.md §4-5 and this file.
+2. Run the verification gate (command above) — expect all-green.
+3. To change content: edit under `content/`, then `pnpm verify:content` (it
+   regenerates `content/manifest.ts`), then `pnpm drift <goose-checkout>`.
+4. To change grading rules: edit `lib/*`, update `tests/unit/*` (TC ids still
+   valid), run gate.
+5. Update this file same session (protocol).
 
 ## Log
 
-- 2026-09-07: Design created, iterated (Unit 0 expanded to 15 lessons; Units 1-3
-  deepened to founder-level). Artifact files written.
-- 2026-09-08 (session 1): Phase 1 scaffold. Next.js 16.3.4 (App Router, Turbopack),
-  MDX via @next/mdx + remark-mdx-frontmatter (frontmatter YAML -> `frontmatter`
-  export), shiki async RSC code highlighting, Tailwind v4 + typography, Vitest 3,
-  Playwright (chromium installed), tsx scripts, zod. pnpm 12.3.4 enabled via corepack.
-  Exemplar lesson u0-l01 authored (content/units/u0/l01/*) with cites validated
-  against local clone (ver 1.49.0). Gate scripts wired in package.json.
-  Decisions: lesson route `/units/{unitSlug}/{lessonSlug}`; content ids `un-lnn`;
-  `content/manifest.ts` will be codegen (scripts/generate-manifest.ts); drift checker
-  accepts GOOSE_REPO path env (local clone C:\Users\admin\projects\goose is v1.49.0).
+- 2026-09-07: Design created, iterated (COURSE-PLAN.md). Artifact moved to its own repo.
+- 2026-09-08 (session 1): Full implementation.
+  - Phase 1: scaffold Next 16.3.4, MDX+shiki pipeline validated, exemplar u0-l01.
+  - Phase 2: documents/ spec set authored (architecture, usecases UC-01..12,
+    business-rules BR-01..10, testcases TC-*, milestones).
+  - Phase 3: zod schemas + graders + drift + lab + progress cores; Vitest 43 green.
+  - Phase 7 (pulled early for parallelism): 46 lessons + 4 exams + 30 drills
+    authored by 4 parallel agents + drills agent; frontmatter quotes codemod;
+    verify-content green; drift OK.
+  - Phases 4-6: Quiz/remediation/lesson tabs/lab runner/verify-generator UI;
+    dashboard, unit overview, exam, report, drills pages on LocalStorage.
+  - Phase 8: Playwright 9 specs (flows 1-6 incl. drift fixture) all green.
+  - Phase 9: drift checker CLI + PROGRESS final review (this file).
+  - Phase 10: full gate green end-to-end; SSR smoke across all units 200.
+  - Build repaired MDX attribute bugs in 5 u0 lessons (template-literal attrs)
+    and added remarkably-needed remark-frontmatter to the pipeline.

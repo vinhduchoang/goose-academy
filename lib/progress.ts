@@ -8,15 +8,6 @@ export function createEmptyProgress(): ProgressState {
   return { version: 1, lessons: {}, exams: {}, attempts: {} };
 }
 
-function toAttemptItems(attempt: Attempt) {
-  return attempt.questions.map((q) => ({
-    q: q.q,
-    options: q.options,
-    answer: q.answer,
-    topic: q.topic,
-  }));
-}
-
 export function sanitizeStored(value: string | null): ProgressState {
   if (!value) return createEmptyProgress();
   let parsed: unknown = null;

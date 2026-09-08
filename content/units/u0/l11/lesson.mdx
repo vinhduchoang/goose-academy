@@ -73,18 +73,18 @@ match result {
 The `?` sugar (l13) is just this match, inline.
 
 <Diff
-  oldCode="// TS: exceptions fly; callers may forget to catch
+  oldCode={`// TS: exceptions fly; callers may forget to catch
 function get(path: string): string {
   if (!exists) throw new Error('load failed');
   return fs(path);
-}"
-  newCode="// Rust: failure is part of the return type, checked at call sites
+}`}
+  newCode={`// Rust: failure is part of the return type, checked at call sites
 fn load(path: &str) -> Result<String, ProviderError> {
     match fs::read_to_string(path) {
         Ok(s) => Ok(s),
-        Err(_) => Err(ProviderError::NotImplemented(format!(\"cannot load {path}\"))),
+        Err(_) => Err(ProviderError::NotImplemented(format!("cannot load {path}"))),
     }
-}" />
+}`} />
 
 ## The rich enum: ProviderError
 

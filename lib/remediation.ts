@@ -1,7 +1,10 @@
 import type { Drill, LessonMeta, TopicLessonsIndex } from "@/lib/types";
-import type { GradeResult } from "@/lib/grading";
 
 export const MAX_DRILLS_PER_TOPIC = 3;
+
+export interface ByTopic {
+  [topic: string]: { correct: number; total: number };
+}
 
 export interface WeakTopic {
   topic: string;
@@ -10,7 +13,7 @@ export interface WeakTopic {
   total: number;
 }
 
-export function weakTopics(result: GradeResult): WeakTopic[] {
+export function weakTopics(result: { byTopic: ByTopic }): WeakTopic[] {
   const out: WeakTopic[] = Object.entries(result.byTopic).map(([topic, v]) => ({
     topic,
     correct: v.correct,
@@ -45,7 +48,7 @@ export interface RemediationPlan {
 }
 
 export function remediationPlan(
-  result: GradeResult,
+  result: { byTopic: ByTopic },
   index: TopicLessonsIndex,
   drills: Drill[]
 ): RemediationPlan {

@@ -90,8 +90,9 @@ fn first_of<'a>(x: &'a str, y: &str) -> &'a str { x }  // the honest signature
 ## `'static` — the special one
 
 `&'static str` lives for the whole program: string literals, and compiled-in
-data. Goose's `errors.rs:68` returns `&'static str` from `telemetry_type`
-because those labels point into the binary, never into messages.
+data. Goose's `crates/goose-provider-types/src/errors.rs:68` returns `&'static str`
+from `telemetry_type` because those labels point into the binary, never into
+messages.
 
 <Diff
   oldCode="// TS — no notion of borrow lifetimes; dangling is possible in the wild

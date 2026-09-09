@@ -60,7 +60,7 @@ Goose wires it in `crates/goose/src/context_mgmt/mod.rs`:
 
 ## History search
 
-`crates/goose/src/session/chat_history_search.rs:50` — `ChatHistorySearch` powers "what did I say about X" across *sessions*: it iterates indexed conversations, matches keywords/substrings (`ChatRecallResult` / `ChatRecallMessage` types carry the found snippets + metadata), so the search UI answers with citations instead of hitting a database. It exists because `conversation` blobs are not queryable JSON — search must be a purpose-built pass.
+`crates/goose/src/session/chat_history_search.rs:50` — `ChatHistorySearch` powers "what did I say about X" across *sessions*: it runs sqlx keyword searches against the SQLite session store (`Pool<Sqlite>`, one row per matched message) and returns `ChatRecallResult` / `ChatRecallMessage` types carrying the found snippets + metadata, so the search UI answers with citations. Sessions are SQLite-backed (`SessionStorage`), not JSON blobs — search is a purpose-built SQL pass.
 
 <FounderLens>
 

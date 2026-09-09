@@ -57,8 +57,6 @@ rustc --edition 2021 lab03-board.rs -o lab03-board.exe
 .\lab03-board.exe
 ```
 
-└────────────────────────────────┘
-
 ## Step 3 — Fix planted String/&str mismatches (15 min)
 
 Each snippet below has one planted mistake. Copy the **fixed** function into

@@ -58,7 +58,7 @@ handler's contract (`large_response_handler.rs:5-11`): responses over the
 threshold (200,000 chars by default, overridable via
 `GOOSE_MAX_TOOL_RESPONSE_SIZE`) are spilled to temp files and replaced by a
 pointer message the agent can examine with tools. Note the memory story:
-streaming the spill through `write_large_text_to_file` keeps the giant string
+writing the spill out via `write_large_text_to_file` keeps the giant string
 out of the conversation transcript entirely — context stays small, disk gets
 the bulk.
 

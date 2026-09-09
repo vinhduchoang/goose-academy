@@ -66,8 +66,9 @@ rustc --edition 2021 lab08-borrow.rs -o lab08-borrow.exe
 In `lab08-broken.md` (or notes) record each error code and the `-->` line the
 compiler points at for these three drills — one at a time, then revert:
 
-1. **E0506/E0502 drill** — after `let view = &prompt[..10];` add
-   `prompt.clear();` — the mutation while borrowed.
+1. **E0502 drill** — change `let prompt` to `let mut prompt`, then after
+   `let view = &prompt[..10];` add `prompt.clear();` while `view` is still used
+   below — the mutation while borrowed.
 2. **E0515 drill** — write
 
    ```rust

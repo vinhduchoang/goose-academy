@@ -102,7 +102,7 @@ directions: never serialized, never deserialized. `#[serde(skip)]` on
 pub enum SuccessCheck {
 ```
 
-Adjacent tagging: `{"type": "Shell", "command": "..."}` — the variant name
+Internally tagged: `{"type": "Shell", "command": "..."}` — the variant name
 almost (with `alias = "shell"` exactly) drives the discriminator key. Reminds
 you: serde isn't only structs, it's the enum shapes you learned in l06.
 
@@ -123,9 +123,9 @@ pub struct ModelConfig {
 Why `Serialize` derived but `Deserialize` hand-written on ModelConfig
 (`model.rs:40` vs `:62`)? Because the two directions carry different
 authority: serialization just *reports* the current config; deserialization
-*accepts* external input — and acceptance policy (reject misspelled effort
-suffixes via `normalize_effort_suffix`, ignore `context_limit`) deserves
-reviewable code. Tradeoff: a manual impl is a place where the field list can
+*accepts* external input — and acceptance policy (normalize recognized effort
+suffixes via `normalize_effort_suffix`, keep unknown ones as-is, ignore
+`context_limit`) deserves reviewable code. Tradeoff: a manual impl is a place where the field list can
 drift from the struct — the RawModelConfig mirror struct inside (`model.rs:68`)
 is the discipline that keeps them lockstep. Where it breaks: someone adds a
 field to the struct but forgets the Raw mirror, and the new field silently

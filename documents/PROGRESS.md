@@ -94,3 +94,25 @@ local v1.49.0 checkout). Last full-gate run: 2026-09-08 session 1.
   - Phase 10: full gate green end-to-end; SSR smoke across all units 200.
   - Build repaired MDX attribute bugs in 5 u0 lessons (template-literal attrs)
     and added remarkably-needed remark-frontmatter to the pipeline.
+- 2026-09-10: Full content-correctness audit (second pass, 72 files touched).
+  - Six parallel auditor agents (u0 a/b, u1, u2, u3, exams+drills) checked every
+    Rust code block, prose claim, test.json answer/explanation alignment, lab
+    command, and verify.ps1 against the pinned v1.49.0 checkout.
+  - Fixed: compile-broken or false-content items — u0-l03 immutable push_str,
+    u0-l15/u0-exam tokio missing rt-multi-thread, u1-l05 fabricated Operation
+    trait methods (effect_usage/turn_count), u1-l04/-l07 fake CLI flags
+    (-t Approve, --tools, --test-phases → --params), u2-l06 inverted
+    state-machine gate (agent.rs:1815 returns Ok(None) when NOT enabled),
+    u2-l05/-l07 "mojibake from &str slicing" myth, u1-l10 history search is
+    SQLite not JSON blobs, u1-l08 SearchPathContext fabrication, u3-l01
+    mcpServers key + ~/.agents/plugins path, u3-l02 non-existent
+    goose_provider_types::rmcp path, u3-l03 usage is 5 counts + deltas are
+    incremental, u3-l06 rmcp version/features, u3-l08 commands/ has no
+    consumer, u3-l09 HookEvent is 12 variants + "matcher":"*" invalid regex +
+    exit-code-2 deny channel, u1 exam passMarker "dispatch_tool_call" that the
+    script never prints, dr-22/-24 non-existent APIs.
+  - Explanation-order bugs fixed (u0-l04 Q1/Q5 etc.) to match the one-entry-per-
+    wrong-option contract; E0599 vs E0609 diagnostics corrected; several
+    file:line cites re-verified to exact lines.
+  - Known debt left on purpose (not correctness): all u0/u1/u2 exam answers sit
+    at index 0 (guessable; UI has no shuffle) — rotation deferred, schema-valid.

@@ -19,7 +19,8 @@ Open both files side by side and note in `u3-l04-notes.md`:
   `tool_calls` branch. What three fields does the mapper extract per call?
 - `crates/goose-provider-types/src/formats/anthropic.rs:557` — list the
   content-block types the Anthropic mapper handles, and what it does when a
-  `tool_result` has no preceding `tool_use`.
+  `tool_result` has no preceding `tool_use` (find the placeholder-tool_use
+  branch around anthropic.rs:274-283).
 - What's different about the *id* field between formats? (OpenAI id lives on the
   call; Anthropic ids pair `tool_use_id` on the result.)
 

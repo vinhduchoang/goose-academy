@@ -58,8 +58,10 @@ a 2-message conversation with debug logs and capture the last 40 lines:
 
 ```powershell
 $env:RUST_LOG = "goose=debug"
-cargo run -p goose-cli --bin goose -- run -t Approve
+$env:GOOSE_MODE = "approve"   # or: goose configure -> set goose_mode key
+cargo run -p goose-cli --bin goose -- run "Are you in approve mode?"
 Remove-Item Env:RUST_LOG
+Remove-Item Env:GOOSE_MODE
 ```
 
 If you cannot run it live, skip this step and note *why* (no provider / no

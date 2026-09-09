@@ -11,13 +11,13 @@ topics:
 durationMin: 20
 cites:
   - file: crates/goose-provider-types/src/errors.rs
-    line: 7
+    line: 8
     note: 'pub enum ProviderError — a rich error enum derived from thiserror::Error'
   - file: crates/goose-provider-types/src/errors.rs
-    line: 9
+    line: 10
     note: 'NotConfigured — a unit variant carrying no data'
   - file: crates/goose-provider-types/src/errors.rs
-    line: 44
+    line: 45
     note: 'NotImplemented(String) — a variant carrying a message String'
   - file: crates/goose-provider-types/src/model.rs
     line: 44
@@ -52,7 +52,7 @@ config.context_limit.and_then(validate)    // chain fallible steps
 ## Result: errors as values, not throws
 
 Goose's entire I/O layer returns `Result` — e.g. the provider contract
-`-> Result<MessageStream, ProviderError>` at `base.rs:479`. `Result<T, E>` is:
+`-> Result<MessageStream, ProviderError>` at `base.rs:483`. `Result<T, E>` is:
 
 ```rust
 pub enum Result<T, E> {
@@ -129,7 +129,7 @@ A missing `None` arm is a compile error — you cannot ship the JS bug where
 Why make `ProviderError` take so many shapes (tuples, named structs,
 `Option<Duration>`)? Because retry strategy needs structure: `retry_delay` on
 `RateLimitExceeded` lets goose back off *policy-free* — the provider reports
-facts, the agent loop decides. Tradeoff: 15+ variants means every new failure
+facts, the agent loop decides. Tradeoff: 14 variants means every new failure
 class needs its variant added, and adding variants is a cross-crate change for
 consumers (extensions match exhaustively). Where it breaks: `thiserror`
 Display strings can drift from the variant's intent — that's why the enum

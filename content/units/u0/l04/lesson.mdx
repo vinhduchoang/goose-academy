@@ -94,7 +94,7 @@ JS terms, but zero-overhead and idiomatic.
 ## Early return
 
 `return` exists and is idiomatic for guard clauses (see `char_truncate` above).
-Goose does the same — e.g. `token_counter.rs:53-62` returns the cached count
+Goose does the same — e.g. `token_counter.rs:55-63` returns the cached count
 early *before* doing the expensive tokenizer work:
 
 ```rust

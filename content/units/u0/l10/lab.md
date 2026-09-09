@@ -133,7 +133,7 @@ Confirm `VERIFY PASSED`, then mark the lab verified in the app.
 ## Homework
 
 - Add `pub fn with_max_tokens(mut self, n: i32) -> Self` to your `AgentConfig`
-  parity model (ModelConfig holds `max_tokens: Option<i32>` at `model.rs:45`).
+  parity model (ModelConfig holds `max_tokens: Option<i32>` at `model.rs:46`).
   Add the field, recompile, re-run.
 - In `model.rs`, find `with_canonical_limits`'s body start (`model.rs:120`).
   One sentence in notes: what does the method *do* with `mut self` (mutate a

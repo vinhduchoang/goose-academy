@@ -33,9 +33,11 @@ root `Cargo.toml` at `[workspace.lints.clippy]` (`Cargo.toml:18`). Two lines
 there teach the whole story:
 
 - `string_slice = "warn"` (`Cargo.toml:20`) — slicing `&s[0..1]` is genuinely
-  dangerous. Slicing at a non-boundary panics; slicing into a multibyte char
-  silently produces mojibake. The lint pushes you toward `get(..)` + handling
-  `None`. That's a *correctness* lint the team wants enforced.
+  dangerous: str slicing always panics at a non-character boundary, and once
+  non-ASCII text is in play, a byte index one off — `[0..3]` instead of `[0..4]`
+  on `José` — flips a working label into a runtime panic. The lint pushes you
+  toward `get(..)` + handling `None`. That's a *correctness* lint the team wants
+  enforced.
 - `uninlined_format_args = "allow"` (`Cargo.toml:19`) — the team *decided*
   not to chase stylistic churn. Lint policy is a conversation, not a default.
 
@@ -51,9 +53,10 @@ to get the tree from "clippy complains" to "clippy passes with `-D warnings`".
 1. **Reproduce first**: run `cargo clippy --all-targets` and capture the exact
    lint names (e.g. `clippy::string_slice`) — never fix what you can't see.
 2. **Understand the lint's rationale** before changing code. `string_slice`
-   means "this can panic or corrupt text on non-ASCII input" — the fix usually
-   swaps in `get(..)` or byte-safe indexing with an explicit `Option`/
-   `unwrap_or` decision, which you must make *on purpose*.
+   means "this can panic on non-ASCII input when the byte index splits a
+   multibyte char" — the fix usually swaps in `get(..)` or byte-safe indexing
+   with an explicit `Option`/`unwrap_or` decision, which you must make *on
+   purpose*.
 3. **Fix at the source, not with attributes.** Adding `#[allow(...)]` is a
    last resort that needs a justifying comment — a PR full of allows gets
    rejected because it hides, not fixes.
@@ -74,7 +77,7 @@ let initials = &full_name[0..2];
 let initials = full_name.get(0..2).unwrap_or("??");
 `} />
 
-<Diff title="needless_bool: comparator versus plain boolean" oldCode={`
+<Diff title="bool_comparison: comparator versus plain boolean" oldCode={`
 if is_dirty == true {
     agent.flush();
 }

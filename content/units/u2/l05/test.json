@@ -96,7 +96,7 @@
     ]
   },
   {
-    "q": "Fix this compile error: `error: the non-ASCII text 'José Mouse' was sliced at a non-character boundary [:2]` — emphasis: the program panicked at runtime, not compile time. The intended fix is:",
+    "q": "Fix this compile error: `error: the non-ASCII text 'José Mouse' was sliced at a non-character boundary [:4]` — emphasis: the program panicked at runtime, not compile time. The intended fix is:",
     "options": [
       "Switch the byte slice to .get() with an explicit fallback, deciding what truncated or missing initials mean downstream",
       "Cast full_name to bytes and slice the resulting array",

@@ -66,7 +66,7 @@
   {
     "q": "A minimal `fit_label` must truncate by `chars().take(max_chars)` rather than byte-slicing because:",
     "options": [
-      "Byte-slicing can split a multibyte character: either a panic or invalid UTF-8 labeled output",
+      "Byte-slicing can split a multibyte character and panic — and even at valid boundaries, fixed byte counts cut labels at wrong character widths",
       "Byte slicing is slower by a constant factor",
       "chars().take() allocates less memory than slicing always",
       "Clippy denies all slicing regardless of the index type"

@@ -11,8 +11,8 @@
     "topic": "functions",
     "explanation": [
       "Statements produce no value; only the last expression of the block counts.",
-      "Explicit `return` at the end is legal but unidiomatic; the block works without it.",
-      "The trailing expression is the return value by design."
+      "The trailing expression is the return value by design.",
+      "Explicit `return` at the end is legal but unidiomatic; the block works without it."
     ]
   },
   {
@@ -74,7 +74,7 @@
     "answer": 0,
     "topic": "functions",
     "explanation": [
-      "Rust has no default parameter values; alternatives are Options or builder patterns.",
+      "Type annotations are mandatory for every parameter; inference does not apply there.",
       "Omitting the return type means () — `fn f(x: u8)` is valid and returns unit.",
       "The expression-vs-return description is the core rule from token_counter.rs:53."
     ]

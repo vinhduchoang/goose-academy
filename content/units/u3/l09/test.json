@@ -26,7 +26,7 @@
     "answer": 1,
     "topic": "hooks",
     "explanation": [
-      "Non-zero exits are failure signals, handled by on_failure policy — not the deny verb.",
+      "Exit code 1 is failure (fail-open unless on_failure: block) and exit 2 does deny with a stderr reason — but the block JSON on stdout is the primary deny verb.",
       "stderr is captured for diagnostics, not decisions.",
       "Hooks cannot mutate tool schemas."
     ]

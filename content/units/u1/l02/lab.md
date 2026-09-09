@@ -32,7 +32,7 @@ In the same file find `impl Message` (line 971) and list the constructors you se
 Pick the `ToolRequest` variant. Grep your way through this chain and record
 `file:line` evidence for each hop in `l02-flow.md`:
 
-1. Where is a `ToolCallResult` type alias defined on top of `rmcp::model::ErrorData`?
+1. Where is the `ToolResult` type alias defined on top of `rmcp::model::ErrorData`?
 2. `crates/goose/src/agents/tool_execution.rs` — what does `ToolCallResult` become
    when a tool's result arrives (struct + `From` impl)?
 3. `crates/goose/src/agents/reply_parts.rs:586` — read `categorize_tool_requests`.

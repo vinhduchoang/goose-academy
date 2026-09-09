@@ -13,7 +13,7 @@ cites:
     note: 'pub trait Provider: Send + Sync - the single trait every provider implements'
   - file: crates/goose-provider-types/src/base.rs
     line: 477
-    note: 'async fn stream - the one method you must implement; returns MessageStream'
+    note: 'async fn stream - the only required async method; returns MessageStream'
   - file: crates/goose-provider-types/src/base.rs
     line: 485
     note: 'async fn complete - default implementation that collects the stream for you'

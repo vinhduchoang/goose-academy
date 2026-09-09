@@ -83,7 +83,7 @@
     "q": "In `ToolRequest` (message.rs:133), what type holds the tool's arguments?",
     "options": [
       "String (kept verbatim)",
-      "serde_json::Value",
+      "`Option<JsonObject>` — a JSON map inside `rmcp::model::CallToolRequestParams`",
       "Vec<u8>",
       "A vendor-specific enum"
     ],

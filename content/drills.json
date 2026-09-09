@@ -150,8 +150,8 @@
     "id": "dr-22",
     "topic": "token-counter",
     "title": "Find the counting heuristics",
-    "prompt": "Open crates/goose/src/token_counter.rs. Find struct TokenCounter, its count_tokens method, and get_tokenizer. Answer: what tokenizer type does get_tokenizer return (what library type is CoreBPE), when does the counter fall back to an estimation instead of an exact tokenization, and what unit does the estimates approximate (chars per token)? Cite the fallback function by name.",
-    "hint": "Read the region around get_tokenizer and the struct fields. The offline fallback uses a heuristic — the classic chars-to-tokens ratio. Then find which public methods (count_tokens_for_tools, count_chat_tokens, count_everything) reuse that same core logic."
+    "prompt": "Open crates/goose/src/token_counter.rs. Find struct TokenCounter, its count_tokens method, and get_tokenizer. Answer: what tokenizer type does get_tokenizer return (what library type is CoreBPE), why the counter never falls back to a heuristic (what happens instead on init failure), and why the estimates it produces for prompts that aren't exactly tokenizable are still called 'count' rather than 'estimate' in the public API (find the doc comment on count_chat_tokens). Cite the fallback function usage in usage_estimator.rs by name.",
+    "hint": "Read the region around get_tokenizer and the struct fields. There is no chars-per-token heuristic in this crate - find what creation actually does (tiktoken download? panic?). Then see how goose-provider usage gaps get filled by another module that calls count_chat_tokens."
   },
   {
     "id": "dr-23",
@@ -164,7 +164,7 @@
     "id": "dr-24",
     "topic": "state-machine",
     "title": "Ops as data, not loop code",
-    "prompt": "The state-machine rewrite models each agent step as an Operation (see crates/goose-agent/src/operation.rs around line 74) producing GooseEffect values (crates/goose/src/agents/state_machine/effects.rs). Explain in 3-4 sentences: what Operation::should_apply and Operation::applied exist for, why emitting effects as DATA makes the machine testable without running a live model, and give one concrete example of a regression test (from state_machine/tests/) that this design made possible.",
+    "prompt": "The state-machine rewrite models each agent step as an Operation (see crates/goose-agent/src/operation.rs around line 74) producing GooseEffect values (crates/goose/src/agents/state_machine/effects.rs). Explain in 3-4 sentences: what Operation::run returning OperationResult::NotApplicable (and the Inference trait's applies method) exist for, why emitting effects as DATA makes the machine testable without running a live model, and give one concrete example of a regression test (from state_machine/tests/) that this design made possible.",
     "hint": "Look at the GooseEffect enum variants (Conversation, RecordUsage, SetRecipe...). Data effects can be compared with assert_eq! in tests. Find a test file in state_machine/tests and name the category of scenario it locks in."
   },
   {

@@ -25,9 +25,10 @@ edition = "2021"
 async-trait = "0.1"
 futures = "0.3"
 goose-provider-types = { path = "C:/Users/admin/projects/goose/crates/goose-provider-types" }
+rmcp = { version = "3", default-features = false }
 
 [dev-dependencies]
-# stay empty for now - the test uses the runtime the library already pulls
+# the test below will need tokio macros; add it when you reach Step 4
 ```
 
 ## Step 2 — Read the contract you must satisfy (10 min)
@@ -72,7 +73,7 @@ impl Provider for EchoProvider {
         _model_config: &goose_provider_types::model::ModelConfig,
         _system: &str,
         messages: &[Message],
-        _tools: &[goose_provider_types::rmcp::model::Tool],
+        _tools: &[rmcp::model::Tool],
     ) -> Result<MessageStream, ProviderError> {
         // 1. find the last user message text (MessageContentBlock::Text)
         // 2. echo it back as an assistant Message
@@ -93,8 +94,9 @@ no network, no model, still a real `Provider`.
 Add a test module inside `lib.rs` (or `tests/`) with `#[tokio::test]` that:
 
 1. builds `EchoProvider`,
-2. builds a user `Message` — see how `TestProvider`'s test makes one at
-   `crates/goose/src/providers/testprovider.rs:248`,
+2. builds a user `Message` — for the shape, see the test fake's assistant
+   message at `crates/goose/src/providers/testprovider.rs:247-253` (swap
+   `Role::Assistant` for `Role::User`),
 3. awaits `provider.complete(&model_config, system, messages, &[])`,
 4. asserts the reply text equals the input text and `usage.output_tokens` is
    `Some(_)`.

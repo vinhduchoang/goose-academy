@@ -97,10 +97,11 @@ match content {
         req.tool_meta = None;
     }
     MessageContent::ToolResponse(ToolResponse {
-        tool_result: Ok(ref mut result @ CallToolResult { .. }),
+        tool_result: Ok(ref mut result @ CallToolResult { is_error: Some(false), .. }),
         ..
     }) => {
         result.is_error = None;
+        result.result_type = None;
     }
     _ => {}
 }

@@ -59,7 +59,7 @@
     "topic": "structs",
     "explanation": [
       "Methods use dot syntax; associated functions need Type::fn.",
-      "Unqualified calls require the type to be in scope contextually — not the case here.",
+      "`new(...)` alone never resolves; associated functions always need the `Type::` prefix (or `Self::` inside the impl).",
       "That turbofish syntax constrains generics; the string literal argument is not how it's used."
     ]
   },
@@ -96,7 +96,7 @@
     ]
   },
   {
-    "q": "Fix this compile error: `error[E0599]: no method named `model` found for struct `AgentConfig`` — you wrote `config.model;`. The likely cause:",
+    "q": "Fix this compile error: `error[E0609]: no field named `model` on type `AgentConfig`` — you wrote `config.model;`. The likely cause:",
     "options": [
       "The field is declared private elsewhere, or the real field name differs (e.g. model_name)",
       "Methods must be called with `->`",
@@ -107,7 +107,7 @@
     "topic": "structs",
     "explanation": [
       "Rust uses dot for both fields and methods; there's no arrow syntax.",
-      "E0599 occurs at the call/access site regardless of construction.",
+      "The error is a name/visibility problem at the access site, not a missing constructor.",
       "Field access needs no import if visibility allows."
     ]
   }

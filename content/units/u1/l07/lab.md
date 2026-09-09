@@ -29,7 +29,7 @@ structure.)
 
 ## Step 3 — Predict the buckets (15 min)
 
-For the same tool call (`platform__shell`, `args: ["ls", "-la"]`), fill this
+For the same tool call (`developer__shell`, `args: ["ls", "-la"]`), fill this
 table in `l07-tool-trace.md`; every cell needs the deciding code evidence:
 
 | Mode | Inspection outcome (who returns what) | Bucket | Next stop |

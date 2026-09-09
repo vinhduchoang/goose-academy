@@ -24,8 +24,10 @@ notes with line evidence:
 1. `machine.rs:34` — what are the two `Step` variants, and which one ends the
    pipeline each round?
 2. `machine.rs:158` — what does `run` loop over, and what decides to stop?
-3. `operation.rs:74` — list the `Operation` trait's method signatures; which
-   method tells the machine whether the step counts against the turn count?
+3. `operation.rs:74` — list the `Operation` trait's method signatures. Turn
+   counting is NOT one of them: `assistant_turn_count` (`operation.rs:43`) and
+   `ends_turn` (`operation.rs:59`) are free functions. Which op uses
+   `assistant_turn_count` to count turns (check `ops_maxturns.rs`)?
 
 ## Step 3 — Build the mapping table (20 min)
 

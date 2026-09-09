@@ -34,7 +34,7 @@ $manifestOk = $false
 if (Test-Path $manifestPath) {
     try {
         $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-        $manifestOk = ($manifest.name -match '^[a-z0-9][a-z0-9\-\.]*[a-z0-9]$') -and `
+        $manifestOk = ($manifest.name -cmatch '^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?$') -and `
                       ($manifest.name.Length -ge 1) -and ($manifest.name.Length -le 64) -and `
                       ($manifest.name -notmatch '\-\-|\.\.')
     } catch { $manifestOk = $false }

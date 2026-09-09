@@ -40,7 +40,7 @@ Every tool call in goose crosses the same five checkpoints, and each checkpoint 
 
 ## The posture: GooseMode
 
-The pipeline's behavior is set by one enum — `GooseMode` at `crates/goose-provider-types/src/goose_mode.rs:22`: `Auto` (approve everything), `Approve` (ask before every call), `SmartApprove` (ask only when inspectors flag it), `Chat` (no tools at all). The mode lives in `AgentConfig` and mirrors into the Session; the CLI surfaces it as `-t/--tools` mode toggling.
+The pipeline's behavior is set by one enum — `GooseMode` at `crates/goose-provider-types/src/goose_mode.rs:22`: `Auto` (approve everything), `Approve` (ask before every call), `SmartApprove` (ask only when inspectors flag it), `Chat` (no tools at all). The mode lives in `AgentConfig` and mirrors into the Session; the CLI resolves it from config (`goose configure` → `goose_mode` key, or the `GOOSE_MODE` env var), not from a command-line flag.
 
 ## The checkpoints, in order
 

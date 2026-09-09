@@ -98,7 +98,7 @@
   {
     "q": "Fix this: your stream yields `Ok((Some(msg), Some(usage)))` for every chunk, but the agent shows repeated duplicated text. The correct change is:",
     "options": [
-      "Emit cumulative text per delta (like collect_stream's coalescing contract) OR emit only the final full message",
+      "Emit incremental (non-cumulative) text per delta — collect_stream appends consecutive Text blocks — or emit only one final full message",
       "Change role to User",
       "Add retry_config",
       "Set time_to_first_token_ms to 0"

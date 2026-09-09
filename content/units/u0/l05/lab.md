@@ -102,7 +102,8 @@ save the error text into `lab05-notes.md`:
 - Change one `if` expression branch to a different type (e.g. `if total_chars > 40
   { "long" } else { 99 }`).
 
-you fix. The error is the lesson: which line does rustc point at (`-->` arrow)?
+Then run rustc and note, in `lab05-notes.md`, which line rustc points at
+(`-->` arrow). The error is the lesson.
 
 ## Step 4 — Find the filter_map in real goose (10 min)
 

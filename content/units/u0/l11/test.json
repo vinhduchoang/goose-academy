@@ -96,7 +96,7 @@
     ]
   },
   {
-    "q": "Fix this compile error: `error[E0599]: no method named `temperature` found for struct `ModelRequest` in a function returning Result — you wrote `req.temperature` where req is `Ok(ModelRequest)`. The fix:",
+    "q": "Fix this compile error: `error[E0609]: no field `temperature` on type `Result<ModelRequest, ...>`` — you wrote `req.temperature` where req is `Ok(ModelRequest)`. The fix:",
     "options": [
       "Extract the value first: handle Ok(req) => req.temperature and the Err arm",
       "Rename the field to temperature()",

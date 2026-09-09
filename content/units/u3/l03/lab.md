@@ -24,15 +24,12 @@ async fn stream( ... ) -> Result<MessageStream, ProviderError> {
     let started = Instant::now();
     let words: Vec<&str> = reply.split_whitespace().collect();
 
-    let mut partial = String::new();
     let chunks: Vec<Result<(Option<Message>, Option<ProviderUsage>), ProviderError>> =
         words.iter().map(|w| {
-            partial.push_str(w);
-            partial.push(' ');
             let delta = Message::new(
                 rmcp::model::Role::Assistant,
                 chrono::Utc::now().timestamp(),
-                vec![MessageContentBlock::text(partial.clone())],
+                vec![MessageContentBlock::text(format!("{w} "))],
             );
             Ok((Some(delta), None))
         }).collect();
@@ -43,8 +40,10 @@ async fn stream( ... ) -> Result<MessageStream, ProviderError> {
 }
 ```
 
-Rules: each delta emits the cumulative text (mirroring how `collect_stream`
-coalesces); the *last* chunk is `(None, Some(usage))`.
+Rules: each delta emits its own incremental text — never the accumulated text
+so far, because `collect_stream` (and goose's `Conversation::push`) *appends*
+consecutive `Text` blocks; a provider that re-sends the cumulative text would
+double it ("hello" + "hello world"). The *last* chunk is `(None, Some(usage))`.
 
 ## Step 2 — Chat-shaped token counting (10 min)
 

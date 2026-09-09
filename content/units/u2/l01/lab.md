@@ -50,8 +50,8 @@ exact section order:
 - **Describe the bug** — clear and concise
 - **To Reproduce** — numbered steps (include a minimal recipe snippet)
 - **Expected behavior** vs **Actual behavior**
-- **Environment** — goose version (check `git describe --tags`), OS, install
-  method
+- **Environment** — goose version (an exact `git rev-parse HEAD` or the
+  version from `cargo metadata`), OS, install method
 - Mention which diagnostics you would attach (`bug_report.md:14` asks for the
   diagnostics zip — say where you generated it from)
 

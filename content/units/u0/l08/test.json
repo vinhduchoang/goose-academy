@@ -85,7 +85,7 @@
       "While it exists, no other borrow of the same data may coexist — one writer or many readers",
       "It must be the last borrow ever taken on the value",
       "It can only be held in a single thread forever",
-      "The compiler takes exclusive access for the borrow's scope, then requires it to end before other access"
+      "The compiler waits at runtime until concurrent readers finish, then lets the write proceed"
     ],
     "answer": 0,
     "topic": "borrowing",

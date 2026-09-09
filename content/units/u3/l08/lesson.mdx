@@ -47,8 +47,10 @@ A repo is an Open-Plugins-format plugin if it has any `COMPONENT_MARKERS`
 (`crates/goose/src/plugins/formats/open_plugins.rs:21`):
 
 - `hooks/hooks.json` — lifecycle hooks (l09's subject)
-- `commands/` — markdown prompt files; each becomes a **slash command** whose
-  body is the prompt template, filename = command name
+- `commands/` — markdown prompt files. This is an Open-Plugins install marker:
+  in goose v1.49.0 no runtime consumer turns `commands/*.md` into anything yet
+  (builtins, recipes, and *skills* are what light up as slash commands) —
+  other Open-Plugins hosts read them
 - `agents/` — bundled sub-agent definitions
 - `.mcp.json` — bundled MCP servers
 
@@ -62,11 +64,12 @@ and atomically renames into place. Auto-update checks run every 24h.
 ## Skills become slash commands
 
 A skill is a `SKILL.md` with frontmatter — `SkillFrontmatter`
-(`crates/goose/src/skills/mod.rs:33`) requires at least `name` and
-`description`, everything else goes into a free-form `metadata` bag per the
-agentskills.io spec. `discover_enabled_plugins`
+(`crates/goose/src/skills/mod.rs:33`) where `name` and `description` are the
+significant fields (both `serde(default)` — when absent, name is inferred from
+the skill's directory and description is empty); everything else goes into a
+free-form `metadata` bag per the agentskills.io spec. `discover_enabled_plugins`
 (`crates/goose/src/plugins/discovery.rs:52`) walks user
-(`~/.config/goose/plugins`) and project (`.agents/plugins`) roots; plugin
+(`~/.agents/plugins`) and project (`.agents/plugins`) roots; plugin
 skills are surfaced **namespaced** (`plugin-name:skill-name`) so two plugins
 can each ship a `deploy` skill without collision. `skill_slash_command.rs:8`
 turns every discovered skill into a slash command listing; merge order is

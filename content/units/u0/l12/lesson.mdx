@@ -52,9 +52,10 @@ pub trait Provider: Send + Sync {
 ```
 
 `Provider: Send + Sync` is a *supertrait bound*: implementors must be safe to
-send across threads — non-negotiable for an agent that hugs HTTP pools. The
-`#[async_trait]` macro exists because async fn in traits had compiler gaps;
-goose leans on it everywhere (`testprovider.rs:167`).
+send across threads — non-negotiable for an agent that hugs HTTP pools. Goose
+uses the `#[async_trait]` macro because it works with trait objects: native
+async fns in traits make the trait non-dyn-compatible, and goose runs providers
+as `Arc<dyn Provider>` throughout (`providers/init.rs`).
 
 ## Trait objects: `Box<dyn Provider>`
 

@@ -29,7 +29,7 @@ In `$env:LAB01`, create `plugin.json`:
   "name": "u3-team-notes",
   "version": "0.1.0",
   "skills": { "skills": ["skills"] },
-  "mcpServers": { "mcpServers": {} }
+  "mcpServers": { "notes": { "command": "node", "args": ["server.js"] } }
 }
 ```
 
@@ -39,7 +39,7 @@ Check your name against the rules at
 ```powershell
 $name = "u3-team-notes"
 if ($name.Length -lt 1 -or $name.Length -gt 64) { "FAIL length" }
-elseif ($name -notmatch '^[a-z0-9][a-z0-9\-\.]*[a-z0-9]$') { "FAIL charset" }
+elseif ($name -cnotmatch '^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?$') { "FAIL charset" }
 elseif ($name -match '\-\-|\.\.') { "FAIL consecutive" }
 else { "PASS: $name obeys validate_plugin_name" }
 ```
@@ -73,7 +73,7 @@ Compare it field-by-field with the `Stdio` variant at
 
 ## Step 4 — Reproduce a real validation error (10 min)
 
-`crates/goose/src/agents/validate_extensions.rs:43` contains this exact message:
+`crates/goose/src/agents/validate_extensions.rs:48` contains this exact message:
 
 ```
 has "url" field but streamable_http expects "uri" — did you mean "uri"?

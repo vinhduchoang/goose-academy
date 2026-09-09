@@ -26,7 +26,7 @@
     "answer": 0,
     "topic": "strings",
     "explanation": [
-      "Owned Strings are exactly how fopen/keep values are returned; &str return would force borrowing someone else's buffer permanently.",
+      "Owned Strings are exactly how freshly built values are returned; an &str return would force borrowing someone else's buffer permanently.",
       "Return types can be &str, String, or anything else — no such rule.",
       "The name is a lookup key that goes out of scope after rendering; it is not stored in the result."
     ]
@@ -82,7 +82,7 @@
   {
     "q": "Fix this compile error: `error[E0308]: mismatched types — expected String, found &str`. `fn greeting() -> String { \"hello goose\" }`",
     "options": [
-      "Change the return type to &str, since a string literal is borrowed data",
+      "Change the return type to &'static str, since a string literal lives for the whole program's life",
       "Wrap the body in String::new(...)",
       "Add `let mut` before the string literal",
       "Change the literal to a heap type by writing String::\"hello goose\""

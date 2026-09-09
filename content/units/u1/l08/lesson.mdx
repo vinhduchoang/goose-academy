@@ -25,7 +25,7 @@ cites:
     note: 'pub fn validate_bundled_extensions(path) -> Result<String> — startup validation of the bundled set'
   - file: crates/goose/src/agents/extension_malware_check.rs
     line: 76
-    note: 'pub async fn deny_if_malicious(cmd, ...) — the malware gate before server spawn'
+    note: 'pub async fn deny_if_malicious(name, ecosystem, version) — the malware gate before server spawn'
   - file: crates/goose/src/agents/extension_manager.rs
     line: 192
     note: 'pub struct ExtensionManager — the live registry: tools, resources, prompts, UI hook'
@@ -43,7 +43,7 @@ Everything you can call a "tool" in goose — developer shell, memory, computerc
 Two sources feed the initial config list:
 
 - **Configured extensions:** `crates/goose/src/config/extensions.rs` — `resolve_extensions_for_new_session` (`extensions.rs:301`) is the discovery entry point for a session: it merges enabled bundled extensions with user/declaratively configured entries (`get_enabled_extensions` above it).
-- **Where binaries come from:** `crates/goose/src/config/search_path.rs:11` — `SearchPaths` resolves an extension name to an executable: local build paths first, then `npm`-installed packages, honoring isolation settings via `SearchPathContext`. Extensions are just programs on your PATH/NPM — discovery is resolution, not enumeration.
+- **Where binaries come from:** `crates/goose/src/config/search_path.rs:11` — `SearchPaths` resolves an extension name to an executable: local build paths first, then `npm`-installed packages (via `which`, see the `resolve` impl). Extensions are just programs on your PATH/NPM — discovery is resolution, not enumeration.
 
 The canonical shape of one entry is `ExtensionConfig` at `crates/goose/src/agents/extension.rs:161` — a serde-tagged enum: `stdio` (command + args + env), `sse` (HTTP endpoint), `builtin` (in-process server). This is the exact file you'll hand-write manifests against in Unit 3.
 
@@ -51,7 +51,7 @@ The canonical shape of one entry is `ExtensionConfig` at `crates/goose/src/agent
 
 - **Startup validation:** `crates/goose/src/agents/validate_extensions.rs:17` — `validate_bundled_extensions(path)` sanity-checks the bundled extension set at startup (directories exist, manifests parse, no obviously corrupt state).
 - **Env hygiene:** `extension.rs`'s `validate()` rejects extension env maps that try to overwrite disallowed keys — an extension cannot silently re-point `HOME` or the API-key env of another extension. (Read `DISALLOWED_KEYS`.)
-- **Malware gate:** `crates/goose/src/agents/extension_malware_check.rs:76` — `deny_if_malicious(cmd, config, ...)` runs OSV-style checks before spawning a stdio server; a suspicious command signature aborts server creation with `ExtensionError`. This is validation-at-spawn, not just at install.
+- **Malware gate:** `crates/goose/src/agents/extension_malware_check.rs:76` — `deny_if_malicious(name, ecosystem, version)` (and the `deny_if_malicious_cmd_args(cmd, args)` helper at `:44`) runs OSV-style checks before spawning a stdio server; a suspicious command signature aborts server creation with `ExtensionError`. This is validation-at-spawn, not just at install.
 
 ## Stage 3 — The manager
 

@@ -33,6 +33,8 @@ request:
 ```rust
 for tool in tools {
     func_token_count += FUNC_INIT;
+    let name = &tool.name;
+    let description = &tool.description.as_deref().unwrap_or_default();
     let line = format!("{}:{}", name, description);
     func_token_count += self.count_tokens(&line);
     // ... nested loops for properties and enum values

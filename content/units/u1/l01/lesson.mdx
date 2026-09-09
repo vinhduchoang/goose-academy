@@ -14,7 +14,7 @@ cites:
     line: 2
     note: 'workspace members — crates/* plus vendor/v8 kept only for cargo-machete'
   - file: crates/goose-sdk-types/Cargo.toml
-    line: 10
+    line: 9
     note: 'description = "Shared types for the goose Development Kit (GDK)" — the crate''s whole reason to exist'
   - file: crates/goose-provider-types/Cargo.toml
     line: 2
@@ -56,8 +56,8 @@ Each package entry carries `dependencies: [{ name, req, path, … }]`. Entries w
 
 `goose-sdk-types` and `goose-provider-types` exist for exactly one reason: **extension authors must compile without dragging in the engine**. Look at the actual manifests:
 
-- `crates/goose-sdk-types/Cargo.toml:10` — "Shared types for the goose Development Kit (GDK)". Dependencies: `agent-client-protocol`, `serde`, `schemars` — nothing from the goose repo.
-- `crates/goose-provider-types/Cargo.toml:2` — the package that defines `Provider`, `Message`, `ModelConfig`, `formats`, `canonical`. Its dependencies are `rmcp`, `serde`, `tokio` — again nothing that pulls goose core.
+- `crates/goose-sdk-types/Cargo.toml:9` — "Shared types for the goose Development Kit (GDK)". Dependencies: e.g. `agent-client-protocol`, `serde`, `schemars` — nothing from the goose repo.
+- `crates/goose-provider-types/Cargo.toml:2` — the package that defines `Provider`, `Message`, `ModelConfig`, `formats`, `canonical`. Its dependencies are ~20 external crates (e.g. `rmcp`, `serde`, `tokio`, `chrono`) — again nothing that pulls goose core.
 
 The engine then *re-exports up the stack*: `crates/goose-providers/src/lib.rs:8` re-exports the type crate wholesale, and `crates/goose/src/lib.rs:15` consumes `goose_providers::conversation` as its own module. Providers depend on types, goose depends on providers, the CLI depends on goose. Dependencies point *up* (extension-facing types at the bottom of the stack), never down. An extension crate that only depends on `goose-provider-types` cannot accidentally see `goose` — the compiler enforces the boundary.
 
@@ -65,7 +65,7 @@ The engine then *re-exports up the stack*: `crates/goose-providers/src/lib.rs:8`
 
 **Problem solved:** before the split, extension authors imported goose (and its entire tree of deps) just to get `Message` and `Provider`. The type-only crates make the SDK contract a *layered* API: small deps at the bottom, heavy engine at the top.
 
-**Tradeoff:** splitting types out means the datamodel can't privately reach back into goose (e.g. `Message` can't hold a goose-only `Session` handle — look: it doesn't; it holds `rmcp::model::Role` in `crates/goose-provider-types/src/conversation/message.rs:962`). Goose-side enrichments must live in goose and reference the shared types, not extend them. You pay re-export boilerplate (`crates/goose/src/lib.rs:15`) to keep the boundary.
+**Tradeoff:** splitting types out means the datamodel can't privately reach back into goose (e.g. `Message` can't hold a goose-only `Session` handle — look: it doesn't; it holds `rmcp::model::Role` in `crates/goose-provider-types/src/conversation/message.rs:964`). Goose-side enrichments must live in goose and reference the shared types, not extend them. You pay re-export boilerplate (`crates/goose/src/lib.rs:15`) to keep the boundary.
 
 **Where it's heading:** the trend has been *more* splitting — `goose-context-management` was carved out this cycle to share compaction across languages; `goose-agent` now holds the state machine. Expect the provider trait surface to keep migrating into `goose-provider-types`.
 

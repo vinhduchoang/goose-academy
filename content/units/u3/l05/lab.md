@@ -101,7 +101,7 @@ Map your `ECHO_API_KEY` onto the real secret model. Write a short
 - `configured: true`, `has_secret: true`, `can_delete: true` — and one sentence
   per field explaining what a stale value would do in the UI
 
-Cite the enum at `crates/goose/src/providers/provider_secrets.rs:22` and the
+Cite the enum at `crates/goose/src/providers/provider_secrets.rs:18` and the
 struct at line 32.
 
 ## Step 4 — OAuth threat-model notes (10 min)

@@ -64,19 +64,19 @@
     ]
   },
   {
-    "q": "A provider whose token refreshes via OAuth should advertise which `can_configure` value?",
+    "q": "A `ProviderSecret` whose token refreshes via OAuth sets `can_configure: true`. Which companion field names the renewal flow?",
     "options": [
-      "None - secrets cannot be reconfigured",
-      "The flow that renews the token",
-      "Always `false`",
-      "The user's raw refresh token"
+      "`configure_provider` — e.g. `oauth_github`",
+      "`has_secret`",
+      "`storage: ProviderCache`",
+      "`status: Expired`"
     ],
-    "answer": 1,
-    "topic": "config-system",
+    "answer": 0,
+    "topic": "provider-auth",
     "explanation": [
-      "Reconfiguring is the point of can_configure for renewable credentials.",
-      "False would block renewal UI.",
-      "Raw tokens are never passed back through configuration metadata."
+      "has_secret only says a value is stored, not how to renew it.",
+      "storage picks the backend (OS store vs cache), not the flow.",
+      "status reports validity; the flow is separate configuration metadata."
     ]
   },
   {

@@ -63,8 +63,9 @@ manages as a `ProviderSecret` (line 32): `storage` distinguishes the OS
 secret store (`secret_store:`-prefixed ids, line 13) from a simpler cache;
 `status` is Valid/Expired/Unknown (derived from `expires_at`); `configured` and
 `has_secret` separate "user configured it" from "secret value actually stored".
-Providers whose tokens expire (OAuth refresh tokens) mark `can_configure` with
-the flow that renews them.
+Providers whose tokens expire (OAuth refresh tokens) mark `can_configure: true`
+and point `configure_provider` at the flow that renews them — the two fields
+together ("renewable?" + "via which flow") drive the UI's reauth affordance.
 
 ## OAuth flows
 

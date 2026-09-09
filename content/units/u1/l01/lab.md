@@ -65,8 +65,8 @@ In `l01-workspace-notes.md`, answer with file evidence:
 1. Could `goose-provider-types` depend on `goose` today? Read
    `crates/goose-provider-types/Cargo.toml` — what would break architecturally if
    a contributor added such an edge and CI merged it anyway?
-2. `vendor/v8` is listed in the root `Cargo.toml:2` members — why is it there?
-   (Read the comment on that line.) What does that tell you about tools that
+2. `vendor/v8` is listed in the root `Cargo.toml:5` members — why is it there?
+   (Read the comment right above it.) What does that tell you about tools that
    inspect the workspace by globbing `crates/*`?
 
 ## Verification

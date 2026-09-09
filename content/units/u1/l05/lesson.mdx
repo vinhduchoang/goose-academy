@@ -19,7 +19,7 @@ cites:
     note: 'pub struct StateMachine<''a, S, E> with new() + step() + run() — the executor loop'
   - file: crates/goose-agent/src/operation.rs
     line: 74
-    note: 'pub trait Operation<S, E>: Send + Sync — apply/effect_usage/ends_turn/turn_count contracts'
+    note: 'pub trait Operation<S, E>: Send + Sync — name/cancel/run_command/inference_tools/prompt_parts/moim_parts/run contracts'
   - file: crates/goose-agent/src/operation.rs
     line: 200
     note: 'pub enum ConversationEffect — the typed effects operations emit (AppendMessage, ReplaceConversation, ...)'
@@ -43,7 +43,7 @@ cites:
 
 ## The three crate-level pieces
 
-1. **`goose-agent`** (no external deps beyond tokio/tracing): owns the executor and the abstractions. `crates/goose-agent/src/machine.rs:48` defines `StateMachine<'a, S, E>`; `machine.rs:34` defines `Step` — a machine is `Vec<Step>`, where each `Step::Operation(op)` runs an `Operation` or `Step::Inference(inf)` runs the model. `run()` (`machine.rs:158`) loops over steps until one reports the turn ended.
+1. **`goose-agent`** (GDK crate; deps stay small — tokio, tracing, rmcp, no goose core): owns the executor and the abstractions. `crates/goose-agent/src/machine.rs:48` defines `StateMachine<'a, S, E>`; `machine.rs:34` defines `Step` — a machine is `Vec<Step>`, where each `Step::Operation(op)` runs an `Operation` or `Step::Inference(inf)` runs the model. `run()` (`machine.rs:158`) loops over steps until one reports the turn ended.
 2. **`goose`'s `agents/state_machine/`**: defines the *concrete* operations (the `ops_*` files from `mod.rs:8`) and the effect vocabulary (`effects.rs:8` — `GooseEffect` wraps `ConversationEffect` with goose-level additions like `SetRecipe` and `RecordUsage`).
 3. **The re-export layer** (`state_machine/mod.rs:38`): goose re-publishes `goose_agent::machine::*` and `goose_agent::operation::*` so the rest of the codebase sees one import surface compatible with the legacy `super::SupervisorAgent`-era naming.
 
@@ -63,7 +63,7 @@ EntryHookOperation -> SlashCommandOperation -> SteerOperation -> MaxTurnsOperati
 -> RetryOperation -> StopHookOperation -> ExitOnErrorOperation -> Step::Inference
 ```
 
-Each `ops_*.rs` file is one of these. `ops_toolcalling.rs:734` is `ToolExecutionOperation` — the state-machine twin of `dispatch_tool_call` — and `ops_compaction.rs:47` is compaction. Every run ends with the inference step; the machine loops until a step reports `ended` (e.g. no more tool requests).
+Each `ops_*.rs` file is one of these. `ops_toolcalling.rs:734` is the `Operation` impl for `ToolExecutionOperation` (struct at `ops_toolcalling.rs:315`) — the state-machine twin of `dispatch_tool_call` — and `ops_compaction.rs:47` is compaction. Every run ends with the inference step; the machine loops until a step reports `ended` (e.g. no more tool requests).
 
 ## How a turn flows
 

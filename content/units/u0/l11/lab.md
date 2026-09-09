@@ -98,7 +98,7 @@ In `lab11-notes.md`:
 
 1. What are `complete`'s two return arms in practice (the `.await?` and the
    final expression)?
-2. `collect_stream` (same file, around line 440) returns `Result<(Message,
+2. `collect_stream` (same file, around line 365) returns `Result<(Message,
    usage), ProviderError>` — find its signature and write down what `Ok` and
    `Err` carry.
 3. Why is "error as value" the right model for a streaming provider — what

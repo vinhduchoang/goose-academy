@@ -10,8 +10,9 @@ Open `crates/goose/src/logging.rs` in the clone. From `build_env_filter`
 
 1. What is the exact default directive list?
 2. What happens to your `RUST_LOG` when it contains an invalid directive like
-   `goose=definitely-not-a-level`? (See the sibling logic documented at
-   `otel/otlp.rs:565` and its tests.)
+   `goose=definitely-not-a-level`? (Read `build_env_filter` itself — the invalid
+   value is discarded and the defaults apply. Contrast, optional: the OTel
+   exporter at `otel/otlp.rs:565` falls back to `OTEL_LOG_LEVEL` instead.)
 
 Start `u2-l03-notes.md` in `$env:U2LABS` with these two answers.
 
@@ -29,7 +30,14 @@ cargo add tracing tracing-subscriber  # tiny; seconds to compile
 Replace `src/main.rs` with: an `AppError` enum, a `build_label(parts: &[&str])`
 function that **panics when the joined label exceeds 80 chars**, and a
 `run()` that calls `build_label` with a 3-segment input that overflows. No
-`#[instrument]` anywhere yet.
+`#[instrument]` anywhere yet. Make `main` install the subscriber with an env
+filter, so `RUST_LOG` actually reaches it:
+
+```rust
+tracing_subscriber::fmt()
+    .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_default())
+    .init();
+```
 
 Run `cargo run` — you get a panic with a line number only.
 

@@ -16,19 +16,19 @@
     ]
   },
   {
-    "q": "What does legacy `agent.rs:1815` do when the state machine IS enabled?",
+    "q": "What does `resume_state_machine_turn` (agent.rs:1810) do when the state machine IS enabled?",
     "options": [
-      "Returns None and lets the state-machine universe handle the turn",
+      "Passes the `if !enabled()` gate and proceeds to build and return the resumed state-machine stream",
+      "Returns `Ok(None)` immediately so the legacy loop handles the turn",
       "Runs both loops concurrently and merges their outputs",
-      "Panics to force the caller to choose",
-      "Silently runs legacy anyway for backward compatibility"
+      "Panics to force the caller to choose"
     ],
     "answer": 0,
     "topic": "state-machine",
     "explanation": [
-      "Parallel execution doesn't happen — the universes are mutually exclusive.",
-      "Panicking would crash sessions; graceful handoff is the design.",
-      "Running legacy anyway would defeat the migration entirely."
+      "The early-return fires only when the machine is NOT enabled (`if !enabled() { return Ok(None) }`); with the flag on the function continues to the stream.",
+      "Parallel execution doesn't happen — the paths are mutually exclusive alternatives.",
+      "Panicking would crash sessions; the gate is a graceful control-flow choice."
     ]
   },
   {

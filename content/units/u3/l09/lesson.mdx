@@ -10,7 +10,7 @@ durationMin: 20
 cites:
   - file: crates/goose/src/hooks/mod.rs
     line: 55
-    note: 'pub enum HookEvent - PreToolUse … Stop, the 13 lifecycle events hooks can subscribe to'
+    note: 'pub enum HookEvent - PreToolUse … Stop, the 12 lifecycle events hooks can subscribe to'
   - file: crates/goose/src/hooks/mod.rs
     line: 44
     note: 'DEFAULT_HOOK_TIMEOUT_SECS = 30 - a hung hook cannot hang the session forever'
@@ -19,7 +19,7 @@ cites:
     note: 'PreToolUseResult''s decision is \"allow\" or \"deny\" - no third value'
   - file: crates/goose/src/hooks/mod.rs
     line: 703
-    note: 'emit_blocking - blocking hooks; stdout JSON {"decision":"block","reason":...} is the protocol'
+    note: 'emit_blocking - blocking hooks; deny via exit code 2 (stderr reason) or stdout {"decision":"block","reason":...}'
   - file: crates/goose/src/permission/mod.rs
     line: 5
     note: 'pub use goose_providers::permission::{Permission, PermissionConfirmation} - the shared permission types'
@@ -59,9 +59,10 @@ and there are two answer grammars:
 - **blocking** events (`PreToolUse` and friends, `emit_blocking` at line 703):
   stdout must be `{"decision":"block","reason":"…"}` or
   `{"decision":"allow"}`; kind of negative-claim — empty stdout with exit 0
-  means *allow*. Failures fail **open** unless the hook sets
-  `"on_failure": "block"`. A hook that hangs dies alone at
-  `DEFAULT_HOOK_TIMEOUT_SECS` (line 44).
+  means *allow*. A hook can also deny by exiting with status code 2 and the
+  reason on stderr (documented at `hooks/mod.rs:700-702`). Failures fail
+  **open** unless the hook sets `"on_failure": "block"`. A hook that hangs
+  dies alone at `DEFAULT_HOOK_TIMEOUT_SECS` (line 44).
 
 ## Permission rules: rememberable decisions
 
@@ -79,10 +80,12 @@ structured scoring tool.
 
 A subagent is a *nested agent run*: `run_subagent_task`
 (`crates/goose/src/agents/subagent_handler.rs:47`) takes `SubagentRunParams`
-(line 36) — config, recipe, `TaskConfig`, `max_turns`, cancellation token,
-notification channel — and returns a string result to the parent loop.
-Plugins can bundle `agents/` definitions (an Open-Plugins component marker);
-the parent agent only sees the final output, keeping its own context small.
+(line 36) — config, recipe, `TaskConfig`, `return_last_only`, session id,
+cancellation token, notification channel — and returns a string result to the
+parent loop. The turn budget lives on the `TaskConfig` itself
+(`max_turns: Option<usize>` at `subagent_task_config.rs:19`). Plugins can
+bundle `agents/` definitions (an Open-Plugins component marker); the parent
+agent only sees the final output, keeping its own context small.
 
 <FounderLens>
 

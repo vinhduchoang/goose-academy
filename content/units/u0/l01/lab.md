@@ -14,7 +14,7 @@ rustc --version
 ```
 
 Expected: a `rustup` line, a `cargo` line matching the rustc family
-(1.94.x for goose v1.49.0), and `rustc` itself.
+(1.96.x — the `rust-toolchain.toml` pin for goose v1.49.0), and `rustc` itself.
 
 ## Step 2 — Build goose (10-25 min, coffee time)
 

@@ -56,13 +56,13 @@ The installable-plugin system reads a tiny JSON manifest at one of
 `MANIFESTS` paths — `.goose-plugin/plugin.json`, `.plugin/plugin.json`,
 `plugin.json` (`crates/goose/src/plugins/formats/open_plugins.rs:14`). The whole
 schema is `OpenPluginsManifest` (line 24): `name`, `version`, `skills`,
-`mcpServices` — plus *component markers* `hooks/hooks.json`, `commands`, `agents`,
+`mcpServers` — plus *component markers* `hooks/hooks.json`, `commands`, `agents`,
 `.mcp.json` that make a repo installable even without a manifest.
 
 ## Discovery
 
 `discover_enabled_plugins` (`crates/goose/src/plugins/discovery.rs:52`) walks two
-roots — the user plugins dir (`plugin_install_dir()`, i.e. `~/.config/goose/plugins`)
+roots — the user plugins dir (`plugin_install_dir()`, i.e. `~/.agents/plugins`)
 and a project-scoped `<project>/.agents/plugins` — filters by `enabledPlugins` /
 `disabledPlugins` settings files and config.yaml, and de-duplicates by name.
 
@@ -78,8 +78,8 @@ Every artifact crosses a validation gate before it runs:
    (`crates/goose/src/plugins/mcp_servers.rs:171`) rejects malformed `.mcp.json`
    entries (bad `cmd`, escapes outside the plugin dir).
 3. **Bundled-extension gate** — `validate_bundled_extensions`
-   (`crates/goose/src/agents/validate_extensions.rs:17`) walks
-   `crates/goose/src/agents/snapshots/`-style bundled JSON and emits
+   (`crates/goose/src/agents/validate_extensions.rs:17`) walks the
+   `bundled-extensions.json` set that ships with the desktop build and emits
    *actionable* errors: a `streamable_http` entry with `url` instead of `uri`
    gets `did you mean "uri"?`; a `stdio` entry without `cmd` is rejected outright.
 4. **Malware check** — before goose spawns anything via `npx`/`uvx`,

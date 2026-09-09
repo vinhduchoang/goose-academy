@@ -26,7 +26,7 @@
     "answer": 0,
     "topic": "state-machine",
     "explanation": [
-      "goose's state_machine module defines ops, but modular.rs re-exports the executor from goose_agent.",
+      "goose's state_machine module defines ops, but mod.rs re-exports the executor from goose_agent.",
       "goose-mcp only hosts built-in MCP servers.",
       "rmcp is the MCP protocol implementation."
     ]
@@ -96,19 +96,19 @@
     ]
   },
   {
-    "q": "The `Operation` trait requires several methods. Which one lets the machine decide whether a step consumes a turn?",
+    "q": "Where does the state machine count turns?",
     "options": [
-      "`effect_usage` / `turn_count` — describing whether applied effects count against the turn budget",
-      "`apply` always increments",
-      "`ends_turn` deletes the session",
-      "The machine never counts turns"
+      "Via the free function `assistant_turn_count` (operation.rs:43), used by MaxTurnsOperation to compare against the turn budget",
+      "As a method every Operation must implement",
+      "Only in the legacy loop — the machine has no turn limit",
+      "In the provider, via the API's usage field"
     ],
     "answer": 0,
     "topic": "state-machine",
     "explanation": [
-      "Turn counting is per-step metadata, not automatic for every apply.",
-      "ends_turn reports turn completion; it does not delete sessions.",
-      "MaxTurnsOperation exists precisely because turns are counted."
+      "The Operation trait requires run/cancel/run_command/etc.; assistant_turn_count and ends_turn are free functions.",
+      "The machine enforces max_turns through MaxTurnsOperation (same fallback DEFAULT_MAX_TURNS).",
+      "Provider usage reports tokens, not turns."
     ]
   }
 ]

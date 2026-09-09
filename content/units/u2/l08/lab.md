@@ -27,7 +27,7 @@ goose run --recipe goose-self-test.yaml --help # confirm the flag resolves
 Now attempt the real run with a phase parameter to keep it bounded:
 
 ```powershell
-goose run --recipe goose-self-test.yaml --test-phases basic
+goose run --recipe goose-self-test.yaml --params test_phases=basic
 ```
 
 Three honest outcomes — record whichever happens in `u2-l08-runlog.md`:
@@ -72,7 +72,7 @@ feature, in `u2-l08-runlog.md`:
 - unit/integration tests run;
 - recipe updated (file + which activity line);
 - rebuild command;
-- `goose run --recipe goose-self-test.yaml --test-phases <yours>` + observed
+- `goose run --recipe goose-self-test.yaml --params test_phases=<yours>` + observed
   verdict.
 
 ## Verification

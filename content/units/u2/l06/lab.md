@@ -9,8 +9,10 @@ In the clone:
 
 1. `crates/goose/src/agents/state_machine/mod.rs:73` — what values does
    `enabled()` accept? List all four accepted spellings.
-2. `crates/goose/src/agents/agent.rs:1815` — what does the legacy path do
-   when the state machine is enabled? Where else in `agent.rs` does
+2. `crates/goose/src/agents/agent.rs:1815` — what does
+   `resume_state_machine_turn` do when `enabled()` is false? What does it
+   return instead when the machine IS enabled? Then find the real reply handoff
+   (around `agent.rs:2096`) — where else in `agent.rs` does
    `state_machine::enabled()` appear (grep)?
 3. `crates/goose/src/agents/state_machine/tests/agent_reply.rs:133` and
    `agent.rs:5333` — which env-var values do these tests pin, via which

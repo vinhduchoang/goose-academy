@@ -14,7 +14,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $plugin "scripts"), (Join-P
 
 Read and note in `u3-l09-notes.md`:
 
-- `crates/goose/src/hooks/mod.rs:55` — list all 13 `HookEvent` variants.
+- `crates/goose/src/hooks/mod.rs:55` — list all 12 `HookEvent` variants.
 - `crates/goose/src/hooks/mod.rs:246` — the two allowed `PreToolUseResult`
   decisions.
 - `crates/goose/src/hooks/mod.rs:703` — quote the two stdout JSON shapes for
@@ -38,7 +38,7 @@ Replace `hooks/hooks.json`:
     ],
     "SessionStart": [
       {
-        "matcher": "*",
+        "matcher": ".*",
         "hooks": [
           { "type": "command", "command": "${PLUGIN_ROOT}/scripts/on-start.bat" }
         ]
@@ -72,8 +72,9 @@ echo {"banner":"greeter plugin active"}
 exit /b 0
 ```
 
-In notes: why must a deny decision *still exit 0*? (Read the failure-mode
-sentences around `emit_blocking`; note what `on_failure: "block"` changes.)
+In notes: why does a stdout-JSON deny pair with exit 0 — and what does exit
+code 2 achieve instead? (Read the doc comment above `emit_blocking` around
+`hooks/mod.rs:700-702`; also note what `on_failure: "block"` changes.)
 
 ## Step 3 — Permission rule sketch with remember-scoping (10 min)
 
@@ -116,8 +117,9 @@ Answer in three bullet groups only.
 
 In `u3-l09-notes.md` answer: which fields of `SubagentRunParams`
 (`crates/goose/src/agents/subagent_handler.rs:36`) would carry this definition
-as a `TaskConfig`, which field bounds `max_turns`, and what the parent agent
-receives from `run_subagent_task` (line 47).
+as a `TaskConfig`, where the turn budget field `max_turns` actually lives
+(`crates/goose/src/agents/subagent_task_config.rs:19`), and what the parent
+agent receives from `run_subagent_task` (line 47).
 
 ## Verification
 

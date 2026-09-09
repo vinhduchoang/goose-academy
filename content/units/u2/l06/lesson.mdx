@@ -48,9 +48,13 @@ parity.
 var and accepts `"1" | "true" | "TRUE" | "yes"` — anything else means the
 legacy loop. Every behavior exists twice until the migration finishes.
 
-The dispatch is viscerally visible in `agent.rs:1815`: the legacy loop's
-resume path literally returns `None` when the state machine is enabled — the
-two universes share the type but never run together.
+The dispatch is viscerally visible in two spots. `agent.rs:1810` —
+`resume_state_machine_turn` — returns `Ok(None)` at `agent.rs:1815` when the
+state machine is *not* enabled (`if !enabled()`), so resuming a machine turn
+only proceeds under its own flag; and the loop-level handoff is at
+`agent.rs:2096`, where `reply_impl` routes the turn to
+`reply_with_state_machine` when `enabled()` is on. The two universes share
+types but never run together.
 
 ## Parity discipline in practice
 

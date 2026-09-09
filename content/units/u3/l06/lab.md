@@ -35,7 +35,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-rmcp = { version = "1", features = ["server", "macros"] }
+rmcp = { version = "3", default-features = false, features = ["server", "macros", "transport-io", "schemars"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
@@ -81,6 +81,7 @@ impl NotesServer {
         todo!("implement")
     }
 
+    // no-parameter tool: if rmcp 3 rejects `()`, use a zero-field params struct
     #[tool(name = "list_notes", description = "List all saved notes ...")]
     pub async fn list_notes(
         &self,

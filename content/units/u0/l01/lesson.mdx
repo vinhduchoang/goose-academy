@@ -25,9 +25,10 @@ cites:
 
 # Toolchain: rustup, cargo, a multi-crate workspace
 
-Goose is one big Rust workspace — ~15 crates under `crates/*`, one binary (`goose`),
-two debug/release paths, and a set of conventions encoded in tooling. Before you can
-read it like a maintainer, you need the toolchain to speak the same dialect.
+Goose is one big Rust workspace — ~15 crates under `crates/*`, one main binary
+(`goose` via `goose-cli`), two debug/release paths, and a set of conventions encoded
+in tooling. Before you can read it like a maintainer, you need the toolchain to speak
+the same dialect.
 
 ## The two tools you will use every single day
 
@@ -78,7 +79,7 @@ workspace members). Expected output (partial):
 
 | Crate | Purpose |
 |-------|---------|
-| `goose` | core agent library — Session, Agent, providers, tools (now `goose-agent`) |
+| `goose` | core agent library — Session, Agent, providers, tools (the GDK's `goose-agent` crate holds the newer agent-loop internals) |
 | `goose-cli` | the `goose` binary: CLI + TUI + server modes |
 | `goose-mcp` | MCP protocol glue (rmcp-based) |
 | `goose-sdk-types` | type-only SDK contracts for extensions |

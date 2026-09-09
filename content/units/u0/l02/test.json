@@ -75,7 +75,7 @@
     "topic": "data-types",
     "explanation": [
       "dbg! prints file:line and the expression's value; the plain 4 println is not what dbg! emits.",
-      "dbg! unwraps to its argument in debug builds; it always prints when hit, even in release it prints (only disabled with certain lints off).",
+      "dbg! prints in both debug and release builds whenever it is hit; a plain 4 println is not what it emits.",
       "Wrapping arbitrary expressions is exactly what dbg! exists for."
     ]
   },

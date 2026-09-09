@@ -93,7 +93,7 @@ part of a Vec (`&sequence[..]`).
 ## String methods worth knowing now
 
 ```rust
-let p = String::from(" You are goose. ");
+let mut p = String::from(" You are goose. ");
 p.trim()          // -> &str "You are goose."
 p.replace('g', 'G')   // -> String
 p.push_str(" v1.49");  // only String can grow — &str cannot

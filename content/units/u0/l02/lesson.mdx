@@ -62,7 +62,7 @@ without calling the model.
 
 ```rust
 let max_cache = 1_024usize;   // explicit annotation
-let mut counter = 0;          // inferred: will be usize
+let mut counter = 0;          // inferred: i32 — undecorated integer literals default to i32
 counter += 7;
 ```
 
@@ -92,8 +92,9 @@ The second `tokens` *shadows* the first. Old one disappears; new one may even
 have a different type. Goose uses this pattern constantly for defaults:
 
 ```rust
-let count = tokens.len();          // usize
-let count = count.max(1);          // usize again... this time from .max()
+let tokens = vec![2048, 4096]; // pretend: cached counts from the counter
+let count = tokens.len();      // usize
+let count = count.max(1);      // usize again... this time from .max()
 ```
 
 Shadowing is a reset button, not a mutation — no `let tokens = tokens + 16;` with
@@ -117,9 +118,9 @@ unreliable for *estimated* future cost; the cache-aware counter
 (`token_counter.rs`) turns the conversation into numbers *before* the API call.
 `usize` is the honest type here: these values index real memory. Tradeoff: on a
 32-bit target `usize` is smaller — irrelevant for goose, which is 64-bit only.
-Where it breaks: nobody annotates the constant, so a future editor who changes
-`FUNC_INIT` to 7.5 gets a type error they must consciously resolve. That friction
-is the point.
+Where it breaks: `FUNC_INIT` is explicitly annotated `usize` (as you saw), so a
+future editor who changes it to 7.5 gets a type error they must consciously
+resolve. That friction is the point.
 
 </FounderLens>
 

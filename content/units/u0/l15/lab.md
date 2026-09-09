@@ -13,7 +13,7 @@ Open `crates/goose/src/providers/testprovider.rs` and read lines 40-69
    who needs to touch it (record mode vs replay mode)?
 2. Why does `hash_input` run *outside* the lock — what would go wrong if hashing
    ran while holding `records.lock()`?
-3. How does `stream_from_single_message` (base.rs:457-460) turn one `Message`
+3. How does `stream_from_single_message` (base.rs:457-459) turn one `Message`
    into a `MessageStream`?
 
 Also skim `crates/goose/src/agents/types.rs:7` — one sentence decoding the
@@ -24,7 +24,7 @@ double-Arc type.
 ```powershell
 cargo new lab15-fakeprovider
 Set-Location lab15-fakeprovider
-cargo add tokio --features macros,rt,time
+cargo add tokio --features macros,rt,rt-multi-thread,time
 cargo add futures
 cargo add async-trait
 cargo add anyhow
@@ -223,7 +223,7 @@ In `lab15-notes.md` build the mapping table:
 |---|---|
 | `trait MiniProvider` | `Provider` at `goose-provider-types/src/base.rs:464` |
 | `type MessageStream` | `MessageStream` at `base.rs:327` |
-| `Arc<Mutex<HashMap<..>>>` | `records` at `crates/goose/src/providers/testprovider.rs:42` |
+| `Arc<Mutex<HashMap<..>>>` | `records` at `crates/goose/src/providers/testprovider.rs:41` |
 | `stream::unfold` yielding `Ok((msg, usage))` | `stream_from_single_message` at `base.rs:457` |
 
 ## Verification

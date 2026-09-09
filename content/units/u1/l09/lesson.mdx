@@ -63,7 +63,7 @@ Every client handshake negotiates from this constant. When the ecosystem bumps t
 Two files suffice to write an MCP server in goose-mcp:
 
 1. `crates/goose-mcp/src/mcp_server_runner.rs:39` — `serve<S: rmcp::ServerHandler>(server)` publishes any handler over `stdio()`; every built-in (computercontroller, memory, tutorial, …) uses it.
-2. `crates/goose-mcp/src/lib.rs:3` — the `rmcp::{ServerHandler, ServiceExt}` imports: goose's servers are just `#[tool_impl]`-annotated rmcp handlers. The `BUILTIN_EXTENSIONS` static (same lib.rs, line 57) maps extension names to `SpawnServerFn`s that run these handlers in-process — that's why "builtin" extensions cost no extra process.
+2. `crates/goose-mcp/src/lib.rs:3` — the `rmcp::{ServerHandler, ServiceExt}` imports: goose's servers are just `#[tool]`/`#[tool_handler]`-annotated rmcp handlers. The `BUILTIN_EXTENSIONS` static (same lib.rs, line 57) maps extension names to `SpawnServerFn`s that run these handlers in-process — that's why "builtin" extensions cost no extra process.
 
 ## Schema normalization: the dirty-real-world layer
 

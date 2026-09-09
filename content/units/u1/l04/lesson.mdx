@@ -12,7 +12,7 @@ durationMin: 20
 cites:
   - file: crates/goose/src/agents/agent.rs
     line: 287
-    note: 'pub struct Agent — fields include provider, extension_manager, hook_manager, goose_mode, tool_inspection_manager'
+    note: 'pub struct Agent — fields include provider, extension_manager, hook_manager, current_goose_mode, tool_inspection_manager'
   - file: crates/goose/src/agents/agent.rs
     line: 855
     note: 'async fn prepare_reply_context — assembles conversation, tools, system prompt, model config before a turn'
@@ -69,7 +69,7 @@ Why a hand-rolled counter + async_stream instead of a `for` loop? The loop must 
 
 **Problem solved:** one coroutine-shaped function must produce a live event stream, interleave async provider calls with tool execution and hooks, and stay cancellable — the UI shows tokens as they arrive, and ctrl-c must interrupt mid-tool-run. The legacy answer is an async generator with an inline mutable state bag: `turns_taken`, `last_assistant_text`, `compaction_attempts`, `goal_check_pending`, and a dozen more flags all live at `agent.rs:2514+`.
 
-**Tradeoff:** all control flow is invisible — you cannot unit-test "what happens after the second tool call" without running a model. That's exactly what `crates/goose/src/agents/state_machine/tests/` exists for in the new path. The legacy loop is also where the most per-turn state accumulates, which is why new features (steer queues, moim, tool-pair compaction) kept patching it: `reply_internal` is 6378 lines of file, most of it loop.
+**Tradeoff:** all control flow is invisible — you cannot unit-test "what happens after the second tool call" without running a model. That's exactly what `crates/goose/src/agents/state_machine/tests/` exists for in the new path. The legacy loop is also where the most per-turn state accumulates, which is why new features (steer queues, moim, tool-pair compaction) kept patching it: `agent.rs` is 6378 lines of file, most of it this loop.
 
 **Where it's heading:** the state machine (`GOOSE_STATE_MACHINE=1`, next lesson) is growing to full parity; the legacy loop is being drained feature by feature. When you fix a bug, you often fix it *twice* — until parity is declared complete.
 

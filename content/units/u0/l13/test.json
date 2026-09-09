@@ -82,7 +82,7 @@
   {
     "q": "`io_error` flowing through a chain of `?` in an anyhow function gains what goose values?",
     "options": [
-      "Accumulated context: each layer's message wraps the layer below's error",
+      "Accumulated context: each layer can attach its own message via .context() as the error climbs",
       "A permanent stack of all heap allocations",
       "Automatic email alerts",
       "Nothing — errors are strings and stay flat"

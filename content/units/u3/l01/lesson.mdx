@@ -59,6 +59,18 @@ schema is `OpenPluginsManifest` (line 24): `name`, `version`, `skills`,
 `mcpServers` — plus *component markers* `hooks/hooks.json`, `commands`, `agents`,
 `.mcp.json` that make a repo installable even without a manifest.
 
+```json
+{
+  "name": "my-workflow-kit",   // validate_plugin_name: 1-64 chars, lowercase+dash+dot
+  "version": "1.0.0",
+  "skills": ["pagespeed", "oncall"]
+}
+```
+
+The name rules are the security surface, not cosmetics:
+`validate_plugin_name` (`open_plugins.rs:206`) rejects `--`, `..`, and
+uppercase — each rule blocks a known path-trick or shadowing attack.
+
 ## Discovery
 
 `discover_enabled_plugins` (`crates/goose/src/plugins/discovery.rs:52`) walks two
@@ -87,6 +99,15 @@ Every artifact crosses a validation gate before it runs:
    parses the package token, queries OSV (`DEFAULT_OSV_ENDPOINT` at line 365), and
    **blocks** any package carrying a `MAL-*` advisory. If OSV is unreachable it
    **fails open** and logs.
+
+Every stage, as one line of defense after another:
+
+<Mermaid chart={`flowchart LR
+  M["manifest + .mcp.json"] --> V1["validate_plugin_name: length, case, no path tricks"]
+  V1 --> V2["validate_mcp_servers_manifest_value: cmd + escapes"]
+  V2 --> V3["validate_bundled_extensions: actionable hints for the bundled set"]
+  V3 --> V4["deny_if_malicious: OSV query before npx/uvx spawn"]
+  V4 --> R["discovered, enabled, live tool"]`} title="Four validation stages between 'file on disk' and 'tool the agent may call'" />
 
 <FounderLens>
 

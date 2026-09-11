@@ -47,6 +47,22 @@ Two sources feed the initial config list:
 
 The canonical shape of one entry is `ExtensionConfig` at `crates/goose/src/agents/extension.rs:161` — a serde-tagged enum: `stdio` (command + args + env), `sse` (HTTP endpoint), `builtin` (in-process server). This is the exact file you'll hand-write manifests against in Unit 3.
 
+```yaml
+# a stdio extension manifest — the Stdio variant of ExtensionConfig,
+# verified field names (extension.rs:161): name, cmd, args, envs, ...
+type: stdio
+name: my-tool-server
+cmd: npx
+args: [ "-y", "@example/my-tool-server" ]
+envs:
+  MY_TOKEN: read-from-secrets               # alias: env (older manifests)
+available_tools: [ search, fetch ]
+```
+
+`envs` is validated at load — an extension that tries to overwrite
+disallowed keys (`DISALLOWED_KEYS` in `extension.rs`) is rejected before it
+ever spawns.
+
 ## Stage 2 — Validation
 
 - **Startup validation:** `crates/goose/src/agents/validate_extensions.rs:17` — `validate_bundled_extensions(path)` sanity-checks the bundled extension set at startup (directories exist, manifests parse, no obviously corrupt state).
@@ -64,6 +80,13 @@ The canonical shape of one entry is `ExtensionConfig` at `crates/goose/src/agent
 ## The whole arc in one sentence
 
 resolve (config+search paths) → parse/validate (manifests, env keys, malware) → register (ExtensionManager spawns + namespaces) → load (Agent toolset) → dispatch (l07).
+
+<Mermaid chart={`flowchart LR
+  D["resolve_extensions_for_new_session: builtin + configured lists"] --> V1["validate: manifest parse + DISALLOWED_KEYS env checks"]
+  V1 --> V2["deny_if_malicious: OSV-style gate before spawn"]
+  V2 --> M["ExtensionManager: spawn stdio/SSE servers, namespace tools"]
+  M --> L["Agent::add_extension: tools wired into the agent"]
+  L --> P["l07 pipeline: every tool now crosses the five checkpoints"]`} title="Discovery → validation → manager → live tool: the arc your Unit 3 manifests must survive" />
 
 <FounderLens>
 

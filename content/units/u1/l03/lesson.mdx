@@ -53,6 +53,14 @@ The comment on `config_paths` is the whole design: config is a *list of files*, 
 
 The singleton accessor is `Config::global()` at `base.rs:424` — it memoizes a `OnceCell<Config>` bootstrapped from the default paths. Code anywhere in the process asks `Config::global().get_param::<T>("KEY")` and gets back the *merged* value. That's the "follow one key into runtime" axis: a key's value is decided once at process start, then read via typed accessors.
 
+<Mermaid chart={`flowchart TB
+  S["system config — admins own it"] --> M["merged view: later files win, writes go to the last file"]
+  U["user config — you own it"] --> M
+  E["GOOSE_ADDITIONAL_CONFIG_FILES — extra layers"] --> M
+  ENV["env vars — highest precedence"] --> M
+  M --> C["Config::global() singleton"]
+  C --> R["get_param::<T>(KEY) at every consumer"]`} title="Config is a merge pipeline, not a file" />
+
 ## Keys are normalized, values are typed
 
 The API docs on `base.rs:126` state keys are written snake_case and converted to UPPERCASE internally. `get_param::<u32>` / `get_param::<f64>` / `get_param::<String>` make type mismatches a runtime `ConfigError`, not a silent coercion. Grep the repo for `get_param::` to catalogue the full key surface: `GOOSE_MAX_TURNS`, `GOOSE_THINKING_EFFORT`, `GOOSE_AUTO_COMPACT_THRESHOLD`, `GOOSE_TOOL_CALL_CUTOFF`, `GOOSE_STOP_HOOK_BLOCK_CAP` and more — each one lives where its consumer lives.
@@ -69,6 +77,19 @@ Run this trace yourself:
    ```
 2. **Cross the parity line:** the state-machine path reads the *same* key at `agent.rs:1630` before constructing `MaxTurnsOperation` — but through a different fallback chain (`DEFAULT_MAX_TURNS` at `agent.rs:90`).
 3. **The lesson:** one key, two consumers, different code paths. If you change how MAX_TURNS is enforced in one path, the parity test in Unit 2 will catch the other path — that's why the key lives in `Config`, not in either loop.
+
+Try the tracing trick yourself — set the key via the env layer and watch the
+merged value move:
+
+```powershell
+$env:GOOSE_MAX_TURNS = "5"    # env beats the file layers
+goose                         # interactive: run a helper-calling task, watch it stop at 5 turns
+Remove-Item Env:\GOOSE_MAX_TURNS   # back to file/config defaults
+```
+
+Same drill for any key you grepped: env var on → merged value changes;
+env var off → the file layers decide. Provenance is the missing piece goose
+admits in the FounderLens below.
 
 ## Migrations: the honest upgrade path
 

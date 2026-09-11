@@ -76,6 +76,31 @@ Two files suffice to write an MCP server in goose-mcp:
 
 Normalization happens *before* the schema reaches a provider (toolshim especially: models with weak schema support). If two extension servers hand out colliding or malformed schemas for the same tool name, this module is where goose decides what the model actually sees.
 
+The before/after of one real repair (`inline_refs`, `tool_schema_normalize.rs:271`):
+
+```json
+// published by a server — $ref indirection some providers cannot resolve
+{ "type": "object",
+  "properties": { "path": { "$ref": "#/defs/Path" } } }
+
+// what normalization hands the weak provider — refs inlined, semantics kept
+{ "type": "object",
+  "properties": { "path": { "type": "string" } } }
+```
+
+Each `dialect_*` predicate in the module documents which ecosystem needs
+which repair — the file is a museum of ecosystem quirks, and every branch is
+a compatibility bet.
+
+<Mermaid chart={`flowchart TB
+  G["goose agent (mcp_client.rs)"] --> C["McpClient: capabilities, interception, cancellation"]
+  C --> R["rmcp 3.0.0: the protocol implementation"]
+  R --> S1["stdio server (extension spawn)"]
+  R --> S2["SSE endpoint (long-lived HTTP)"]
+  B["goose-mcp built-in servers (in-process)"] --> R
+  C --> N["tool_schema_normalize: repair before providers see tools"]
+  N --> P["provider formats (l06)"]`} title="One client seam, many transports, one normalization chokepoint" />
+
 <FounderLens>
 
 **Problem solved:** one agent, many tool ecosystems, every one speaking MCP "a little differently". The client seam (`McpClientTrait`) + protocol pin + normalization layer turn ecosystem chaos into one uniform `Tool` stream for the pipeline (l07) and the provider formats (l06).

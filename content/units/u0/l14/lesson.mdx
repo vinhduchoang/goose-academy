@@ -92,6 +92,35 @@ HTTP headers ride beside JSON, never inside it (secrets!). `skip` covers both
 directions: never serialized, never deserialized. `#[serde(skip)]` on
 `context_limit` (`model.rs:43`) is the same idea for a *computed* field.
 
+## The whole cycle in one snippet
+
+The l14 lab story — add a field, keep old JSON valid — compiles down to this:
+
+```rust
+#[derive(Debug, Serialize, Deserialize)]
+struct ProviderPrefs {
+    name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<i32>,      // NEW field — old JSON without it still parses
+}
+
+let prefs = ProviderPrefs { name: "openai".into(), max_tokens: None };
+let wire = serde_json::to_string(&prefs).unwrap();    // {"name":"openai"}
+//                                                   ^ max_tokens omitted, not null
+
+let old_shape = r#"{"name":"openai"}"#;               // pre-upgrade config file
+let back: ProviderPrefs = serde_json::from_str(old_shape).unwrap();
+assert_eq!(back.max_tokens, None);                    // default kicked in
+```
+
+`to_string` honors `skip_serializing_if`; `from_str` honors `default`. The same
+attributes you saw on goose's `ModelConfig` at `model.rs:50` — identical shape,
+identical reading.
+
+<Mermaid chart={`flowchart LR
+  J["JSON in (maybe missing new keys)"] -->|"Deserialize: default fills gaps"| C["Rust struct"]
+  C -->|"Serialize: skip_serializing_if drops Nones"| W["JSON out (lean, backwards compatible)"]`} title="Serde attributes are the migration policy, expressed declaratively" />
+
 ## Enums: `tag`
 
 `crates/goose/src/agents/types.rs:59-60`:

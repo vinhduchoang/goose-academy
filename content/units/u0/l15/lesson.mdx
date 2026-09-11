@@ -127,6 +127,38 @@ A single-message "stream" is literally one future converted:
 let stream = futures::stream::once(async move { Ok((Some(message), Some(usage))) });
 ```
 
+Consuming it is an `.await` loop — the same shape you'll write in today's
+lab:
+
+```rust
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let stream = my_provider.stream(&config, system, &messages, &tools).await?;
+    futures::pin_mut!(stream);                       // pin before polling
+    while let Some(chunk) = futures::StreamExt::next(&mut stream).await {
+        let (msg, usage) = chunk?;                   // Result inside the stream
+        println!("chunk: {:?}, usage: {:?}", msg, usage);
+    }
+    Ok(())
+}
+```
+
+`pin_mut!` keeps the stream at a fixed address while polls happen (the `Pin`
+you saw in the type); `StreamExt::next` is the async `.next()` — one chunk
+per iteration.
+
+<Mermaid chart={`sequenceDiagram
+  participant M as fn main (tokio)
+  participant P as provider.stream
+  participant S as MessageStream (chunks)
+  M->>P: .await
+  Note over M: thread is free during the wait, not blocked
+  P-->>M: MessageStream (pinned)
+  loop one chunk at a time
+    M->>S: .next().await
+    S-->>M: (Option Message, Option ProviderUsage) or Err
+  end`} title="Async is cooperative: awaiting frees the thread, streams deliver many values" />
+
 <FounderLens>
 
 Why `Arc<Mutex<...>>` and not a messages-channel for TestProvider's records?

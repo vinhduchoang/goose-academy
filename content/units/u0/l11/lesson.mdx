@@ -49,6 +49,20 @@ config.context_limit.map(|n| n / 1_000)   // transform inside
 config.context_limit.and_then(validate)    // chain fallible steps
 ```
 
+Chaining keeps the `Option` un-materialized until you actually need a value:
+
+```rust
+let kilos = config.context_limit
+    .map(|n| n / 1_000)            // Some(128) or None
+    .filter(|k| *k > 0)            // only report positive windows
+    .unwrap_or(128);               // fallback: the canonical default
+println!("context window: {kilos}k tokens");
+```
+
+Nothing above can hit the `undefined is not a function` class of bug: every
+intermediate is still an `Option`, and the fallback appears exactly once, at
+the end.
+
 ## Result: errors as values, not throws
 
 Goose's entire I/O layer returns `Result` — e.g. the provider contract
@@ -71,6 +85,16 @@ match result {
 ```
 
 The `?` sugar (l13) is just this match, inline.
+
+Failure flows through code as *data*, so policy can branch on it:
+
+<Mermaid chart={`flowchart TB
+  A["load(path) -> Result"] --> B{"match result"}
+  B -->|"Ok(s)"| C["use the string"]
+  B -->|"Err(e)"| D["match on the provider error variant"]
+  D --> E["RateLimitExceeded: wait retry_delay"]
+  D --> F["ServerError: retry"]
+  D --> G["NotConfigured: give up, tell the user"]`} title="Errors as values: one return path, structured policies" />
 
 <Diff
   oldCode={`// TS: exceptions fly; callers may forget to catch

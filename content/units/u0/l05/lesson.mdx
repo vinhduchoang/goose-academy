@@ -91,6 +91,15 @@ let response_text = response
     .join(" ");
 ```
 
+Read the same chain as a pipeline — every goose estimation follows this
+shape:
+
+<Mermaid chart={`flowchart LR
+  A["content: Vec blocks"] -->|"iter()"| B["iterator, zero copy"]
+  B -->|map| C["one String per block"]
+  C -->|collect| D["Vec of Strings"]
+  D -->|join| E["response_text: one String"]`} title="usage_estimator.rs:30 read as data flow" />
+
 And `conversation/message.rs:989` filters and converts in one pass:
 
 ```rust
@@ -103,6 +112,23 @@ let filtered_content = self
 
 `filter_map` = `filter` + `map` fused: skip `None`s, unwrap the `Some`s. Exactly
 like `.flatMap(x => x ? [f(x)] : [])` in TS.
+
+When you *do* need the index — the one thing `for...of` users miss — reach for
+`.enumerate()`:
+
+```rust
+let total: usize = msgs
+    .iter()
+    .enumerate()
+    .map(|(i, m)| {
+        println!("msg {i} eats {} tokens", m.chars().count()); // side effect per item
+        m.chars().count()
+    })
+    .sum();                                    // reduce to one number
+```
+
+`.sum()` is the reduce you'd hand-write in TS; `|(i, m)|` destructures the
+tuple, exactly like `(i, m) => ` arrow params.
 
 ## `if` is an expression
 

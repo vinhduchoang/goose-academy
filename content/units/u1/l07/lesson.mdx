@@ -54,9 +54,44 @@ The pipeline's behavior is set by one enum — `GooseMode` at `crates/goose-prov
 
 The tool registry itself is the extension manager's job (l08). For this lesson the point is the *pipeline treats all tools uniformly*: whether a tool came from a bundled extension, a remote MCP server, or a plugin, the same five checkpoints apply. The `pending_tool_requests(messages: &[Message])` extraction in the state machine (`ops_toolcalling.rs:622`) shows the pipeline's input contract precisely: pending `ToolRequest` blocks + a disposition per request.
 
+The checkpoints drawn once, so the rest of this unit can lean on the picture:
+
+<Mermaid chart={`flowchart TB
+  R["pending ToolRequest blocks"] --> G{"goose_mode == Chat?"}
+  G -->|yes| SKIP["CHAT_MODE_TOOL_SKIPPED_RESPONSE injected"]
+  G -->|no| I["ToolInspectionManager: SecurityInspector + PermissionInspector"]
+  I -->|findings| J["permission judge: findings + mode + rules"]
+  J --> B1["approved"]
+  J --> B2["needs_approval"]
+  J --> B3["denied"]
+  B1 --> D["dispatch_tool_call: hooks + executor"]
+  B2 --> C["ToolConfirmationCoordinator: UI round-trip"]
+  B3 --> E["DECLINED_RESPONSE back to the model"]`} title="Five checkpoints: every tool from every source crosses the same gates" />
+
 ## Permission rules and the inspector
 
 `PermissionInspector` evaluates rules from the permission store — allow/deny patterns keyed by tool name (and extended to pii/security-sensitive cases via `InspectionResult`). Security findings are *separate*: `security/` inspects but does not approve — its findings feed the judge, which can force `needs_approval`/`denied` regardless of mode. That layering matters: `Auto` mode does not bypass the security inspector; it changes only how *permission* findings are disposed.
+
+The judge's output shape is three parallel lists — the whole pipeline
+contract in one struct:
+
+```rust
+// permission/permission_judge.rs:189 — verified shape
+pub struct PermissionCheckResult {
+    pub approved: Vec<ToolRequest>,
+    pub needs_approval: Vec<ToolRequest>,
+    pub denied: Vec<ToolRequest>,
+}
+
+// what the legacy loop does with each bucket:
+// approved       -> dispatch_tool_call(req).await          (agent.rs:1063)
+// needs_approval -> ToolConfirmationCoordinator round-trip
+// denied         -> DECLINED_RESPONSE appended for the model
+```
+
+The buckets are values, not booleans — the model *hears* a crafted message
+when the user presses decline, and that message is a plain constant, not
+string-concatenated error text.
 
 <FounderLens>
 

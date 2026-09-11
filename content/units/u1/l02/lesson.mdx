@@ -79,6 +79,39 @@ Goose never constructs `ModelConfig` by hand: `crates/goose/src/model_config.rs:
 4. **Tool calls materialize inside content:** a `ToolRequest` block carries `name` + `arguments` (JSON object) + `id`; the matching `ToolResponse` block carries `tool_result: Result<CallToolResult, ErrorData>` — MCP types again.
 5. **Persistence:** the whole `Message` round-trips through serde into session storage — which is exactly why the deserializer wired at `message.rs:966` is a *migration boundary*: it post-processes old `reasoning` blocks into `thinking`, drops `conversationCompacted` legacy markers, and sanitizes Unicode tags. When you change the datamodel, this function is where backward compatibility is enforced.
 
+Building the type by hand — the constructors are real, verified at
+`message.rs:1031`:
+
+```rust
+use goose_provider_types::conversation::{message::MessageContentBlock, Message};
+
+let ask = Message::user()
+    .with_generated_id()                                       // "msg_<uuid>"
+    .with_content(MessageContentBlock::text("is the build green?"));
+
+let mut history: Vec<Message> = vec![ask];
+history.push(
+    Message::assistant().with_content(MessageContentBlock::text("yes — 0 warnings")),
+);
+```
+
+Every block is added via `with_content`; `Message::user()` / `Message::assistant()`
+set only role + timestamp. Nothing here mentions a provider, a session, or a
+UI — the datamodel is the thing every other subsystem agrees on.
+
+<Mermaid chart={`sequenceDiagram
+  participant C as User config
+  participant F as model_config.rs
+  participant A as Agent::reply
+  participant P as Provider::complete
+  C->>F: provider + model name
+  F->>F: defaults + canonical limits
+  F->>A: ModelConfig
+  A->>A: history: Vec of Message (user + assistant)
+  A->>P: history + ModelConfig
+  P-->>A: assistant Message (blocks: Text, ToolRequest...)
+  A->>A: append to history, persist via serde`} title="Creation → consumption: one datatype through every stage" />
+
 <FounderLens>
 
 **Problem solved:** providers, MCP clients, sessions, and UI all need one shared vocabulary for "what happened in this turn". The block-list model lets one turn carry every kind of event without a parallel sidebar of flags.

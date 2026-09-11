@@ -65,6 +65,36 @@ cargo build -p goose-cli --bin goose
 
 <CodeRunnerPrompt command="cargo build -p goose-cli --bin goose" title="Build the goose binary (first run takes several minutes)" />
 
+## Listing the workspace crates (a two-line PowerShell trick)
+
+`cargo metadata` prints the whole workspace as JSON — one pipeline is all you
+need to list every member crate:
+
+```powershell
+cargo metadata --no-deps --format-version 1 |
+  ConvertFrom-Json |
+  Select-Object -ExpandProperty packages |
+  Select-Object -ExpandProperty name
+```
+
+Each name is a crate you will be able to find on disk under `crates/<name>`,
+and later — in Unit 1, lesson 1 — you will turn this exact JSON into a real
+dependency graph.
+
+<Mermaid chart={`flowchart TB
+  A["goose-sdk-types (types for extensions)"] --> C["goose (engine: agents, providers, tools)"]
+  B["goose-provider-types (provider contracts)"] --> C
+  C --> D["goose-cli (the goose binary you just built)"]
+  style A fill:#e8f5e9
+  style B fill:#e8f5e9
+  style D fill:#fff3e0`} title="Dependency direction read bottom-up: type-only leaves feed the engine, the engine feeds the binary" />
+
+The direction is strictly one-way: nothing at the leaves may reach back into
+the engine. That rule is *why* the workspace is shaped like this — goose-cli
+could depend on goose, but goose must never depend on goose-cli, or the build
+would be circular and the discipline of "extensions compile against types,
+not the engine" would vanish.
+
 ## Reading the workspace file
 
 One place: the root `Cargo.toml` (`Cargo.toml:2` role: lists members `crates/*`, plus

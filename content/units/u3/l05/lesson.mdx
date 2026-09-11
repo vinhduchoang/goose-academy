@@ -67,6 +67,29 @@ Providers whose tokens expire (OAuth refresh tokens) mark `can_configure: true`
 and point `configure_provider` at the flow that renews them — the two fields
 together ("renewable?" + "via which flow") drive the UI's reauth affordance.
 
+```rust
+// provider_secrets.rs:32 — one credential, one row (field list per the cite)
+ProviderSecret {
+    id: "...",            // "secret_store:" prefix = OS keychain-backed
+    provider: "...",      // e.g. "openai"
+    name: "...",          // e.g. "OPENAI_API_KEY"
+    storage: ...,         // OS secret store vs local cache
+    status: ...,          // Valid | Expired | Unknown
+    configured: ...,      // user went through configuration
+    has_secret: ...,      // an actual value is stored
+    can_configure: ...,   // renewable? points at the OAuth flow
+    // the UI reads configured + has_secret; it never touches the value itself
+}
+```
+
+<Mermaid chart={`flowchart TB
+  N["name: openai"] --> R["ProviderRegistry: ProviderEntry"]
+  R --> C["ProviderDef::from_env(...): build the instance"]
+  C --> P["Arc<dyn Provider> — lazy, rebuildable"]
+  S["provider_secrets ledger"] --> UI["UI: configured / has_secret / status — value never read"]
+  S --> O["OAuth: loopback redirect server + OAUTH_MUTEX"]
+  O -->|"refresh token"| S`} title="Registry constructs, ledger stores, OAuth renews — three separate concerns" />
+
 ## OAuth flows
 
 `crates/goose/src/providers/oauth.rs` implements provider OAuth the hard way:

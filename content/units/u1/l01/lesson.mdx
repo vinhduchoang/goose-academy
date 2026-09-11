@@ -52,6 +52,30 @@ cargo metadata --no-deps --format-version 1
 
 Each package entry carries `dependencies: [{ name, req, path, … }]`. Entries whose `path` points inside the workspace are *workspace edges*. Everything else is an outside edge. That minuscule distinction is how you read any Rust repo like a maintainer.
 
+Extract the workspace edges without jq — pure PowerShell:
+
+```powershell
+$meta = cargo metadata --no-deps --format-version 1 | ConvertFrom-Json
+foreach ($p in $meta.packages) {
+  $edges = $p.dependencies | Where-Object { $_.path -like '*/goose*' } |
+    ForEach-Object { Split-Path $_.path -Leaf }
+  if ($edges) { "{0,-22} -> {1}" -f $p.name, ($edges -join ', ') }
+}
+```
+
+The directions this prints are the *legal* dependency arrows of the whole
+repo:
+
+<Mermaid chart={`flowchart TB
+  GPT["goose-provider-types: Provider, Message, ModelConfig"] --> P["goose-providers: openai, anthropic, google, ..."]
+  SDKT["goose-sdk-types: GDK message types for SDK consumers"]
+  P --> G["goose: agent loop, sessions, config, tools"]
+  MCP["goose-mcp: built-in servers"] --> CLI["goose-cli: the binary"]
+  G --> CLI
+  style SDKT fill:#e8f5e9
+  style GPT fill:#e8f5e9
+  style CLI fill:#fff3e0`} title="Every edge is a compile-checked claim — any reverse edge is a build failure" />
+
 ## Why two type-only crates exist
 
 `goose-sdk-types` and `goose-provider-types` exist for exactly one reason: **extension authors must compile without dragging in the engine**. Look at the actual manifests:

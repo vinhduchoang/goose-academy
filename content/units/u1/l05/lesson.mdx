@@ -51,6 +51,53 @@ cites:
 
 `crates/goose-agent/src/operation.rs:74` — the `Operation` trait. An operation inspects the session + conversation, decides whether it *applies*, and if so emits effects. `operation.rs:200` — `ConversationEffect` (append/replace messages, raw messages). Effects are *data*, not side effects: the machine collects them per step and hands them to an `EffectHandler` — in goose, that's `SessionManager` (see `state_machine/session.rs:40`) whose `apply_effects` does the actual persistence. This is the heart of the architecture: **operations decide, effects describe, the handler performs**. The legacy loop did all three inline.
 
+The trait surface is small and worth memorizing — verified from
+`operation.rs:74`:
+
+```rust
+#[async_trait]
+pub trait Operation<S, E>: Send + Sync {
+    fn name(&self) -> &'static str;             // label for traces + step reports
+
+    async fn run(
+        &self,
+        _session: &S,                            // read the session state
+        _conversation: &Conversation,            // read the message history
+        _emit: &Emitter,                         // push events without mutating state
+    ) -> Result<OperationResult<E>>;             // NotApplicable | Applied(effects)
+
+    // run_command, prompt_parts, moim_parts, inference_tools — all have defaults
+}
+```
+
+One concrete operation in miniature (the real one lives in
+`ops_toolcalling.rs:734`):
+
+```rust
+pub struct ToolExecutionOperation { /* pending tool requests */ }
+
+#[async_trait]
+impl Operation<Session, GooseEffect> for ToolExecutionOperation {
+    fn name(&self) -> &'static str { "ToolExecutionOperation" }
+
+    async fn run(
+        &self,
+        _session: &Session,
+        _conversation: &Conversation,
+        _emit: &Emitter,
+    ) -> Result<OperationResult<GooseEffect>> {
+        // no pending ToolRequest blocks?      return not_applicable()
+        // otherwise: execute each approved call,
+        //              return applied(vec![ ConversationEffect::AppendMessage(...) ])
+        todo!("the real body is in ops_toolcalling.rs")
+    }
+}
+```
+
+Notice what is missing: no `println!`, no direct DB writes, no HTTP calls.
+The operation *reports decisions as effects* — the machine applies them
+through `SessionManager` afterwards, or not at all.
+
 ## The concrete machine, in order
 
 `crates/goose/src/agents/agent.rs:1619` (`create_state_machine`) builds the step list you must memorize:
@@ -64,6 +111,16 @@ EntryHookOperation -> SlashCommandOperation -> SteerOperation -> MaxTurnsOperati
 ```
 
 Each `ops_*.rs` file is one of these. `ops_toolcalling.rs:734` is the `Operation` impl for `ToolExecutionOperation` (struct at `ops_toolcalling.rs:315`) — the state-machine twin of `dispatch_tool_call` — and `ops_compaction.rs:47` is compaction. Every run ends with the inference step; the machine loops until a step reports `ended` (e.g. no more tool requests).
+
+The order is the behavior — read it left to right:
+
+<Mermaid chart={`flowchart LR
+  A[EntryHook] --> B[SlashCommand] --> C[Steer] --> D[MaxTurns]
+  D --> E[BangShell] --> F[Compaction] --> G[ToolPairCompaction]
+  G --> H[ToolApproval] --> I[Doctor] --> J[Project] --> K[Skill]
+  K --> L[Recipe] --> M[ToolExecution] --> N[UnknownTool]
+  N --> O[Retry] --> P[StopHook] --> Q[ExitOnError] --> R["Step::Inference (model call)"]
+  R -. loop until a step reports ended .-> A`} title="create_state_machine (agent.rs:1619): a Vec of Steps, executed in order every cycle" />
 
 ## How a turn flows
 

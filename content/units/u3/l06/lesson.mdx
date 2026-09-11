@@ -75,6 +75,38 @@ Real servers validate input **in the tool**, because the schema only constrains
 types — empty strings, absurd ranges, and cross-field contradictions are the
 server's problem.
 
+```rust
+// memory/mod.rs:390-402 — the shape every goose-mcp tool follows
+#[tool(name = "remember_memory", description = "save a memory for later retrieval")]
+async fn remember(
+    &self,
+    context: RequestContext<RoleServer>,          // per-call meta (working dir, session)
+    params: Parameters<RememberParams>,           // typed, JsonSchema-derived
+) -> Result<CallToolResult, ErrorData> {
+    if params.data.is_empty() {
+        return Err(ErrorData::new(INVALID_PARAMS, "memory text must not be empty"));
+    }
+    // ... store it ...
+}
+```
+
+Three contracts in six lines: the schema (types), the guard (meaning), and
+the failure channel (an `ErrorData`, never a panic).
+
+<Mermaid chart={`flowchart TB
+  subgraph SERVER["goose-mcp server crate"]
+    S["MemoryServer: ToolRouter<Self> + own state"] --> H["#[tool] fns"]
+    H --> V["semantic guards inside each tool"]
+  end
+  subgraph GOOSE["goose process"]
+    C["McpClient: initialize, list tools, call"] 
+  end
+  C -->|"stdio ExtensionConfig: cmd + args + env_keys"| S
+  H --> R1["CallToolResult"]
+  V --> R2["ErrorData + ErrorCode"]
+  R1 --> C
+  R2 --> C`} title="Two halves of one wire protocol: serve tools, return results or typed errors" />
+
 ## The goose client side
 
 On the goose side, `McpClient` performs the initialize handshake, lists tools,

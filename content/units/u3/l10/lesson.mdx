@@ -67,6 +67,27 @@ authorities, `crates/goose-mcp/src/memory/mod.rs:390` for the tool macro
 shape, and `crates/goose/src/hooks/mod.rs:1` for the hooks schema if you
 ship hooks.
 
+The whole deliverable is a directory, and every check in the rubric maps to
+a file in it:
+
+```text
+my-extension/
+├─ Cargo.toml      # crate definition (or the plugin-file equivalent)
+├─ src/            # implementation
+├─ tests/          # integration tests: happy path + failure branches
+├─ README.md       # install / configure / usage
+├─ docs/           # design + security model
+├─ plugin.json     # manifest (or config.yaml entry)
+└─ QA.md           # the gates you actually ran, with recorded output
+```
+
+<Mermaid chart={`flowchart TB
+  L["layout: crate + src + tests + docs + manifest"] --> G1["cargo fmt --check"]
+  G1 --> G2["cargo clippy --all-targets -- -D warnings"]
+  G2 --> G3["cargo test: unit + integration + failure branches"]
+  G3 --> G4["live run + QA report of your own executions"]
+  G4 --> E["exam miniLab verifier reads the artifacts"]`} title="The exam rubric, drawn as the gate ladder it is" />
+
 <FounderLens>
 
 Why does the capstone gate on docs *and* tests rather than on lines of Rust?

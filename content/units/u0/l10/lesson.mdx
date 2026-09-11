@@ -77,6 +77,19 @@ Each builder step *consumes* self and returns the (modified) whole — no mutati
 shared, no object identity worries. In TS you'd write a fluent class; in Rust it
 falls out of plain methods.
 
+The same struct, used as mutable state instead of a chain:
+
+```rust
+let mut config = ModelConfig::new("gpt-4o"); // starts with temperature: None
+config.temperature = Some(0.2);              // pub field -> plain mutation
+let snapshot = config.clone();               // derive(Clone) -> full copy
+let early = config;                          // plain MOVE — snapshot lives on, `config` is done
+```
+
+Note the last line: moving a struct transfers its `String`s wholesale — no
+copy, no mutation-through-aliasing. `snapshot.clone()` was the explicit copy;
+`let early = config` is the move you mastered in l07.
+
 <Diff
   oldCode="// TS: class with constructor + fluent setters
 class ModelConfig {
@@ -110,6 +123,17 @@ impl ModelConfig {
   field (`token_counter.rs:23`) stays private to keep the cache invariant safe.
 - `pub(crate)` — the crate. Middle-ground the goose codebase uses where the
   whole engine needs it but extensions shouldn't touch it.
+
+```rust
+mod engine {
+    pub(crate) struct Connection { /* shared inside the crate only */ }
+    fn internal_helper() {}           // private — invisible outside `engine`
+}
+```
+
+Touching either from the wrong module fails to compile — errors like E0603
+("is private") name the boundary precisely, so visibility mistakes surface at
+the first build, not in production.
 
 ## Adding a method vs an associated function
 

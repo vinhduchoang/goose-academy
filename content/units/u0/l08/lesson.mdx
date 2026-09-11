@@ -71,6 +71,30 @@ println!("{}", first); // last use of first — borrow ends here
 v.push(4);             // fine now
 ```
 
+The "non-lexical lifetimes" (NLL) rule is why the second `push` compiles: a
+borrow dies at its **last use**, not at the end of the block. Many shared
+readers may coexist — that part never changes:
+
+```rust
+let v = vec![1, 2, 3];
+let a = &v[0];
+let b = &v[1];        // second reader, still fine — & borrows stack freely
+println!("{a} {b}");
+```
+
+```rust
+let mut v = vec![1, 2, 3];
+let a = &v[0];
+let b = &mut v;       // ERROR E0502: mutable borrow while a shared borrow lives
+```
+
+<Mermaid chart={`flowchart TB
+  A["& v — shared borrow: any number may coexist"] --> R["read: ok"]
+  A --> W["write while it lives: E0502"]
+  B["&mut v — exclusive borrow: exactly one"] --> R2["read: ok"]
+  B --> W2["second borrow (shared or mutable): E0499/E0502"]
+  A -. both rules reduce to: readers out OR one writer .-> Z["borrow checker enforces at compile time"]`} title="The one borrow rule, as a diagram" />
+
 Pitfalls from JS brain: returning a reference to something dropped at scope end
 (E0515), and mutating a collection while you iterate over it (E0502). The
 borrow checker rejects both at compile time — this is the "fearless concurrency"

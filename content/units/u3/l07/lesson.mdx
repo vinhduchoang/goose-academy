@@ -49,6 +49,19 @@ handler, and the failure channel is `ErrorData` with a protocol `ErrorCode` —
 that distinction: it re-phrases on `INVALID_PARAMS`, it tells you to file a bug
 on `INTERNAL_ERROR`.
 
+```rust
+// harden every handler the same way: shape from the schema, meaning from a guard
+if content.chars().count() > 10_000 {
+    return Err(ErrorData::new(
+        INVALID_PARAMS,                // caller's fault -> model re-phrases
+        "note too long: keep it under 10_000 characters",
+    ));
+}
+```
+
+Error text is part of the *protocol* the model reads: say what was rejected
+and what a valid value looks like — the model uses that text to recover.
+
 ## Errors the agent can act on
 
 Goose's tool pipeline propagates tool errors into the transcript with the
@@ -83,6 +96,18 @@ request type (`crates/goose/src/agents/mcp_client.rs:11`).
 And the config side of MCP: every `.mcp.json`/manifest entry is schema-checked
 by `validate_mcp_servers_manifest_value`
 (`crates/goose/src/plugins/mcp_servers.rs:171`) long before a process spawns.
+
+The four hardening walls on one diagram:
+
+<Mermaid chart={`flowchart TB
+  AU["auth: env_keys secret or AuthRequired handshake"] --> R["tool invoked"]
+  R --> S{"schema: is it the right type?"}
+  S -->|"wrong type"| E1["ErrorData + INVALID_PARAMS"]
+  S -->|"shaped right"| V{"semantic guard: meaningful value?"}
+  V -->|"meaningless"| E2["ErrorData + INVALID_PARAMS: model re-phrases"]
+  V -->|"valid"| Q{"needs a human decision?"}
+  Q -->|"yes"| EL["Elicit -> Accept user_data | Decline | Cancel"]
+  Q -->|"no"| T["run the tool; INTERNAL_ERROR only for your bugs"]`} title="Auth, schema, semantics, elicitation: each wall has its own error lane" />
 
 <FounderLens>
 

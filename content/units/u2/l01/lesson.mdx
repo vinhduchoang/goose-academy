@@ -65,7 +65,20 @@ problem would this solve?*, *What would a good outcome look like?*, *Possible
 approaches* — outcome before implementation.
 
 One trap, documented at `AGENTS.md:15`: `gh issue create` does **not** apply
-templates automatically. Use the web form or the `--template` flag.
+templates automatically. Use the web form or the `--template` flag:
+
+```powershell
+gh issue create --template bug_report --title "token_counter panics on empty input"
+```
+
+<Mermaid chart={`flowchart LR
+  I[Inbox] --> T[triage: reproduce? enough info?]
+  T --> N["Needs info: maintainer asks, you clarify"]
+  N --> A["Accepted / design: agreed, not scheduled"]
+  A --> R["Ready: the ONLY lane you implement from"]
+  R --> P["PR + verification plan, linked to the issue"]
+  P --> D[review]
+  D -->|material design change| B["back to the issue BEFORE continuing"]`} title="The status gate: codes moves only one direction of this diagram" />
 
 ## Board rituals a contributor follows
 

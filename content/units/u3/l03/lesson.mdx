@@ -62,6 +62,20 @@ creates the real token counter (`crates/goose/src/token_counter.rs:215`) and
 counts with `count_chat_tokens` (line 129) — chat-template aware, not a whitespace
 split. The lab echo will replace its naive split with a chat-shaped count.
 
+```rust
+// what a vendor-reported Usage actually looks like — all five counts optional
+let usage = Usage {
+    input_tokens: Some(1500),
+    output_tokens: Some(400),
+    total_tokens: Some(1900),
+    cache_read_input_tokens: Some(1200),   // subset of input_tokens
+    cache_write_input_tokens: None,        // this vendor doesn't write cache
+};
+```
+
+`ensure_usage_tokens` fills only what is `None` — vendor numbers always win,
+estimation only closes gaps.
+
 ## Cost
 
 `estimate_model_cost` (`crates/goose/src/providers/canonical_cost.rs:36`)
@@ -69,6 +83,17 @@ resolves `Pricing` (input/output/cache rates per 1M tokens) by a documented
 precedence: (1) provider-reported cost, (2) user-declared custom prices,
 (3) bundled canonical registry, (4) declarative provider definitions. Providers
 rarely price calls themselves — they ship usage; goose prices it.
+
+The four axes, wired end to end:
+
+<Mermaid chart={`flowchart TB
+  U["Usage: five optional counts from the vendor"] --> G{"counts complete?"}
+  G -->|"gaps"| E["ensure_usage_tokens: real token counter, count_chat_tokens"]
+  E --> D["complete usage"]
+  G -->|"complete"| D
+  D --> C["estimate_model_cost: 4-source precedence"]
+  C --> P["ProviderUsage with cost + CostSource"]
+  P --> O["gen_ai telemetry: record_usage on the span"]`} title="Usage -> estimation -> cost -> telemetry: the production upgrade path" />
 
 ## Telemetry
 

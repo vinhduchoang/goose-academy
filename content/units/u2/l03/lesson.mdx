@@ -93,6 +93,26 @@ parallel run, then re-run with `--jobs 1` — serialized. Local equivalents:
 `cargo test -- --test-threads=1` or running one test with an exact filter.
 If a test only fails in CI, thread scheduling is suspect #1.
 
+The whole kit, mapped to symptoms:
+
+```powershell
+# isolate a flaky test: serialize + show stdout
+cargo test -p goose --test mcp_integration_test -- --test-threads=1 --nocapture
+
+# see the span timeline of the failing stage
+$env:RUST_LOG = "goose=debug,mcp_client=trace"
+cargo test -p goose --test mcp_integration_test
+```
+
+<Mermaid chart={`flowchart TB
+  TF["test fails"] --> A{"fails only on CI?"}
+  A -->|"yes"| T1["--test-threads=1: shared-state scheduling"]
+  TF --> B{"big output to compare?"}
+  B -->|"yes"| S["assert_snapshot! diff is the bug report"]
+  TF --> C{"which stage died?"}
+  C -->|"unknown"| R["RUST_LOG up one level: goose=debug"]
+  R --> SP["tracing spans: provider? tool? serialization?"]`} title="Which tool answers which symptom" />
+
 <FounderLens>
 
 Why logs-to-file-json instead of stderr? Goose is embedded in desktop/CLI

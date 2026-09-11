@@ -66,6 +66,20 @@ in `.github/workflows/cargo-deny.yml`. Reviewing a dependency PR therefore
 means: was it added via `cargo add`? is the lockfile consistent? does any new
 crate trip `yanked`?
 
+```toml
+# deny.toml — exception with the mandatory reason comment (illustrative id)
+[advisories]
+yanked = "deny"
+
+ignore = [
+    "RUSTSEC-0000-0000",  # why: no safe upgrade available yet — re-check each release
+]
+```
+
+An `ignore` entry without that comment is itself a review finding: the whole
+point of the list is that exceptions stay *accounted*. One release later the
+reason may be stale, and the reviewer re-tests it.
+
 <FounderLens>
 
 Why deny yanked crates so hard? A yanked version is the crate author shouting
@@ -87,6 +101,14 @@ When a diff looks clean, interrogate it anyway:
 3. Does every new error path use `anyhow`/`?` — no fresh `unwrap()`?
 4. Do new deps arrive via `cargo add` with a consistent lock?
 5. Are tests in the preferred folder, and do they prove the claim?
+
+<Mermaid chart={`flowchart LR
+  D["a diff that looks clean"] --> Q1{"parity: both agent-loop paths?"}
+  Q1 --> Q2{"tests in the tests/ folder?"}
+  Q2 --> Q3{"anyhow / ?, no fresh unwrap()?"}
+  Q3 --> Q4{"every #[allow] explained?"}
+  Q4 --> Q5{"deps via cargo add, lock consistent?"}
+  Q5 --> M["approve — or leave one precise comment"]`} title="The five questions every reviewed diff is run against" />
 
 The repo ships its own recipe for this (`code-review.yaml`) — review is a
 ritual goose itself can run. Your PR gets read *against* this checklist

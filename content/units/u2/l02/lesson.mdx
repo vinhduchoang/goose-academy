@@ -85,6 +85,27 @@ git bisect run .\check.ps1
 `bisect run` replays the repro on each midpoint and reports the first bad
 commit without you pressing any keys. Exit 0 = good, non-zero = bad.
 
+The repro script itself is one line of logic:
+
+```powershell
+# check.ps1 — the judge git bisect run invokes at every midpoint
+param()
+cargo test --package goose <test_or_pattern>
+exit $LASTEXITCODE     # 0 = this commit is good, non-zero = bad
+```
+
+<Mermaid chart={`flowchart TB
+  S["git bisect start"] --> B["git bisect bad (HEAD shows the bug)"]
+  B --> G["git bisect good <older-sha>"]
+  G --> M{"run repro at the midpoint"}
+  M -->|"fails"| BD["git bisect bad"]
+  M -->|"passes"| GD["git bisect good"]
+  BD --> R{"history narrowed?"}
+  GD --> R
+  R -->|"no"| M
+  R -->|"yes"| F["<sha> is the first bad commit"]
+  F --> L["git bisect log, then git bisect reset"]`} title="Bisect is binary search, with your repro as the comparison function" />
+
 <FounderLens>
 
 Why does goose tolerate ~5,600 commits of history instead of squashing? Because

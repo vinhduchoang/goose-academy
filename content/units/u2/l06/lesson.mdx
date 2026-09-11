@@ -73,6 +73,23 @@ types but never run together.
    machine" without the second run is suspect — reviewers will ask for the
    env-var matrix.
 
+The twin-universe picture it all reduces to:
+
+<Mermaid chart={`flowchart TB
+  E["GOOSE_STATE_MACHINE env var"] --> EN{"state_machine::enabled()"}
+  EN -->|"1, true, TRUE, yes"| SM["state machine: ops_* steps + effects + executor"]
+  EN -->|"anything else"| LG["legacy: async_stream loop in agent.rs"]
+  FIX["your behavior change"] -->|"must land"| SM
+  FIX -->|"must land"| LG
+  SM -. same input, same output, same error shape .-> LG`} title="One change, two universes — or the review bounces it" />
+
+```rust
+// the dance every parity test must do, in both directions:
+// legacy path test:    pin GOOSE_STATE_MACHINE=0   (agent.rs:5333)
+// machine path test:   pin GOOSE_STATE_MACHINE=1   (agent_reply.rs:133)
+// then run THE SAME assertions under each pinned environment
+```
+
 <FounderLens>
 
 Why keep two loops alive instead of a hard cutover? The state machine is a

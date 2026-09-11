@@ -64,6 +64,41 @@ like `McpFixtureServer` (`mcp.rs:16`) — a real in-process MCP server exposing
 `get_code`, `get_image` — so many test suites reuse one server instead of
 reinventing sockets.
 
+The shape of the inline mock — implements the production contract, emits a
+canned reply through the same `stream_from_single_message` helper real
+non-streaming providers use:
+
+```rust
+// crates/goose/tests/mcp_integration_test.rs:44 (skeleton, same seam)
+#[async_trait]
+impl Provider for MockProvider {
+    fn get_name(&self) -> &str { "mock" }
+
+    async fn stream(
+        &self,
+        _model_config: &ModelConfig,
+        _system: &str,
+        _messages: &[Message],
+        _tools: &[Tool],
+    ) -> Result<MessageStream, ProviderError> {
+        stream_from_single_message(
+            self.canned_reply.clone(),
+            ProviderUsage::new("mock".into(), Usage::default()),
+        )
+    }
+}
+```
+
+`stream_from_single_message` is the same helper a real one-shot provider
+uses (`base.rs:457`) — the mock and the production code share the same
+machinery; only the source of the message differs.
+
+<Mermaid chart={`flowchart TB
+  U["unit tests in src/: white-box, one behavior"] -->|"more fidelity"| I["tests/ folder: public seam"]
+  I --> M["MockProvider: real Provider trait, canned replies"]
+  I --> R["record-replay: real MCP traffic captured once, replayed forever"]
+  style R fill:#fff3e0`} title="Three layers, one direction: closer to the production seam" />
+
 <FounderLens>
 
 Why record-replay instead of pure mocks for MCP? A mock asserts what you

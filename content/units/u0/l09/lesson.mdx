@@ -87,6 +87,24 @@ fn first_of(x: &str, y: &str) -> &str { x }   // error E0106: missing lifetime
 fn first_of<'a>(x: &'a str, y: &str) -> &'a str { x }  // the honest signature
 ```
 
+When the output may be *either* input, both inputs must live at least as long
+as the output — so both share one lifetime:
+
+```rust
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() { x } else { y }   // result is one of the two inputs
+}
+```
+
+`'a` never picks a duration. It states the constraint: "the returned reference
+stays valid exactly as long as both `x` and `y` are valid." The compiler then
+checks every caller against that constraint.
+
+<Mermaid chart={`flowchart LR
+  X["x: &'a str, input"] --> O["return: &'a str"]
+  Y["y: &'a str, input"] --> O
+  O -. compiler rule: output cannot outlive ANY input borrowed from .-> C["caller must keep x and y alive while the result is used"]`} title="An explicit lifetime is a constraint on the relationship, not a timer" />
+
 ## `'static` — the special one
 
 `&'static str` lives for the whole program: string literals, and compiled-in

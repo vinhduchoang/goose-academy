@@ -64,6 +64,31 @@ and there are two answer grammars:
   **open** unless the hook sets `"on_failure": "block"`. A hook that hangs
   dies alone at `DEFAULT_HOOK_TIMEOUT_SECS` (line 44).
 
+```json
+// hooks/hooks.json — subscribe and act (shape sketch; hooks/mod.rs is the authority)
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "developer__shell|developer__text_editor",
+      "actions": [ { "type": "command", "command": "./scripts/guard.sh" } ]
+    }
+  ]
+}
+```
+
+The matcher is a tool-name regex — the alphabet of events is fixed, but
+*which tools* each hook watches is entirely yours.
+
+<Mermaid chart={`flowchart TB
+  E["lifecycle event: PreToolUse, PostToolUse, SessionStart, Stop..."] --> H["plugin hook command reads JSON on stdin"]
+  H --> G{"blocking event?"}
+  G -->|"no"| NB["exit 0; optional banner for the UI"]
+  G -->|"yes"| B{"stdout decision"}
+  B -->|"allow or empty stdout"| A["tool call proceeds"]
+  B -->|"block, or exit 2 with stderr reason"| D["tool call refused"]
+  H -->|"hangs"| K["killed at 30s: DEFAULT_HOOK_TIMEOUT_SECS"]`} title="Hook grammar: two verbs (allow/block), one timeout, fail-open by default" />
+
 ## Permission rules: rememberable decisions
 
 The permission system is typed around shared `Permission` /

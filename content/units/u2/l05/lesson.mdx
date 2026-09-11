@@ -41,6 +41,18 @@ there teach the whole story:
 - `uninlined_format_args = "allow"` (`Cargo.toml:19`) — the team *decided*
   not to chase stylistic churn. Lint policy is a conversation, not a default.
 
+The panic the lint exists to prevent, in five lines:
+
+```rust
+let name = "José";           // J o s é — 4 chars, but é is 2 bytes (5 bytes total)
+let label = &name[0..4];     // PANIC at runtime: byte index 4 is not a char boundary
+let safe = name.get(0..4);   // None — byte slicing checked, no panic
+```
+
+Characters and bytes are different numbering systems. The lint knows every
+byte-indexed slice is a landmine once non-ASCII exists; the fix always makes
+the `None` case an explicit policy decision instead of a crash.
+
 ## The gate: warnings are errors
 
 `Justfile:13` runs `cargo clippy --all-targets -- -D warnings`: every warn-level

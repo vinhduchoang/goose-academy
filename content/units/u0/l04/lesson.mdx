@@ -67,6 +67,16 @@ fn char_truncate(s: &str, max_chars: usize) -> String {
     tail + "..."                          // expression as return value
 }`} />
 
+Two things to notice in that port: the early `return` only exists for the
+short path, and the long path ends in a bare expression. Test it the way
+Rust does — with assertions instead of `console.log`:
+
+```rust
+assert_eq!(char_truncate("goose", 4), "goo...");  // long path: truncated
+assert_eq!(char_truncate("go", 5), "go");         // short path: early return
+assert_eq!(char_truncate("", 5), "");             // boundary: empty is short
+```
+
 ## Parameters and return types are mandatory
 
 Every parameter has a type; every return is declared up front — no optional
@@ -90,6 +100,18 @@ let verdict = {
 
 The block is scoped computation that hands out exactly one value — a mini IIFE in
 JS terms, but zero-overhead and idiomatic.
+
+Two details block-as-value exposes: **every block ends with an expression**, and
+a block with no tail produces `()` (the unit type — Rust's closest relative to
+`undefined`/`void`):
+
+```rust
+let a = { 3 + 4 };       // a: i32 = 7 — the block's tail expression
+let b = { let x = 3; x * 2 };  // b: i32 = 6 — statements then a tail
+let c = { println!("hi"); };   // c: () — no tail, unit type
+```
+
+`()` appears in goose signatures as `-> ()` where JS would write `void`.
 
 ## Early return
 

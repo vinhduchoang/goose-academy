@@ -116,3 +116,24 @@ local v1.49.0 checkout). Last full-gate run: 2026-09-08 session 1.
     file:line cites re-verified to exact lines.
   - Known debt left on purpose (not correctness): all u0/u1/u2 exam answers sit
     at index 0 (guessable; UI has no shuffle) — rotation deferred, schema-valid.
+- 2026-09-11: Teaching-quality pass over all 46 lessons (lesson.mdx only).
+  - Added mermaid v12 client-rendered charts: new `components/MermaidChart.tsx`
+    (lazy-loaded, client-only, error box on parse failure) registered as
+    `<Mermaid>` in `mdx-components.tsx`; CONTENT-GUIDE.md extended with binding
+    authoring rules (template-literal attr, escape rules, <=12 nodes, prose
+    must stand alone). 35 lessons carry exactly one chart each.
+  - Every lesson gained 1-3 annotated code examples (verified against the
+    v1.49.0 checkout where they touch goose APIs: Message constructors,
+    Operation trait, Usage fields, PermissionCheckResult, ExtensionConfig,
+    ProviderUsage::new etc.). No test.json/lab.md/exams/drills touched; no
+    factual claims changed.
+  - Lesson prose kept in full standard English (no terse style in content) and
+    within the theory word budget — code/charts are teaching aids only.
+  - Verified per unit: full chart-render smoke via Playwright (every chart SVG
+    renders, 0 console errors), then full gate green: typecheck, 43 Vitest,
+    verify:content, drift OK (277 cites), build (59 SSG pages), 9 e2e specs.
+  - pnpm housekeeping: package.json `pnpm.onlyBuiltDependencies` removed (pnpm
+    12.3.4 now claims the field is unread); pnpm-workspace.yaml `allowBuilds`
+    set (esbuild: true, sharp/unrs-resolver: false). Wine-migration note:
+    minimumReleaseAgeExclude gained @mermaid-js/parser + mermaid entries.
+  - Known debt carried over: exam answer index-0 rotation still deferred.

@@ -71,6 +71,26 @@ metadata, and an empty string defaults to `"{}"`. Truncated calls
 (`finish_reason: length`) become `ToolRequest`-as-`Err` so the agent retries
 instead of hanging.
 
+The same call in both dialects — look at `arguments`:
+
+```json
+// OpenAI: arguments is a JSON STRING inside the function object
+{ "id": "call_1", "type": "function",
+  "function": { "name": "search", "arguments": "{\"query\":\"goose\"}" } }
+
+// Anthropic: the same call as an inline content block, input is an OBJECT
+{ "type": "tool_use", "id": "toolu_1", "name": "search", "input": { "query": "goose" } }
+```
+
+```text
+// both map to the SAME internal shape:
+MessageContentBlock::ToolRequest(ToolRequest {
+    id: "call_1",           // or "toolu_1"
+    name: "search",
+    arguments: {"query":"goose"},   // always a parsed object, never a string
+})
+```
+
 Anthropic uses *content blocks* instead: a `{type:"tool_use", id, name, input}` 
 block appears inline in `content`. `response_to_message` (anthropic.rs:557)
 maps it to the same `ToolRequest`. Tool *responses* go back as
@@ -82,6 +102,13 @@ deltas; Anthropic streams `content_block_{start,delta,stop}` events.
 `response_to_streaming_message` (anthropic.rs:893) maintains per-index
 `StreamingToolCall` accumulators and flushes a complete `ToolRequest` only when
 the block closes.
+
+<Mermaid chart={`flowchart TB
+  M["goose Message with ToolRequest"] --> F["format_messages + format_tools"]
+  F --> W["wire request: OpenAI or Anthropic dialect"]
+  W --> R["response_to_message: dialect -> blocks"]
+  R --> B["ToolRequest again: id + name + parsed arguments object"]
+  B -. "round-trip invariant" .-> M`} title="The translation pair: format out, response back, ToolRequest survives both ways" />
 
 <FounderLens>
 

@@ -58,6 +58,27 @@ Goose wires it in `crates/goose/src/context_mgmt/mod.rs`:
 - `compact_messages` (`context_mgmt/mod.rs:70`) performs it — calls `goose_context_management::summarize` (`:354`), splices the summary into the conversation, and re-estimates usage.
 - The state machine wraps this as `CompactionOperation` (`state_machine/ops_compaction.rs:47`), with its own hard cap: `MAX_CONTEXT_ERROR_COMPACTIONS = 2` (`ops_compaction.rs:24`) — after two *context-length-error-triggered* compactions in one run, goose stops and surfaces the error instead of looping.
 
+<Mermaid chart={`flowchart TB
+  T["tokens near context_limit"] --> C{"check_if_compaction_needed: threshold vs limit"}
+  C -->|no| N["continue the turn"]
+  C -->|yes| S["summarize: model + history -> one summary Message"]
+  S --> P["splice summary into the conversation"]
+  P --> U["re-estimate usage"]
+  U --> T
+  S --> K{"second error-triggered compaction?"}
+  K -->|yes| H["stop: surface the error (MAX_CONTEXT_ERROR_COMPACTIONS)"]`} title="Compaction is a loop with a safety brake — two failures, then surface the error" />
+
+Compaction is not one feature; it is now a family of tiers:
+
+| Tier | What it compresses | Home |
+|------|--------------------|------|
+| `compact_messages` | the whole history into one summary message | `context_mgmt/mod.rs:70` |
+| `tool_pair` | one request + response pair into a compacted stub | its own `*Operation` |
+| `moim` | memory-of-intent per turn | per-turn `*Operation` |
+
+Each tier has its own threshold and trigger — and each one removes words
+the search in the next section might otherwise still find.
+
 ## History search
 
 `crates/goose/src/session/chat_history_search.rs:50` — `ChatHistorySearch` powers "what did I say about X" across *sessions*: it runs sqlx keyword searches against the SQLite session store (`Pool<Sqlite>`, one row per matched message) and returns `ChatRecallResult` / `ChatRecallMessage` types carrying the found snippets + metadata, so the search UI answers with citations. Sessions are SQLite-backed (`SessionStorage`), not JSON blobs — search is a purpose-built SQL pass.

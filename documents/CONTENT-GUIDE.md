@@ -49,10 +49,12 @@ Rules:
 - Units 1-3 inclusions from the founder lens list in COURSE-PLAN §1 (e.g. "founder
   lens", "parity", "cites real file:line").
 - Theory block: ~300-700 words (equivalent of <=20 min reading). Use GFM markdown.
+  Prose counts toward the budget; code blocks and `<Mermaid>` charts are
+  teaching aids and do not count as words.
 - Cite real paths inline too (e.g. `` `crates/goose/src/agent.rs:123` ``).
 - Use `<FounderLens>`, `<MindShift>` (Unit 0), `<Diff oldCode=… newCode=…>`,
-  `<CodeRunnerPrompt command="…" title="…"/>` components — they are globally
-  registered, no imports needed.
+  `<CodeRunnerPrompt command="…" title="…"/>`, `<Mermaid chart={`…`} title="…"/>`
+  components — they are globally registered, no imports needed.
 - **MDX attribute rules (binding):** attribute values are JSX strings. When the code
   you show contains `"` or `'`, use expression containers with JS template literals:
   `oldCode={`…`}` — inner quotes stay plain (`"`), and any literal backtick or
@@ -60,6 +62,25 @@ Rules:
   string, never use single-quoted attributes, and quote every `title`/`note` value
   in frontmatter (single-quote YAML strings with `'` escaped as `''`; avoid raw
   `<` `>` sequences in notes).
+
+### `<Mermaid>` charts (for hard knowledge)
+
+One optional chart per lesson for concepts a wall of text can't show: flowcharts
+(`flowchart LR/TB`), `sequenceDiagram`, `stateDiagram-v2`. Authoring rules:
+
+- The diagram source goes in the `chart` attribute as a JSX template literal —
+  same escaping as `<Diff>` (backtick → `\``, `${` → `\${`). `title` is a quoted
+  string describing the chart.
+- One chart per `<Mermaid>` tag; write the source exactly as mermaid v12 syntax
+  (validate locally before committing — a broken diagram renders a visible error
+  box in the page).
+- The chart must depict the pinned v1.49.0 reality: node labels carry the real
+  file/fn names you verified in the checkout, and any behavior shown must match
+  the facts in the same lesson's `cites`.
+- Use short node labels (`id[Text]`), keep diagrams under ~12 nodes, and add
+  mermaid comments (`%%`) for anything non-obvious.
+- Charts render client-side after hydration: never put lesson-critical facts in
+  a chart only — the prose must stand alone.
 
 ## lab.md
 

@@ -77,6 +77,29 @@ let mut func_token_count = 0;
 No type annotation. It becomes `usize` purely because `FUNC_INIT: usize` is added
 to it later. Rust chooses the type from *use*, not from looks.
 
+## The type is decided once — and then enforced
+
+Inference happens per binding, at declaration time. The moment `func_token_count`
+is known to be an integer, `usize` is locked in:
+
+```rust
+let mut func_token_count = 0;   // inferred usize at use site, locked from here
+func_token_count += FUNC_INIT;  // fine: usize += usize
+// func_token_count = "7";      // error E0308: expected usize, found &str
+```
+
+```rust
+let max_tokens: Option<i32> = Some(4096);  // provider wire values use i32
+let temperature: Option<f32> = None;       // goose config: float is f32
+let mut prompt_chars = 0usize;             // FFI/pointer math: usize, not i32
+```
+
+Why the menu matters in goose: `i32` comes from provider APIs (OpenAI-style
+`max_tokens`), `f32` from temperature sliders, `usize` from "how many bytes of
+real memory does this string occupy". Three numeric types, three different
+authorities. Pick the one whose meaning matches the value — the compiler will
+not silently convert between them.
+
 <Diff
   oldCode="let count = 0;      // TS: number, mutable, will happily become 3.5 later"
   newCode="let count = 0usize; // Rust: usize, immutable unless declared mut" />

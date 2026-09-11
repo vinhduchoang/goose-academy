@@ -72,6 +72,22 @@ Providers that don't want incremental emission simply implement `stream` once; `
 
 Streaming breaks when a provider emits content the format parser can't re-assemble: interleaved tool calls, arguments split across multiple chunks, thinking blocks out of order. That's the failure class to watch.
 
+The chunk-by-chunk shape, as a sequence:
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Agent loop
+  participant P as OpenAiProvider.stream
+  participant F as formats/openai.rs
+  participant M as remote model API
+  A->>P: stream(cfg, system, messages, tools)
+  P->>M: native request (include_usage on)
+  loop chunks
+    M-->>P: SSE delta
+    P->>F: parse into MessageContentBlock
+    F-->>P: blocks + usage delta
+    P-->>A: (Option Message, Option ProviderUsage)
+  end`} title="Where streaming would break: any chunk the format parser cannot re-assemble" />
+
 ## Usage and money
 
 Two different kinds of "usage":
@@ -80,6 +96,28 @@ Two different kinds of "usage":
 2. **Estimated usage** — `crates/goose/src/token_counter.rs:215` (`create_token_counter`) loads a tiktoken-style BPE tokenizer to count *before/without* a provider telling you — used for context planning and compaction sizing (l10).
 
 Cost is a third layer: `crates/goose/src/providers/canonical_cost.rs:37` (`estimate_model_cost`) does a canonical registry lookup of per-token prices, merged with any declarative pricing the user/provider supplied — `ProviderUsage` at `token_usage.rs:7` then accumulates cost math + `CostSource`. Reported usage and canonical cost are deliberately separate: canonical prices are static data, provider-reported usage is dynamic truth — the two can disagree, and `Usage`/`ProviderUsage` keep the disagreement visible.
+
+The accumulation math is worth seeing in code — `Usage` is a plain
+`Copy` struct, and `+=` folds stream chunks together:
+
+```rust
+let mut total = Usage::default();                 // all counts None
+
+let chunk = Usage {
+    input_tokens: Some(1200),
+    output_tokens: Some(340),
+    total_tokens: Some(1540),
+    cache_read_input_tokens: Some(900),            // subset of input_tokens
+    cache_write_input_tokens: Some(0),
+};
+
+total += chunk;                                    // impl AddAssign: Some + Some = Some
+assert_eq!(total.input_tokens, Some(1200));
+```
+
+Every field is an `Option<i32>` (token_usage.rs:93+) — a provider that never
+reports cache splits legitimately leaves them `None` forever, and the sum
+safely ignores missing numbers.
 
 ## Registration
 

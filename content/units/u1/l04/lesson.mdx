@@ -65,6 +65,19 @@ The machine is at `agent.rs:2514`: `let mut turns_taken = 0u32;` inside the `asy
 
 Why a hand-rolled counter + async_stream instead of a `for` loop? The loop must *yield* stream items mid-iteration (live UI, token-by-token); a plain loop can't emit without buffering everything. The state-machine lesson shows the alternative encoding of the same reality as *steps*.
 
+<Mermaid chart={`flowchart TB
+  U["user message + SessionConfig + token"] --> R["Agent::reply"]
+  R --> I["reply_internal: prepare_reply_context"]
+  I --> P["conversation, tools, system prompt, ModelConfig"]
+  P --> L{"turns_taken < max_turns?"}
+  L -->|yes| C["provider.complete() -> assistant Message"]
+  C --> T{"ToolRequest blocks present?"}
+  T -->|yes| D["inspect + judge -> approved / needs_approval / denied"]
+  D --> E["dispatch_tool_call (hooks + executor)"]
+  E --> L
+  T -->|no| N["assistant text streams; turn ends"]
+  L -->|no| O["stop: max turns / error / cancel"]`} title="One turn of the legacy loop, read as a cycle" />
+
 <FounderLens>
 
 **Problem solved:** one coroutine-shaped function must produce a live event stream, interleave async provider calls with tool execution and hooks, and stay cancellable — the UI shows tokens as they arrive, and ctrl-c must interrupt mid-tool-run. The legacy answer is an async generator with an inline mutable state bag: `turns_taken`, `last_assistant_text`, `compaction_attempts`, `goal_check_pending`, and a dozen more flags all live at `agent.rs:2514+`.

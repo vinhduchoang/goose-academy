@@ -60,6 +60,22 @@ discovery, delegation, providers. Your new scenario becomes one activity
 entry plus a prompt block that tells a future goose *how to notice the
 feature works* in a live session.
 
+The two edits that constitute the update:
+
+```yaml
+# goose-self-test.yaml — activity line plus phase-guarded prompt block
+activities:
+  - my-new-feature     # matched wording, one line
+
+prompt: |
+  {% if test_phases == "all" or "basic" in test_phases %}
+  Phase N — prove my-new-feature works: <scenario a fresh goose can follow>
+  {% endif %}
+```
+
+The guard keeps your scenario out of runs that selected narrower phases —
+adding a scenario must never slow the suite someone else is running.
+
 **5. Rebuild + recipe run.** Compile the binary, then literally run:
 
 ```text
@@ -71,6 +87,12 @@ exists precisely so a maintainer can replay the whole suite. The repo also
 carries *other* recipes — `workflow_recipes/release_risk_check/recipe.yaml`
 is a real one (release risk assessment), proving recipes aren't decoration:
 they are executable maintainer rituals.
+
+<Mermaid chart={`flowchart LR
+  P["1. proposal: problem -> outcome -> approaches"] --> I["2. minimal impl: one subsystem"]
+  I --> T["3. tests: assert the outcome (both paths if agent-loop)"]
+  T --> S["4. self-test yaml: activity + guarded prompt block"]
+  S --> R["5. rebuild + goose run --recipe goose-self-test.yaml"]`} title="The five motions — skipping step 4 is the classic merge-blocker" />
 
 <FounderLens>
 

@@ -72,7 +72,18 @@ if let Some(serde_json::Value::Object(properties)) =
 ```
 
 Read as: "if this pattern matches, run the block." It's `match` for the one-arm
-case — goose's main guard-clause tool.
+case — goose's main guard-clause tool. Two siblings worth knowing at the same
+price:
+
+```rust
+// matches! — the pattern as a yes/no expression
+let retrying = matches!(result, RetryResult::Retried | RetryResult::Skipped);
+
+// while let — "keep going while the pattern holds" (e.g. draining a queue)
+while let Some(block) = queue.pop_front() {
+    render(block);
+}
+```
 
 <Diff
   oldCode="// TS: switch with default, break, no promise on completeness
@@ -110,6 +121,15 @@ match content {
 `ref mut` borrows the inner value mutably; `@` binds a name to the *whole* inner
 pattern; `..` means "ignore the rest of the fields". The trailing `_ => {}` is
 the explicit "everything else" arm.
+
+Match reads as a decision table — each arm a separate, compiler-witnessed
+route:
+
+<Mermaid chart={`flowchart LR
+  A[retry_result] -->|Skipped| B["nothing to do"]
+  A -->|MaxAttemptsReached msg| C["print msg.debug()"]
+  A -->|SuccessChecksPassed| D["mark recipe ok"]
+  A -->|Retried| E["loop again"]`} title="Exhaustive match: every variant has an arm, or the code will not compile" />
 
 ## A quick exhaustiveness exercise (preview: goose's compiler is your teacher)
 

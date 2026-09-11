@@ -74,6 +74,34 @@ and usage typically lands alone in the final chunk.
 every non-streaming provider (like the lab's echo) uses it, just as
 `TestProvider::stream` does (`crates/goose/src/providers/testprovider.rs:173`).
 
+A two-chunk stream, hand-built, is the smallest possible teaching shape:
+
+```rust
+let chunks = futures::stream::iter(vec![
+    // chunk 1: the text delta — usage not known yet
+    Ok((Some(
+        Message::assistant()
+            .with_content(MessageContentBlock::text("hello")),
+    ), None)),
+    // chunk 2: no message, just the bill — usage typically lands last
+    Ok((None, Some(
+        ProviderUsage::new("echo".into(), Usage::default()),
+    ))),
+]);
+Box::pin(chunks)
+```
+
+`futures::stream::iter` publishes the two items in order; `Box::pin` turns
+the concrete stream into the `MessageStream` type goose's callers expect.
+That `(message, usage)` pairing — each half optional — is the entire per-
+chunk contract.
+
+<Mermaid chart={`flowchart LR
+  C1["chunk 1: Some Message, None usage"] --> S["MessageStream"]
+  C2["chunk 2: None Message, Some usage"] --> S
+  S --> A["collect_stream: coalesce text, keep last usage"]
+  A --> D["one final (Message, ProviderUsage)"]`} title="Why complete() is free: one aggregator over any chunk sequence" />
+
 ## The enclosure types: `MessageContentBlock`
 
 Content is *not* a string. `MessageContentBlock`

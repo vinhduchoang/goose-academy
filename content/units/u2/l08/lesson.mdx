@@ -70,6 +70,17 @@ key-value flags. This run is end-to-end: real provider calls, real shell,
 real session state — which is exactly why it validates what unit tests
 can't.
 
+```powershell
+# narrow the run to one phase while you iterate on your new scenario
+goose run --recipe goose-self-test.yaml test_phases=basic test_depth=standard
+```
+
+<Mermaid chart={`flowchart TB
+  R["recipe.yaml: title, activities, parameters, extensions, prompt"] --> G["goose run --recipe ..."]
+  G --> I["parameters interpolated into the prompt as {{ test_phases }}"]
+  I --> E["agent executes: file ops, shell, extension discovery, provider calls"]
+  E --> L["phaseN_*.md logs + final summary: working features vs issues"]`} title="A recipe run is a controlled real session, not a sandbox" />
+
 ## Adding a scenario without breaking the suite
 
 1. Add the capability to `activities` — matched wording, one line.

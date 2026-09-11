@@ -80,6 +80,28 @@ Skills also carry a content-body semantics you already know from MCP servers:
 the SKILL.md body is *instructions*, spliced into context when invoked — it is
 a prompt library, not a script.
 
+```markdown
+---
+name: pagespeed
+description: run a pagespeed analysis on a URL and report the findings
+---
+The skill body is instructions — when the user invokes /pagespeed,
+goose reads this text and acts on it ...
+```
+
+`name` + `description` are the significant fields (`skills/mod.rs:33`);
+everything else rides in the free-form metadata bag. Two plugins may each
+ship a `deploy` skill safely — users invoke the namespaced
+`plugin-name:deploy`, and the two never collide.
+
+<Mermaid chart={`flowchart TB
+  R["plugin repo: plugin.json? + commands/ + skills/ + hooks/ + .mcp.json"] --> I["goose plugin install <url>"]
+  I --> V["validate names + MCP docs"]
+  V --> N["rewrite skill names to plugin-name:skill"]
+  N --> W["write .goose-plugin-install.json, atomic rename into place"]
+  W --> D["discover_enabled_plugins: user + project roots"]
+  D --> C["skills -> slash commands (builtins reserved)"]`} title="From repo to slash command: install, namespace, discover" />
+
 <FounderLens>
 
 The plugin design's centerpiece is that **a plugin is files, not code**:

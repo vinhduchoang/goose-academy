@@ -65,6 +65,24 @@ Goose is observable at three altitudes: tracing spans (in-process flame of a tur
 2. **Spans** — where time went inside a turn (`reply_stream` → provider call → tool span).
 3. **doctor/gen_ai fields** — what the agent itself concluded (costs, model resolution, failure taxonomy).
 
+Try the altitudes yourself — turn up the lights, point the exporter at a
+local collector, and read the span tree:
+
+```powershell
+$env:RUST_LOG = "goose=debug,goose_agent=info"
+$env:OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318"
+$env:OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"   # grpc is rejected with a loud warning
+```
+
+<Mermaid chart={`flowchart TB
+  RS["reply_stream span: gen_ai.* fields pre-filled"] --> PC["provider call span"]
+  RS --> TS["tool execution span"]
+  RS --> HS["hooks span"]
+  RS --> OL["ObservationLayer: spans -> SpanData (SpanTracker tree)"]
+  OL --> LF["Langfuse observer (if configured)"]
+  OL --> OT["OTLP exporter (http/protobuf)"]
+  DR["doctor::run"] -. on provider failure .-> DP["ensure_working_provider -> try other models -> describe_error"]`} title="One turn, observed at every altitude" />
+
 <FounderLens>
 
 **Problem solved:** an agent is a distributed system in one process — provider RPC, tool subprocesses, user UI — and support needs a *reproducible* story, not a screenshot. Span conventions (gen_ai), file logs, and doctor give three consumers (support, dev, the model itself) three views of the same truth.

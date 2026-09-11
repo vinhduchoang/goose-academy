@@ -1,6 +1,7 @@
 import type { MDXComponents } from "mdx/types";
 import { codeToHtml } from "shiki";
 import Link from "next/link";
+import MermaidChart from "@/components/MermaidChart";
 
 type CodeProps = React.HTMLAttributes<HTMLElement> & {
   children?: React.ReactNode;
@@ -144,6 +145,9 @@ const components = {
   MindShift,
   Diff,
   CodeRunnerPrompt,
+  Mermaid: ({ chart, title }: { chart?: string; title?: string }) => (
+    <MermaidChart chart={chart} title={title} />
+  ),
 } as MDXComponents;
 
 export function useMDXComponents(): MDXComponents {

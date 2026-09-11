@@ -63,6 +63,24 @@ the enclosing function returns `Result<_, _>` and the error types *convert*.
 anyhow's magic: almost any `std::error::Error` converts into `anyhow::Error`
 automatically, so `?` works everywhere in application code.
 
+A whole function as a `?` chain reads like a straight line, with every
+failure implicitly returned:
+
+```rust
+fn build_prompt(template_path: &str, user: &str) -> anyhow::Result<String> {
+    let template = fs::read_to_string(template_path)?;   // io::Error -> anyhow::Error
+    let cleaned = tidy(&template)?;                      // our own error -> anyhow::Error
+    Ok(format!("{cleaned}\nUser: {user}"))
+}
+
+fn tidy(raw: &str) -> anyhow::Result<String> {
+    if raw.is_empty() { anyhow::bail!("template is empty"); }  // early Err with message
+    Ok(raw.trim().to_string())
+}
+```
+
+`bail!` is `return Err(anyhow!(...))` in one macro — the instant-fail exit.
+
 ## Application style: anyhow
 
 `testprovider.rs:1` imports it as the default:
@@ -110,6 +128,18 @@ pub fn from_stream_error(error: anyhow::Error) -> Self {
 `downcast()` peeks inside the anyhow box: typed pieces become
 `ProviderError` variants again; untyped noise becomes a generic decode error.
 anyhow transports, thiserror classifies.
+
+The two layers, in one picture:
+
+<Mermaid chart={`flowchart TB
+  subgraph app["application code (goose crate)"]
+    A["fn returns anyhow::Result"] --> B["? bubbles up: io, serde, provider errors all convert"]
+  end
+  subgraph lib["library crates (goose-provider-types)"]
+    C["thiserror enum ProviderError: typed variants"] --> D["callers match variants for policy"]
+  end
+  B -->|"error crosses the boundary"| C
+  C -->|"from_stream_error: downcast back to typed"| A`} title="anyhow up top, thiserror down below, downcast at the seam" />
 
 <FounderLens>
 

@@ -72,6 +72,12 @@ your TS `Promise<Iterator<T>>` mental model, except the item type is checked.
 And you already met `Arc<dyn Provider>` — the same dyn idea, shared
 (`crates/goose/src/agents/types.rs:7`).
 
+<Mermaid chart={`flowchart TB
+  O["impl Provider for OpenaiCompatibleProvider"] --> T["trait Provider: Send + Sync"]
+  P["impl Provider for TestProvider"] --> T
+  T --> D["Agent holds Arc<dyn Provider> — one handle, any backend"]
+  D --> S["provider.stream(cfg, sys, msgs, tools) — same call for all"]`} title="Trait objects: the runtime picks the impl, the signature stays one shape" />
+
 <Diff
   oldCode="// TS: interface + generic constraint
 interface Provider { stream(config: ModelConfig): AsyncIterable<Message> }
@@ -101,6 +107,18 @@ pub fn new(model_name: impl AsRef<str>) -> Self {
 ```
 
 `impl AsRef<str>` is sugar for a generic param — reads "anything string-like".
+
+One function, any Display type — the compiler stamps out a version per call
+(static dispatch):
+
+```rust
+let fmt_nums = summarize(&[1u64, 2, 3], 2);          // "1, 2"
+let fmt_names = summarize(&["goose", "agent"], 5);   // "goose, agent"
+```
+
+`u64` and `&str` share no base type — they only share the `Display`
+contract. That is the whole trick: code is written against behaviors
+(traits), not shapes (inheritance trees).
 
 ## Where Provider generics appear in practice
 

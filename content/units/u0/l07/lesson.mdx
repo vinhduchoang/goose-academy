@@ -39,6 +39,12 @@ let n2 = n1;            // COPY: cheap types copy silently
 println!("{} {}", n1, n2);   // fine
 ```
 
+<Mermaid chart={`flowchart LR
+  A["s1: String"] -->|let s2 = s1| B["s2: String, owns the heap buffer"]
+  A -. s1 is dead: any use is E0382 .-> X["compile error"]
+  C["n1: usize"] -->|let n2 = n1| D["n2: usize, bit-copied"]
+  C --> E["n1 still usable — cheap Copy types duplicate"]`} title="Move vs Copy: one keyword decides whether the old binding survives" />
+
 Heap values (`String`, `Vec`, `Message`) move; `Copy` types (`usize`, `bool`,
 `f32`, small tuples of them) copy. The distinction is "does leaving two
 bindings alive mean two heap buffers, or just two register-sized numbers?"
@@ -53,6 +59,23 @@ fn peek(p: &str) {}       // borrows — caller keeps ownership
 Passing a `String` by value silences "why is my variable dead" surprises in the
 caller. Passing `&str` keeps the caller in control. Most goose signatures you've
 met (`count_tokens(&self, text: &str)`) borrow for exactly this reason.
+
+The move-into-a-call mistake, and its two fixes, are worth typing out once:
+
+```rust
+fn render(p: String) {}   // takes ownership
+
+let prompt = String::from("goose: hello");
+// render(prompt);        // error E0382 after this: prompt was moved here
+// println!("{prompt}");  // E0382 — render consumed it
+
+render(prompt.clone());   // fix 1: send a copy, keep the original
+render(prompt);           // fix 2: accept the move, stop using prompt after
+```
+
+Fix 1 duplicates a heap buffer; fix 2 transfers one. Watching goose, you'll see
+maintainers pick fix 2 near the end of a value's life and fix 1 when the value
+is still needed — the `.clone()` site is always a readability cue.
 
 ## `.clone()` sites in goose — reading their intent
 
